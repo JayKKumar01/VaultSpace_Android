@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Theme.VaultSpace" parent="Theme.Material3.Dark.NoActionBar">
+
+        <!-- Primary -->
+        <item name="colorPrimary">@color/vs_accent_primary</item>
+        <item name="colorOnPrimary">@color/black</item>
+
+        <!-- Secondary -->
+        <item name="colorSecondary">@color/vs_accent_soft</item>
+        <item name="colorOnSecondary">@color/black</item>
+
+        <!-- Core Surfaces -->
+        <item name="android:windowBackground">@color/vs_content_bg</item>
+        <item name="colorSurface">@color/vs_content_bg</item>
+        <item name="colorOnSurface">@color/vs_text_header</item>
+
+        <!-- Error -->
+        <item name="colorError">@color/vs_error</item>
+
+        <!-- System bars -->
+        <item name="android:statusBarColor">@color/vs_content_bg</item>
+        <item name="android:navigationBarColor">@color/vs_console_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+    </style>
+
+</resources>

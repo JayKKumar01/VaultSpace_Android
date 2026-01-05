@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ===== Backgrounds ===== -->
+    <color name="vs_header_bg">#121820</color>
+    <color name="vs_content_bg">#161E27</color>
+    <color name="vs_console_bg">#0D1117</color>
+
+    <!-- ===== Text ===== -->
+    <color name="vs_text_header">#E6EDF3</color>
+    <color name="vs_text_content">#B6C2CF</color>
+    <color name="vs_text_console">#9BE6C9</color>
+
+    <!-- ===== Accents ===== -->
+    <color name="vs_accent_primary">#7BE495</color> <!-- main green -->
+    <color name="vs_accent_soft">#9BFFD1</color>
+
+    <!-- ===== States ===== -->
+    <color name="vs_error">#FF3B30</color>
+    <color name="vs_username_highlight">#F6A04D</color>
+
+    <!-- ===== Controls ===== -->
+    <color name="vs_toggle_off">#2A3441</color>
+    <color name="vs_toggle_on">#7BE495</color>
+    <color name="vs_toggle_knob">#E6EDF3</color>
+
+    <!-- ===== Material Required ===== -->
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+
+    <color name="vs_brand_text">#CFEDE0</color>
+
+    <color name="vs_surface_soft">#1B2430</color>
+
+
+</resources>

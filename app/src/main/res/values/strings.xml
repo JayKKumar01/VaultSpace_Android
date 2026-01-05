@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Vault Space</string>
+    <string name="unlimited_photos_videos_files"><![CDATA[• Unlimited photos, videos & files]]></string>
+    <string name="vaultspace">VaultSpace</string>
+    <string name="your_private_cloud_simplified">Your private cloud, simplified</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="what_vaultspace_gives_you">What VaultSpace gives you</string>
+    <string name="your_data_stays_in_your_own_google_drive">• Your data stays in your own Google Drive</string>
+    <string name="albums_without_storage_limits">• Albums without storage limits</string>
+    <string name="secure_private_yours">Secure • Private • Yours</string>
+</resources>
