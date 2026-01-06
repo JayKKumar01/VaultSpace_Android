@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,7 +21,6 @@ import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccoun
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Login";
-
     private UserSession userSession;
     private GoogleAccountCredential credential;
     private DriveConsentFlowHelper consentHelper;
@@ -91,9 +91,7 @@ public class LoginActivity extends AppCompatActivity {
 
     /* ---------------- Account Picker Result ---------------- */
 
-    private void onAccountPickerResult(
-            androidx.activity.result.ActivityResult result
-    ) {
+    private void onAccountPickerResult(ActivityResult result) {
         accountPickerHelper.handleResult(
                 result.getResultCode(),
                 result.getData()
@@ -106,7 +104,6 @@ public class LoginActivity extends AppCompatActivity {
         Log.d(TAG, "Starting Drive consent flow");
 
         consentHelper.checkConsent(
-                this,
                 credential,
                 new DriveConsentFlowHelper.Callback() {
                     @Override

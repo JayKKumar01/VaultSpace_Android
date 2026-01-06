@@ -28,6 +28,9 @@ public class DashboardActivity extends AppCompatActivity {
     private GoogleAccountCredential credential;
     private GoogleAccountPickerHelper pickerHelper;
 
+    private String primaryEmail;
+    private Account pendingTrustedAccount;
+
     /* ---------------- Launchers ---------------- */
 
     private final ActivityResultLauncher<Intent> accountPickerLauncher =
@@ -43,11 +46,14 @@ public class DashboardActivity extends AppCompatActivity {
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {
+                        if (isFinishing()) return;
+
                         if (result.getResultCode() == RESULT_OK) {
-                            Log.d(TAG, "Consent granted from UI");
-                            Toast.makeText(this, "Access granted ✔", Toast.LENGTH_SHORT).show();
+                            Log.d(TAG, "Consent granted from UI, resuming flow");
+                            runConsentCheck(false); // ✅ resume trusted flow
                         } else {
                             Log.w(TAG, "Consent denied by user");
+                            pendingTrustedAccount = null;
                             Toast.makeText(this, "Access denied ❌", Toast.LENGTH_SHORT).show();
                         }
                     }
@@ -64,6 +70,7 @@ public class DashboardActivity extends AppCompatActivity {
         Log.d(TAG, "onCreate");
 
         initCore();
+        initSession();
         initUI();
         initTrustedAccountPicker();
 
@@ -79,15 +86,15 @@ public class DashboardActivity extends AppCompatActivity {
         credential = DriveConsentFlowHelper.createCredential(this);
     }
 
-    private void initUI() {
-        String primaryEmail = sessionHelper.getPrimaryEmail();
-
+    private void initSession() {
+        primaryEmail = sessionHelper.getPrimaryEmail();
         if (primaryEmail == null) {
-            Log.e(TAG, "Primary email missing, forcing logout");
-            logout();
-            return;
+            Log.e(TAG, "Primary email missing");
+            forceLogout("Session expired. Please login again.");
         }
+    }
 
+    private void initUI() {
         ((TextView) findViewById(R.id.tvUserEmail))
                 .setText(primaryEmail);
 
@@ -123,22 +130,11 @@ public class DashboardActivity extends AppCompatActivity {
     /* ---------------- Primary Account Consent ---------------- */
 
     private void checkPrimaryAccountConsentIfNeeded(boolean fromLogin) {
-        if (fromLogin) {
-            Log.d(TAG, "Dashboard opened from LoginActivity, skipping consent recheck");
-            return;
-        }
+        if (fromLogin) return;
 
-        String primaryEmail = sessionHelper.getPrimaryEmail();
-        if (primaryEmail == null) {
-            Log.e(TAG, "Primary email missing during consent check");
-            logout();
-            return;
-        }
-
-        Log.d(TAG, "Re-checking Drive consent for primary account");
-
-        Account primaryAccount = new Account(primaryEmail, "com.google");
-        credential.setSelectedAccount(primaryAccount);
+        credential.setSelectedAccount(
+                new Account(primaryEmail, "com.google")
+        );
 
         runConsentCheck(true);
     }
@@ -146,21 +142,17 @@ public class DashboardActivity extends AppCompatActivity {
     /* ---------------- Trusted Account Flow ---------------- */
 
     private void handleTrustedAccountPicked(Account account) {
-        String primaryEmail = sessionHelper.getPrimaryEmail();
-
         Log.d(TAG, "Trusted account selected: " + account.name);
-        Log.d(TAG, "Primary account: " + primaryEmail);
 
         if (account.name.equalsIgnoreCase(primaryEmail)) {
-            Log.w(TAG, "Primary account selected as trusted account");
-            Toast.makeText(
-                    this,
+            Toast.makeText(this,
                     "Primary account cannot be added again",
                     Toast.LENGTH_SHORT
             ).show();
             return;
         }
 
+        pendingTrustedAccount = account;
         credential.setSelectedAccount(account);
         runConsentCheck(false);
     }
@@ -169,49 +161,64 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void runConsentCheck(boolean isPrimary) {
         consentHelper.checkConsent(
-                this,
                 credential,
                 new DriveConsentFlowHelper.Callback() {
+
                     @Override
                     public void onConsentGranted() {
-                        Log.d(TAG,
-                                (isPrimary ? "Primary" : "Trusted")
-                                        + " account consent already granted"
-                        );
+                        if (isFinishing()) return;
 
-                        if (!isPrimary) {
+                        if (!isPrimary && pendingTrustedAccount != null) {
+
+                            Account trusted = pendingTrustedAccount;
+                            pendingTrustedAccount = null;
+
                             Toast.makeText(
                                     DashboardActivity.this,
                                     "Access granted ✔",
                                     Toast.LENGTH_SHORT
                             ).show();
+
+                            new Thread(() -> {
+                                try {
+                                    TrustedAccountsDriveHelper helper =
+                                            new TrustedAccountsDriveHelper(
+                                                    DashboardActivity.this,
+                                                    primaryEmail
+                                            );
+
+                                    helper.addTrustedAccount(trusted.name);
+
+                                    Log.d(TAG, "Trusted account added to Drive");
+
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to add trusted account", e);
+                                }
+                            }).start();
                         }
                     }
 
                     @Override
                     public void onConsentRequired(Intent intent) {
-                        Log.d(TAG,
-                                (isPrimary ? "Primary" : "Trusted")
-                                        + " account consent required"
-                        );
-                        consentLauncher.launch(intent);
+                        if (isFinishing()) return;
+
+                        if (isPrimary) {
+                            forceLogout("Drive access required. Please login again.");
+                        } else {
+                            consentLauncher.launch(intent);
+                        }
                     }
 
                     @Override
                     public void onFailure(Exception e) {
-                        Log.e(TAG,
-                                (isPrimary ? "Primary" : "Trusted")
-                                        + " account consent check failed",
-                                e
-                        );
+                        if (isFinishing()) return;
+
+                        pendingTrustedAccount = null;
+
+                        Log.e(TAG, "Consent check failed", e);
 
                         if (isPrimary) {
-                            Toast.makeText(
-                                    DashboardActivity.this,
-                                    "Drive access required. Please login again.",
-                                    Toast.LENGTH_LONG
-                            ).show();
-                            logout();
+                            forceLogout("Drive access required. Please login again.");
                         } else {
                             Toast.makeText(
                                     DashboardActivity.this,
@@ -226,8 +233,12 @@ public class DashboardActivity extends AppCompatActivity {
 
     /* ---------------- Logout ---------------- */
 
+    private void forceLogout(String reason) {
+        Toast.makeText(this, reason, Toast.LENGTH_LONG).show();
+        logout();
+    }
+
     private void logout() {
-        Log.d(TAG, "Logging out");
         sessionHelper.logout();
         startActivity(new Intent(this, LoginActivity.class));
         finish();

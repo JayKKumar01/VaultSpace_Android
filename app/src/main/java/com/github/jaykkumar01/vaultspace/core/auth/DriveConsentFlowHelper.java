@@ -30,11 +30,7 @@ public class DriveConsentFlowHelper {
      * Public API
      * --------------------------------------------------- */
 
-    public void checkConsent(
-            Context context,
-            GoogleAccountCredential credential,
-            Callback callback
-    ) {
+    public void checkConsent(GoogleAccountCredential credential, Callback callback) {
         Log.d(TAG, "checkConsent() started");
 
         new Thread(() -> {
