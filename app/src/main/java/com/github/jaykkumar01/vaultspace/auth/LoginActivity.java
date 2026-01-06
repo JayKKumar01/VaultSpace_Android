@@ -289,7 +289,7 @@ public class LoginActivity extends AppCompatActivity {
                 String folderId = findOrCreateFolder(d);
 
                 Log.d(TAG, "Sharing folder with: " + SHARE_WITH_EMAIL);
-                shareFolderWithUser(d, folderId, SHARE_WITH_EMAIL);
+                shareFolderWithUser(d, folderId);
 
                 toast("Folder shared with " + SHARE_WITH_EMAIL);
 
@@ -308,11 +308,10 @@ public class LoginActivity extends AppCompatActivity {
 
     private void shareFolderWithUser(
             Drive drive,
-            String folderId,
-            String targetEmail
+            String folderId
     ) throws Exception {
 
-        Log.d(TAG, "Sharing folder with user: " + targetEmail);
+        Log.d(TAG, "Sharing folder with user: " + SHARE_WITH_EMAIL);
         Log.d(TAG, "Folder ID: " + folderId);
 
         com.google.api.services.drive.model.Permission permission =
@@ -320,14 +319,14 @@ public class LoginActivity extends AppCompatActivity {
 
         permission.setType("user");          // user | group | domain | anyone
         permission.setRole("writer");        // reader | commenter | writer | owner
-        permission.setEmailAddress(targetEmail);
+        permission.setEmailAddress(SHARE_WITH_EMAIL);
 
         drive.permissions()
                 .create(folderId, permission)
                 .setSendNotificationEmail(true)
                 .execute();
 
-        Log.d(TAG, "✅ Folder shared successfully with " + targetEmail);
+        Log.d(TAG, "✅ Folder shared successfully with " + SHARE_WITH_EMAIL);
     }
 
 
