@@ -54,6 +54,12 @@ dependencies {
     implementation(libs.activity)
     implementation(libs.constraintlayout)
     implementation("androidx.browser:browser:1.8.0")
+    // Google Play Services (account + auth)
+    implementation("com.google.android.gms:play-services-auth:21.4.0")
+// Google API client (Android)
+    implementation("com.google.api-client:google-api-client-android:2.6.0")
+// Google Drive API v3
+    implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

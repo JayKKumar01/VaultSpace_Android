@@ -1,109 +1,171 @@
 package com.github.jaykkumar01.vaultspace.auth;
 
+import android.accounts.Account;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.drive.Drive;
+import com.google.api.services.drive.model.File;
+
+import java.util.Collections;
+import java.util.concurrent.Executors;
 
 public class LoginActivity extends AppCompatActivity {
 
-    private static final String TAG = "VaultSpaceLogin";
+    private static final String TAG = "VaultSpaceDrive";
+
+    private GoogleAccountCredential credential;
+
+    /* ---------------------------------------------------
+     * Account Picker
+     * --------------------------------------------------- */
+    private final ActivityResultLauncher<Intent> accountPickerLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+
+                        Log.d(TAG, "Account picker result received");
+
+                        if (result.getResultCode() != RESULT_OK || result.getData() == null) {
+                            Log.w(TAG, "Account picker cancelled");
+                            return;
+                        }
+
+                        String accountName =
+                                result.getData().getStringExtra(
+                                        android.accounts.AccountManager.KEY_ACCOUNT_NAME
+                                );
+
+                        if (accountName == null) {
+                            Log.e(TAG, "Account name is null");
+                            return;
+                        }
+
+                        Log.d(TAG, "Selected account: " + accountName);
+
+                        Account account = new Account(accountName, "com.google");
+                        credential.setSelectedAccount(account);
+
+                        createDriveFolder();
+                    }
+            );
+
+    /* ---------------------------------------------------
+     * Permission (Consent) Launcher
+     * --------------------------------------------------- */
+    private final ActivityResultLauncher<Intent> consentLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        Log.d(TAG, "Returned from Drive consent screen");
+                        if (result.getResultCode() == RESULT_OK) {
+                            Log.d(TAG, "Consent granted, retrying Drive operation");
+                            createDriveFolder();
+                        } else {
+                            Log.w(TAG, "User denied Drive permission");
+                        }
+                    }
+            );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_login);
 
-        applySystemInsets();
-        bindActions();
-    }
-
-    /* ---------------------------------------------------
-     * UI wiring
-     * --------------------------------------------------- */
-
-    private void bindActions() {
-
-        // Primary action (future official flow)
         findViewById(R.id.btnSelectPrimaryDrive)
-                .setOnClickListener(v -> {
-                    Log.d(TAG, "Primary Drive button clicked");
-                    onPrimaryDriveSelected();
-                });
-
-        // Debug / exploration button
-        findViewById(R.id.btnTestDriveOAuth)
-                .setOnClickListener(v -> {
-                    Log.d(TAG, "Debug OAuth button clicked");
-                    onDebugOAuthClicked();
-                });
+                .setOnClickListener(v -> requestDriveAccess());
     }
 
     /* ---------------------------------------------------
-     * Intent handlers (empty by design)
+     * STEP 1: Pick Google account
      * --------------------------------------------------- */
+    private void requestDriveAccess() {
 
-    /**
-     * This will become the ONLY official entry point
-     * for Drive ownership selection.
-     *
-     * For now, it does nothing except log.
-     */
-    private void onPrimaryDriveSelected() {
+        Log.d(TAG, "Initializing GoogleAccountCredential");
 
-        Toast.makeText(
-                this,
-                "Primary Drive flow not decided yet",
-                Toast.LENGTH_SHORT
-        ).show();
+        credential =
+                GoogleAccountCredential.usingOAuth2(
+                        this,
+                        Collections.singleton(
+                                "https://www.googleapis.com/auth/drive.file"
+                        )
+                );
 
-        // Future options (official only):
-        // - Google Sign-In (Android SDK)
-        // - Account picker + Drive API
-        // - Backend-assisted OAuth
-    }
-
-    /**
-     * Temporary exploration hook.
-     * Safe place to test ideas without polluting main flow.
-     */
-    private void onDebugOAuthClicked() {
-
-        Toast.makeText(
-                this,
-                "Debug mode – no active OAuth flow",
-                Toast.LENGTH_SHORT
-        ).show();
-
-        // Intentionally empty
+        Intent intent = credential.newChooseAccountIntent();
+        accountPickerLauncher.launch(intent);
     }
 
     /* ---------------------------------------------------
-     * Insets
+     * STEP 2: Create VaultSpace folder
      * --------------------------------------------------- */
+    private void createDriveFolder() {
 
-    private void applySystemInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(
-                findViewById(R.id.main),
-                (v, insets) -> {
-                    Insets systemBars =
-                            insets.getInsets(WindowInsetsCompat.Type.systemBars());
-                    v.setPadding(
-                            systemBars.left,
-                            systemBars.top,
-                            systemBars.right,
-                            systemBars.bottom
-                    );
-                    return insets;
-                }
-        );
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                Log.d(TAG, "Building Drive client");
+
+                Drive drive =
+                        new Drive.Builder(
+                                new NetHttpTransport(),
+                                GsonFactory.getDefaultInstance(),
+                                credential
+                        )
+                                .setApplicationName("VaultSpace")
+                                .build();
+
+                File folderMeta = new File();
+                folderMeta.setName("VaultSpace");
+                folderMeta.setMimeType("application/vnd.google-apps.folder");
+
+                Log.d(TAG, "Calling Drive API");
+
+                File folder =
+                        drive.files()
+                                .create(folderMeta)
+                                .setFields("id,name")
+                                .execute();
+
+                Log.d(TAG, "Folder created successfully");
+                Log.d(TAG, "Folder ID: " + folder.getId());
+
+                runOnUiThread(() ->
+                        Toast.makeText(
+                                this,
+                                "VaultSpace folder created",
+                                Toast.LENGTH_LONG
+                        ).show()
+                );
+
+            } catch (UserRecoverableAuthIOException e) {
+
+                Log.w(TAG, "Drive permission required – launching consent screen");
+
+                runOnUiThread(() ->
+                        consentLauncher.launch(e.getIntent())
+                );
+
+            } catch (Exception e) {
+                Log.e(TAG, "Drive error", e);
+
+                runOnUiThread(() ->
+                        Toast.makeText(
+                                this,
+                                "Drive error: " + e.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show()
+                );
+            }
+        });
     }
 }
