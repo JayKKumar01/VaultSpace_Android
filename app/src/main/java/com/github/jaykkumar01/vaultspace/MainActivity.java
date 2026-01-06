@@ -14,7 +14,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        startActivity(new Intent(this, LoginActivity.class));
+
+        UserSession userSession = new UserSession(this);
+
+        if (userSession.isLoggedIn()) {
+            startActivity(new Intent(this, DashboardActivity.class));
+        } else {
+            startActivity(new Intent(this, LoginActivity.class));
+        }
 
         finish();
     }
