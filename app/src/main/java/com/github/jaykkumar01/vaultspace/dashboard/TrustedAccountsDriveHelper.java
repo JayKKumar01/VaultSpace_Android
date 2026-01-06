@@ -31,7 +31,7 @@ public class TrustedAccountsDriveHelper {
 
         // ✅ Local credential (isolated, safe)
         GoogleAccountCredential credential =
-                DriveConsentFlowHelper.createCredential(context);
+                DriveConsentFlowHelper.createCredential(context, false);
 
         credential.setSelectedAccount(
                 new Account(primaryEmail, "com.google")

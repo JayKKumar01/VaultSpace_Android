@@ -12,8 +12,9 @@ import com.google.api.services.drive.Drive;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 
 public class DriveConsentFlowHelper {
 
@@ -75,15 +76,17 @@ public class DriveConsentFlowHelper {
      * Credential Factory
      * --------------------------------------------------- */
 
-    public static GoogleAccountCredential createCredential(Context context) {
+    public static GoogleAccountCredential createCredential(Context context, boolean isPrimary) {
 
-        return GoogleAccountCredential.usingOAuth2(
-                context,
-                Arrays.asList(
-                        "https://www.googleapis.com/auth/drive.file",
-                        "https://www.googleapis.com/auth/userinfo.profile"
-                )
-        );
+        List<String> scopes = new ArrayList<>();
+        scopes.add("https://www.googleapis.com/auth/drive.file");
+
+        if (isPrimary) {
+            scopes.add("https://www.googleapis.com/auth/userinfo.profile");
+        }
+
+        return GoogleAccountCredential.usingOAuth2(context, scopes);
     }
+
 
 }

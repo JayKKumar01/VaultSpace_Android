@@ -3,18 +3,24 @@ package com.github.jaykkumar01.vaultspace.core.session;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
+
 public class UserSession {
 
     private static final String PREF_NAME = "vaultspace_session";
 
     private static final String KEY_PRIMARY_EMAIL = "primary_account_email";
     private static final String KEY_PROFILE_NAME = "profile_name";
-    private static final String KEY_PROFILE_PHOTO = "profile_photo";
 
     private final SharedPreferences prefs;
+    private final Context appContext;
 
     public UserSession(Context context) {
-        prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        this.appContext = context.getApplicationContext();
+        this.prefs = appContext.getSharedPreferences(
+                PREF_NAME,
+                Context.MODE_PRIVATE
+        );
     }
 
     /* ---------------- Primary Account ---------------- */
@@ -41,23 +47,21 @@ public class UserSession {
         return prefs.getString(KEY_PROFILE_NAME, null);
     }
 
-    public void saveProfilePhoto(String photoUrl) {
-        prefs.edit()
-                .putString(KEY_PROFILE_PHOTO, photoUrl)
-                .apply();
-    }
-
-    public String getProfilePhoto() {
-        return prefs.getString(KEY_PROFILE_PHOTO, null);
-    }
-
     /* ---------------- Session ---------------- */
 
     public boolean isLoggedIn() {
         return getPrimaryAccountEmail() != null;
     }
 
+    /**
+     * Clears logical session state and delegates
+     * physical cleanup to owning components.
+     */
     public void clearSession() {
+        // Clear session data
         prefs.edit().clear().apply();
+
+        // Delegate profile photo cleanup
+        GoogleUserProfileFetcher.clearSavedProfilePhoto(appContext);
     }
 }

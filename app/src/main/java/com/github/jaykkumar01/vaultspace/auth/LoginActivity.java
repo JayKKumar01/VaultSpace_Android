@@ -64,7 +64,7 @@ public class LoginActivity extends AppCompatActivity {
 
         userSession = new UserSession(this);
         consentHelper = new DriveConsentFlowHelper();
-        credential = DriveConsentFlowHelper.createCredential(this);
+        credential = DriveConsentFlowHelper.createCredential(this, true);
 
         loadingOverlay = findViewById(R.id.loadingOverlay);
 
@@ -137,23 +137,23 @@ public class LoginActivity extends AppCompatActivity {
     private void finalizeLogin() {
         Log.d(TAG, "Finalizing login for: " + pendingAccount.name);
 
+        // Save primary account email
         userSession.savePrimaryAccountEmail(pendingAccount.name);
 
         GoogleUserProfileFetcher.fetch(
+                getApplicationContext(),
                 credential,
-                profile -> {
-                    if (profile != null) {
-                        Log.d(TAG, "👤 Profile name: " + profile.name);
-                        Log.d(TAG, "🖼 Profile photo: " + profile.picture);
-
-                        userSession.saveProfileName(profile.name);
-                        userSession.saveProfilePhoto(profile.picture);
+                profileName -> {
+                    if (profileName != null) {
+                        userSession.saveProfileName(profileName);
                     }
-
                     navigateToDashboard();
                 }
         );
+
     }
+
+
 
 
     private void navigateToDashboard() {

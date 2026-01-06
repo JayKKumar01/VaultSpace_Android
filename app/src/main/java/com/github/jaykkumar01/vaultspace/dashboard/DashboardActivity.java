@@ -87,7 +87,7 @@ public class DashboardActivity extends AppCompatActivity {
     private void initCore() {
         sessionHelper = new DashboardSessionHelper(this);
         consentHelper = new DriveConsentFlowHelper();
-        credential = DriveConsentFlowHelper.createCredential(this);
+        credential = DriveConsentFlowHelper.createCredential(this, true);
 
         loadingOverlay = findViewById(R.id.loadingOverlay);
     }
