@@ -5,10 +5,12 @@ import android.content.Context;
 import android.util.Log;
 
 import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentFlowHelper;
+import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
+import com.google.api.services.drive.model.About;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.google.api.services.drive.model.Permission;
@@ -22,22 +24,24 @@ public class TrustedAccountsDriveHelper {
     private static final String TAG = "VaultSpace:TrustedAccountsHelper";
     private static final String ROOT_FOLDER_NAME = "VaultSpace";
 
-    private final Drive drive;
+    private final Context appContext;
+    private final Drive primaryDrive;
     private final String primaryEmail;
 
     public TrustedAccountsDriveHelper(Context context, String primaryEmail) {
 
+        this.appContext = context.getApplicationContext();
         this.primaryEmail = primaryEmail;
 
-        // ✅ Local credential (isolated, safe)
+        // ✅ SINGLE credential, reused everywhere
         GoogleAccountCredential credential =
-                DriveConsentFlowHelper.createCredential(context, false);
+                DriveConsentFlowHelper.createCredential(appContext, false);
 
         credential.setSelectedAccount(
                 new Account(primaryEmail, "com.google")
         );
 
-        drive = new Drive.Builder(
+        this.primaryDrive = new Drive.Builder(
                 new NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
@@ -51,7 +55,7 @@ public class TrustedAccountsDriveHelper {
      * --------------------------------------------------- */
 
     /**
-     * Grants writer access on VaultSpace folder
+     * Grants writer access on VaultSpace root folder
      */
     public void addTrustedAccount(String trustedEmail) throws Exception {
 
@@ -62,14 +66,12 @@ public class TrustedAccountsDriveHelper {
             return;
         }
 
-        Log.d(TAG, "Granting VaultSpace access to: " + trustedEmail);
-
         Permission permission = new Permission();
         permission.setType("user");
         permission.setRole("writer");
         permission.setEmailAddress(trustedEmail);
 
-        drive.permissions()
+        primaryDrive.permissions()
                 .create(folderId, permission)
                 .setSendNotificationEmail(true)
                 .execute();
@@ -78,18 +80,20 @@ public class TrustedAccountsDriveHelper {
     }
 
     /**
-     * Returns list of trusted account emails
+     * Returns trusted accounts with storage quota info.
+     * NOTE: Storage quota belongs to the ACCOUNT, not the folder.
      */
-    public List<String> getTrustedAccounts() throws Exception {
+    public List<TrustedAccount> getTrustedAccounts() throws Exception {
 
         String folderId = getOrCreateRootFolder();
+
         PermissionList permissions =
-                drive.permissions()
+                primaryDrive.permissions()
                         .list(folderId)
-                        .setFields("permissions(id,emailAddress,role,type)")
+                        .setFields("permissions(emailAddress,role,type)")
                         .execute();
 
-        List<String> trustedAccounts = new ArrayList<>();
+        List<TrustedAccount> result = new ArrayList<>();
 
         for (Permission p : permissions.getPermissions()) {
 
@@ -100,89 +104,93 @@ public class TrustedAccountsDriveHelper {
             if (email == null) continue;
             if (email.equalsIgnoreCase(primaryEmail)) continue;
 
-            trustedAccounts.add(email);
+            result.add(fetchStorageInfo(email));
         }
 
-        Log.d(TAG, "Trusted accounts count: " + trustedAccounts.size());
-        return trustedAccounts;
-    }
-
-    /**
-     * Revokes VaultSpace access from a trusted account
-     */
-    public void removeTrustedAccount(String email) throws Exception {
-
-        String folderId = getOrCreateRootFolder();
-        PermissionList permissions =
-                drive.permissions().list(folderId).execute();
-
-        for (Permission p : permissions.getPermissions()) {
-            if ("user".equals(p.getType())
-                    && email.equalsIgnoreCase(p.getEmailAddress())) {
-
-                drive.permissions()
-                        .delete(folderId, p.getId())
-                        .execute();
-
-                Log.d(TAG, "❌ Access revoked for: " + email);
-                return;
-            }
-        }
-
-        Log.w(TAG, "No permission found for: " + email);
+        Log.d(TAG, "Trusted accounts with storage info: " + result.size());
+        return result;
     }
 
     /* ---------------------------------------------------
-     * INTERNAL
+     * INTERNAL HELPERS
      * --------------------------------------------------- */
+
+    /**
+     * Fetches storage quota for a trusted account.
+     * Requires prior Drive consent from that account.
+     */
+    private TrustedAccount fetchStorageInfo(String email)
+            throws Exception {
+
+        GoogleAccountCredential credential =
+                DriveConsentFlowHelper.createCredential(appContext, false);
+
+        credential.setSelectedAccount(new Account(email, "com.google"));
+
+        Drive drive = new Drive.Builder(
+                new NetHttpTransport(),
+                GsonFactory.getDefaultInstance(),
+                credential
+        ).setApplicationName("VaultSpace").build();
+
+        About about =
+                drive.about()
+                        .get()
+                        .setFields("storageQuota(limit,usage)")
+                        .execute();
+
+        long limit = about.getStorageQuota().getLimit();
+        long usage = about.getStorageQuota().getUsage();
+
+        return new TrustedAccount(
+                email,
+                limit,
+                usage,
+                Math.max(0, limit - usage)
+        );
+    }
 
     private boolean hasWriterAccess(String folderId, String email)
             throws Exception {
 
-        Log.d(TAG, "Checking writer access for: " + email);
-
         PermissionList permissions =
-                drive.permissions()
+                primaryDrive.permissions()
                         .list(folderId)
                         .setFields("permissions(role,emailAddress)")
                         .execute();
 
         for (Permission p : permissions.getPermissions()) {
-
             if ("writer".equals(p.getRole())
                     && email.equalsIgnoreCase(p.getEmailAddress())) {
-
-                Log.d(TAG, "✔ Writer access confirmed for " + email);
                 return true;
             }
         }
-
-        Log.d(TAG, "✘ Writer access NOT found for " + email);
         return false;
     }
 
     private String getOrCreateRootFolder() throws Exception {
 
         FileList list =
-                drive.files()
+                primaryDrive.files()
                         .list()
-                        .setQ("mimeType='application/vnd.google-apps.folder' and name='"
-                                + ROOT_FOLDER_NAME + "' and trashed=false")
+                        .setQ(
+                                "mimeType='application/vnd.google-apps.folder' " +
+                                        "and name='" + ROOT_FOLDER_NAME + "' " +
+                                        "and trashed=false"
+                        )
                         .setSpaces("drive")
-                        .setFields("files(id,name)")
+                        .setFields("files(id)")
                         .execute();
 
         if (!list.getFiles().isEmpty()) {
             return list.getFiles().get(0).getId();
         }
 
-        Log.d(TAG, "VaultSpace folder not found, creating new");
-
         File folder = new File();
         folder.setName(ROOT_FOLDER_NAME);
         folder.setMimeType("application/vnd.google-apps.folder");
 
-        return drive.files()
+        return primaryDrive.files()
                 .create(folder)
                 .setFields("id")
                 .execute()

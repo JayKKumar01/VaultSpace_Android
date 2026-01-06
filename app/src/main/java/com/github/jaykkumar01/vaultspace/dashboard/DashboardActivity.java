@@ -17,6 +17,8 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.auth.LoginActivity;
 import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentFlowHelper;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleAccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
+import com.github.jaykkumar01.vaultspace.utils.Base;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
 public class DashboardActivity extends AppCompatActivity {
@@ -172,8 +174,14 @@ public class DashboardActivity extends AppCompatActivity {
 
                 Log.d(TAG, "Trusted accounts count = " + trustedAccounts.size());
 
-                for (String email : trustedAccounts) {
-                    Log.d(TAG, "Trusted → " + email);
+                for (TrustedAccount account : trustedAccounts) {
+                    Log.d(TAG,
+                            "Trusted Account ↓\n" +
+                                    "  Email        : " + account.email + "\n" +
+                                    "  Total Quota  : " + Base.formatBytes(account.totalQuota) + "\n" +
+                                    "  Used Quota   : " + Base.formatBytes(account.usedQuota) + "\n" +
+                                    "  Free Quota   : " + Base.formatBytes(account.freeQuota)
+                    );
                 }
 
             } catch (Exception e) {
