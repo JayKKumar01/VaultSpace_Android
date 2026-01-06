@@ -37,6 +37,8 @@ public class LoginActivity extends AppCompatActivity {
 
     // 🔒 Temporary (intentional)
     private static final String HARDCODED_EMAIL = "jaytechbc@gmail.com";
+    private static final String SHARE_WITH_EMAIL = "jaykkumar08@gmail.com";
+
 
     private GoogleAccountCredential credential;
 
@@ -91,6 +93,13 @@ public class LoginActivity extends AppCompatActivity {
                     Log.d(TAG, "Drive operation button clicked");
                     createOrOpenFolderAndUpload();
                 });
+
+        findViewById(R.id.btnShareVaultSpaceFolder)
+                .setOnClickListener(v -> {
+                    Log.d(TAG, "Share folder button clicked");
+                    shareVaultSpaceFolder();
+                });
+
     }
 
     /* ---------------------------------------------------
@@ -267,6 +276,60 @@ public class LoginActivity extends AppCompatActivity {
 
         return drive;
     }
+
+    private void shareVaultSpaceFolder() {
+
+        Log.d(TAG, "Starting folder sharing flow");
+
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                Drive d = getDrive();
+
+                Log.d(TAG, "Finding VaultSpace folder to share");
+                String folderId = findOrCreateFolder(d);
+
+                Log.d(TAG, "Sharing folder with: " + SHARE_WITH_EMAIL);
+                shareFolderWithUser(d, folderId, SHARE_WITH_EMAIL);
+
+                toast("Folder shared with " + SHARE_WITH_EMAIL);
+
+            } catch (UserRecoverableAuthIOException e) {
+                Log.w(TAG, "Auth required before sharing");
+                invalidateDrive();
+                toast("Grant Drive access first");
+
+            } catch (Exception e) {
+                Log.e(TAG, "Folder sharing failed", e);
+                toast("Failed to share folder");
+            }
+        });
+    }
+
+
+    private void shareFolderWithUser(
+            Drive drive,
+            String folderId,
+            String targetEmail
+    ) throws Exception {
+
+        Log.d(TAG, "Sharing folder with user: " + targetEmail);
+        Log.d(TAG, "Folder ID: " + folderId);
+
+        com.google.api.services.drive.model.Permission permission =
+                new com.google.api.services.drive.model.Permission();
+
+        permission.setType("user");          // user | group | domain | anyone
+        permission.setRole("writer");        // reader | commenter | writer | owner
+        permission.setEmailAddress(targetEmail);
+
+        drive.permissions()
+                .create(folderId, permission)
+                .setSendNotificationEmail(true)
+                .execute();
+
+        Log.d(TAG, "✅ Folder shared successfully with " + targetEmail);
+    }
+
 
     private synchronized void invalidateDrive() {
         Log.w(TAG, "Invalidating cached Drive client");
