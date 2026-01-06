@@ -1,6 +1,5 @@
 package com.github.jaykkumar01.vaultspace.core.drive;
 
-import android.content.Context;
 import android.util.Log;
 
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
@@ -11,7 +10,7 @@ import com.google.api.client.json.gson.GsonFactory;
 
 public class DriveConsentUtil {
 
-    private static final String TAG = "VaultSpaceConsent";
+    private static final String TAG = "VaultSpace:Consent";
 
     public interface ConsentCallback {
         void onGranted();
@@ -20,7 +19,6 @@ public class DriveConsentUtil {
     }
 
     public static void checkConsent(
-            Context context,
             GoogleAccountCredential credential,
             ConsentCallback callback
     ) {
