@@ -25,57 +25,46 @@ import java.util.concurrent.Executors;
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpaceDrive";
-    private static final String ROOT_FOLDER_NAME = "VaultSpace";
+    private static final String ROOT_FOLDER = "VaultSpace";
 
     private GoogleAccountCredential credential;
+    private Account selectedAccount;
 
-    /* ---------------------------------------------------
-     * Account Picker
-     * --------------------------------------------------- */
+    /* ---------------- Account Picker ---------------- */
+
     private final ActivityResultLauncher<Intent> accountPickerLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {
-
-                        Log.d(TAG, "Account picker result received");
-
                         if (result.getResultCode() != RESULT_OK || result.getData() == null) {
                             Log.w(TAG, "Account picker cancelled");
                             return;
                         }
 
-                        String accountName =
-                                result.getData().getStringExtra(
-                                        android.accounts.AccountManager.KEY_ACCOUNT_NAME
-                                );
+                        String name = result.getData()
+                                .getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME);
 
-                        if (accountName == null) {
-                            Log.e(TAG, "Account name is null");
-                            return;
-                        }
+                        if (name == null) return;
 
-                        Log.d(TAG, "Selected account: " + accountName);
+                        selectedAccount = new Account(name, "com.google");
+                        credential.setSelectedAccount(selectedAccount);
 
-                        Account account = new Account(accountName, "com.google");
-                        credential.setSelectedAccount(account);
-
-                        findOrCreateRootFolder();
+                        Log.d(TAG, "Account selected: " + name);
+                        toast("Account selected");
                     }
             );
 
-    /* ---------------------------------------------------
-     * Permission (Consent) Launcher
-     * --------------------------------------------------- */
+    /* ---------------- Consent Launcher ---------------- */
+
     private final ActivityResultLauncher<Intent> consentLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {
-                        Log.d(TAG, "Returned from Drive consent screen");
                         if (result.getResultCode() == RESULT_OK) {
-                            Log.d(TAG, "Consent granted, retrying Drive operation");
-                            findOrCreateRootFolder();
+                            Log.d(TAG, "Drive consent granted");
+                            toast("Drive permission granted");
                         } else {
-                            Log.w(TAG, "User denied Drive permission");
+                            Log.w(TAG, "Drive consent denied");
                         }
                     }
             );
@@ -85,125 +74,100 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        findViewById(R.id.btnSelectPrimaryDrive)
-                .setOnClickListener(v -> requestDriveAccess());
+        credential = GoogleAccountCredential.usingOAuth2(
+                this,
+                Collections.singleton("https://www.googleapis.com/auth/drive.file")
+        );
+
+        findViewById(R.id.btnSelectAccount)
+                .setOnClickListener(v -> pickAccount());
+
+        findViewById(R.id.btnGrantDriveConsent)
+                .setOnClickListener(v -> requestConsent());
+
+        findViewById(R.id.btnCreateVaultSpaceFolder)
+                .setOnClickListener(v -> createOrOpenFolder());
     }
 
-    /* ---------------------------------------------------
-     * STEP 1: Pick Google account
-     * --------------------------------------------------- */
-    private void requestDriveAccess() {
+    /* ---------------- Actions ---------------- */
 
-        Log.d(TAG, "Initializing GoogleAccountCredential");
-
-        credential =
-                GoogleAccountCredential.usingOAuth2(
-                        this,
-                        Collections.singleton(
-                                "https://www.googleapis.com/auth/drive.file"
-                        )
-                );
-
-        Intent intent = credential.newChooseAccountIntent();
-        accountPickerLauncher.launch(intent);
+    private void pickAccount() {
+        Log.d(TAG, "Selecting Google account");
+        accountPickerLauncher.launch(credential.newChooseAccountIntent());
     }
 
-    /* ---------------------------------------------------
-     * STEP 2: Find OR create VaultSpace folder
-     * --------------------------------------------------- */
-    private void findOrCreateRootFolder() {
+    private void requestConsent() {
+
+        if (selectedAccount == null) {
+            toast("Select account first");
+            return;
+        }
 
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                Log.d(TAG, "Building Drive client");
+                Drive drive = buildDrive();
+                drive.about().get().setFields("user").execute();
+                Log.d(TAG, "Consent already granted");
+                toast("Consent already granted");
+            } catch (UserRecoverableAuthIOException e) {
+                Log.d(TAG, "Launching consent screen");
+                runOnUiThread(() -> consentLauncher.launch(e.getIntent()));
+            } catch (Exception e) {
+                Log.e(TAG, "Consent check failed", e);
+            }
+        });
+    }
 
-                Drive drive =
-                        new Drive.Builder(
-                                new NetHttpTransport(),
-                                GsonFactory.getDefaultInstance(),
-                                credential
-                        )
-                                .setApplicationName("VaultSpace")
-                                .build();
+    private void createOrOpenFolder() {
 
-                // 1️⃣ Check if folder already exists
-                String query =
-                        "name = '" + ROOT_FOLDER_NAME + "' " +
-                                "and mimeType = 'application/vnd.google-apps.folder' " +
-                                "and trashed = false";
+        if (selectedAccount == null) {
+            toast("Select account first");
+            return;
+        }
 
-                Log.d(TAG, "Searching for existing VaultSpace folder");
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                Drive drive = buildDrive();
 
-                FileList result =
-                        drive.files()
-                                .list()
-                                .setQ(query)
-                                .setSpaces("drive")
-                                .setFields("files(id, name)")
-                                .execute();
+                FileList list = drive.files().list()
+                        .setQ("name='" + ROOT_FOLDER + "' and mimeType='application/vnd.google-apps.folder' and trashed=false")
+                        .setFields("files(id,name)")
+                        .execute();
 
-                if (result.getFiles() != null && !result.getFiles().isEmpty()) {
-
-                    File existingFolder = result.getFiles().get(0);
-
-                    Log.d(TAG, "Existing folder found");
-                    Log.d(TAG, "Folder ID: " + existingFolder.getId());
-
-                    runOnUiThread(() ->
-                            Toast.makeText(
-                                    this,
-                                    "VaultSpace folder already exists",
-                                    Toast.LENGTH_LONG
-                            ).show()
-                    );
-
-                    // 👉 Save folder ID locally later if needed
+                if (!list.getFiles().isEmpty()) {
+                    Log.d(TAG, "Folder exists: " + list.getFiles().get(0).getId());
+                    toast("VaultSpace folder ready");
                     return;
                 }
 
-                // 2️⃣ Folder not found → create it
-                Log.d(TAG, "No existing folder found, creating new one");
+                File folder = new File();
+                folder.setName(ROOT_FOLDER);
+                folder.setMimeType("application/vnd.google-apps.folder");
 
-                File folderMeta = new File();
-                folderMeta.setName(ROOT_FOLDER_NAME);
-                folderMeta.setMimeType("application/vnd.google-apps.folder");
-
-                File folder =
-                        drive.files()
-                                .create(folderMeta)
-                                .setFields("id,name")
-                                .execute();
-
-                Log.d(TAG, "Folder created successfully");
-                Log.d(TAG, "Folder ID: " + folder.getId());
-
-                runOnUiThread(() ->
-                        Toast.makeText(
-                                this,
-                                "VaultSpace folder created",
-                                Toast.LENGTH_LONG
-                        ).show()
-                );
+                File created = drive.files().create(folder).setFields("id").execute();
+                Log.d(TAG, "Folder created: " + created.getId());
+                toast("VaultSpace folder created");
 
             } catch (UserRecoverableAuthIOException e) {
-
-                Log.w(TAG, "Drive permission required – launching consent screen");
-
-                runOnUiThread(() ->
-                        consentLauncher.launch(e.getIntent())
-                );
-
+                Log.w(TAG, "Consent missing");
+                toast("Grant Drive access first");
             } catch (Exception e) {
                 Log.e(TAG, "Drive error", e);
-
-                runOnUiThread(() ->
-                        Toast.makeText(
-                                this,
-                                "Drive error: " + e.getMessage(),
-                                Toast.LENGTH_LONG
-                        ).show()
-                );
             }
         });
+    }
+
+    private Drive buildDrive() {
+        return new Drive.Builder(
+                new NetHttpTransport(),
+                GsonFactory.getDefaultInstance(),
+                credential
+        ).setApplicationName("VaultSpace").build();
+    }
+
+    private void toast(String msg) {
+        runOnUiThread(() ->
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        );
     }
 }
