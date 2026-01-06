@@ -20,14 +20,12 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.Executors;
@@ -37,22 +35,27 @@ public class LoginActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpaceDrive";
     private static final String ROOT_FOLDER = "VaultSpace";
 
-    // 🔒 Temporary hardcoded account
+    // 🔒 Temporary (intentional)
     private static final String HARDCODED_EMAIL = "jaytechbc@gmail.com";
 
     private GoogleAccountCredential credential;
 
-    /* ---------------- Consent Launcher ---------------- */
+    // ✅ Cached Drive client (invalidate on auth failure)
+    private Drive drive;
 
+    /* ---------------------------------------------------
+     * Consent Launcher
+     * --------------------------------------------------- */
     private final ActivityResultLauncher<Intent> consentLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {
+                        Log.d(TAG, "Returned from Drive consent screen");
                         if (result.getResultCode() == RESULT_OK) {
-                            Log.d(TAG, "Drive consent granted");
+                            Log.d(TAG, "✅ Drive consent granted by user");
                             toast("Drive permission granted");
                         } else {
-                            Log.w(TAG, "Drive consent denied");
+                            Log.w(TAG, "❌ Drive consent denied by user");
                             toast("Drive permission denied");
                         }
                     }
@@ -63,168 +66,166 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        Log.d(TAG, "Initializing Drive credential");
+        Log.d(TAG, "onCreate() → initializing credential");
 
-        credential = GoogleAccountCredential.usingOAuth2(
-                this,
-                Collections.singleton("https://www.googleapis.com/auth/drive.file")
+        credential =
+                GoogleAccountCredential.usingOAuth2(
+                        this,
+                        Collections.singleton("https://www.googleapis.com/auth/drive.file")
+                );
+
+        credential.setSelectedAccount(
+                new Account(HARDCODED_EMAIL, "com.google")
         );
 
-        Account account = new Account(HARDCODED_EMAIL, "com.google");
-        credential.setSelectedAccount(account);
-
-        Log.d(TAG, "Using account: " + HARDCODED_EMAIL);
+        Log.d(TAG, "Selected account = " + HARDCODED_EMAIL);
 
         findViewById(R.id.btnGrantDriveConsent)
-                .setOnClickListener(v -> requestConsent());
+                .setOnClickListener(v -> {
+                    Log.d(TAG, "Consent button clicked");
+                    requestConsent();
+                });
 
         findViewById(R.id.btnCreateVaultSpaceFolder)
-                .setOnClickListener(v -> createOrOpenFolderAndUploadFile());
+                .setOnClickListener(v -> {
+                    Log.d(TAG, "Drive operation button clicked");
+                    createOrOpenFolderAndUpload();
+                });
     }
 
-    /* ---------------- CONSENT FLOW ---------------- */
-
+    /* ---------------------------------------------------
+     * CONSENT CHECK
+     * --------------------------------------------------- */
     private void requestConsent() {
 
-        Log.d(TAG, "Checking Drive consent");
+        Log.d(TAG, "Checking Drive consent status");
 
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                Drive drive = buildDrive();
+                Drive d = getDrive();
 
-                // Lightweight call just to trigger auth
-                drive.about()
-                        .get()
-                        .setFields("user")
-                        .execute();
+                Log.d(TAG, "Triggering lightweight Drive call for auth check");
+                d.about().get().setFields("user").execute();
 
-                Log.d(TAG, "Consent already granted");
+                Log.d(TAG, "✅ Drive consent already granted");
                 toast("Drive access already granted");
 
             } catch (UserRecoverableAuthIOException e) {
-                Log.d(TAG, "Consent required, launching consent screen");
+                Log.w(TAG, "⚠ Consent required → launching consent UI");
                 runOnUiThread(() -> consentLauncher.launch(e.getIntent()));
             } catch (Exception e) {
-                Log.e(TAG, "Consent check failed", e);
+                Log.e(TAG, "❌ Consent check failed unexpectedly", e);
                 toast("Consent check failed");
             }
         });
     }
 
-    /* ---------------- DRIVE OPERATION ---------------- */
+    /* ---------------------------------------------------
+     * MAIN DRIVE FLOW
+     * --------------------------------------------------- */
+    private void createOrOpenFolderAndUpload() {
 
-    private void createOrOpenFolderAndUploadFile() {
-
-        Log.d(TAG, "Drive operation requested");
+        Log.d(TAG, "Starting Drive operation flow");
 
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                Drive drive = buildDrive();
+                Drive d = getDrive();
 
-                // 1️⃣ Find existing folder
-                FileList list =
-                        drive.files().list()
-                                .setQ(
-                                        "name='" + ROOT_FOLDER + "' " +
-                                                "and mimeType='application/vnd.google-apps.folder' " +
-                                                "and trashed=false"
-                                )
-                                .setFields("files(id,name)")
-                                .execute();
+                Log.d(TAG, "Finding or creating VaultSpace folder");
+                String folderId = findOrCreateFolder(d);
 
-                String folderId;
+                Log.d(TAG, "Uploading JSON metadata file");
+                uploadJsonFile(d, folderId);
 
-                if (list.getFiles() != null && !list.getFiles().isEmpty()) {
-                    folderId = list.getFiles().get(0).getId();
-                    Log.d(TAG, "Folder exists, ID = " + folderId);
-                } else {
-                    // 2️⃣ Create folder
-                    Log.d(TAG, "Folder not found, creating new one");
-
-                    File folder = new File();
-                    folder.setName(ROOT_FOLDER);
-                    folder.setMimeType("application/vnd.google-apps.folder");
-
-                    File created =
-                            drive.files()
-                                    .create(folder)
-                                    .setFields("id")
-                                    .execute();
-
-                    folderId = created.getId();
-                    Log.d(TAG, "Folder created, ID = " + folderId);
-                }
-
-                // 3️⃣ Always upload a new JSON file
-                uploadJsonFile(drive, folderId);
-
+                Log.d(TAG, "✅ Drive operation completed");
                 toast("VaultSpace file uploaded");
 
             } catch (UserRecoverableAuthIOException e) {
-                Log.w(TAG, "Drive consent missing");
+                Log.w(TAG, "⚠ Auth expired / revoked → invalidating Drive");
+                invalidateDrive();
                 toast("Grant Drive access first");
             } catch (Exception e) {
-                Log.e(TAG, "Drive error", e);
+                Log.e(TAG, "❌ Drive operation failed", e);
                 toast("Drive error");
             }
         });
     }
 
-    /* ---------------- JSON UPLOAD ---------------- */
+    /* ---------------------------------------------------
+     * FOLDER HANDLING
+     * --------------------------------------------------- */
+    private String findOrCreateFolder(Drive d) throws Exception {
 
+        Log.d(TAG, "Searching for existing folder: " + ROOT_FOLDER);
+
+        FileList list =
+                d.files().list()
+                        .setQ(
+                                "name='" + ROOT_FOLDER + "' " +
+                                        "and mimeType='application/vnd.google-apps.folder' " +
+                                        "and trashed=false"
+                        )
+                        .setFields("files(id,name)")
+                        .execute();
+
+        if (list.getFiles() != null && !list.getFiles().isEmpty()) {
+            String id = list.getFiles().get(0).getId();
+            Log.d(TAG, "✔ Existing folder found, ID = " + id);
+            return id;
+        }
+
+        Log.d(TAG, "Folder not found → creating new folder");
+
+        File folder = new File();
+        folder.setName(ROOT_FOLDER);
+        folder.setMimeType("application/vnd.google-apps.folder");
+
+        File created =
+                d.files()
+                        .create(folder)
+                        .setFields("id")
+                        .execute();
+
+        Log.d(TAG, "✔ Folder created, ID = " + created.getId());
+        return created.getId();
+    }
+
+    /* ---------------------------------------------------
+     * JSON UPLOAD
+     * --------------------------------------------------- */
     private void uploadJsonFile(Drive drive, String folderId) throws Exception {
 
-        // ---------- Time ----------
         Date now = new Date();
 
         SimpleDateFormat isoFmt =
                 new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US);
 
-        SimpleDateFormat dateFmt =
-                new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-
-        SimpleDateFormat timeFmt =
-                new SimpleDateFormat("HH:mm:ss", Locale.US);
-
-        String iso = isoFmt.format(now);
-        String date = dateFmt.format(now);
-        String time = timeFmt.format(now);
-        String timezone = TimeZone.getDefault().getID();
-
-        // ---------- Build model ----------
         VaultSpaceMeta meta = new VaultSpaceMeta();
         meta.app = "VaultSpace";
         meta.account = HARDCODED_EMAIL;
-        meta.event = "vaultspace_folder_action";
-        meta.note = "Triggered from Android app button";
+        meta.event = "upload";
+        meta.note = "Manual trigger";
 
         VaultSpaceMeta.CreatedAt createdAt =
                 new VaultSpaceMeta.CreatedAt();
 
-        createdAt.iso = iso;
-        createdAt.date = date;
-        createdAt.time = time;
-        createdAt.timezone = timezone;
+        createdAt.iso = isoFmt.format(now);
+        createdAt.timezone = TimeZone.getDefault().getID();
 
         meta.created_at = createdAt;
 
-        // ---------- Serialize (pretty) ----------
-        Gson gson =
+        String json =
                 new GsonBuilder()
                         .setPrettyPrinting()
-                        .create();
+                        .create()
+                        .toJson(meta);
 
-        String json = gson.toJson(meta);
-
-
-        // ---------- File name ----------
         String fileName =
-                "vaultspace_" + date + "_" + time.replace(":", "-") + ".json";
+                "vaultspace_" + System.currentTimeMillis() + ".json";
 
         Log.d(TAG, "Uploading JSON file: " + fileName);
         Log.d(TAG, "JSON content:\n" + json);
 
-        // ---------- Drive metadata ----------
         File metadata = new File();
         metadata.setName(fileName);
         metadata.setMimeType("application/json");
@@ -239,24 +240,37 @@ public class LoginActivity extends AppCompatActivity {
         File uploaded =
                 drive.files()
                         .create(metadata, content)
-                        .setFields("id,name")
+                        .setFields("id")
                         .execute();
 
-        Log.d(TAG, "JSON uploaded successfully");
-        Log.d(TAG, "File ID = " + uploaded.getId());
+        Log.d(TAG, "✔ JSON uploaded, file ID = " + uploaded.getId());
     }
 
+    /* ---------------------------------------------------
+     * DRIVE MANAGEMENT
+     * --------------------------------------------------- */
+    private synchronized Drive getDrive() {
 
-    /* ---------------- Helpers ---------------- */
+        if (drive == null) {
+            Log.d(TAG, "Building new Drive client");
+            drive =
+                    new Drive.Builder(
+                            new NetHttpTransport(),
+                            GsonFactory.getDefaultInstance(),
+                            credential
+                    )
+                            .setApplicationName("VaultSpace")
+                            .build();
+        } else {
+            Log.d(TAG, "Reusing cached Drive client");
+        }
 
-    private Drive buildDrive() {
-        return new Drive.Builder(
-                new NetHttpTransport(),
-                GsonFactory.getDefaultInstance(),
-                credential
-        )
-                .setApplicationName("VaultSpace")
-                .build();
+        return drive;
+    }
+
+    private synchronized void invalidateDrive() {
+        Log.w(TAG, "Invalidating cached Drive client");
+        drive = null;
     }
 
     private void toast(String msg) {
