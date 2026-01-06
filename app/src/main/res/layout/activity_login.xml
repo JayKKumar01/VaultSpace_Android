@@ -75,23 +75,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <!-- 1️⃣ SELECT GOOGLE ACCOUNT -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnSelectAccount"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:text="Select Google Account"
-            android:textAllCaps="false"
-            android:textSize="15sp"
-            android:textColor="@color/vs_brand_text"
-            android:backgroundTint="@color/vs_surface_soft"
-            android:padding="14dp"
-            android:elevation="2dp"
-            app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
-
         <!-- 2️⃣ GRANT DRIVE CONSENT -->
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnGrantDriveConsent"
@@ -105,7 +88,7 @@
             android:backgroundTint="@color/vs_surface_soft"
             android:alpha="0.9"
             android:padding="12dp"
-            app:layout_constraintTop_toBottomOf="@id/btnSelectAccount"
+            app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 

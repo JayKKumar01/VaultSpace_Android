@@ -27,32 +27,10 @@ public class LoginActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpaceDrive";
     private static final String ROOT_FOLDER = "VaultSpace";
 
+    // 🔒 Hardcoded account (temporary, intentional)
+    private static final String HARDCODED_EMAIL = "jaytechbc@gmail.com";
+
     private GoogleAccountCredential credential;
-    private Account selectedAccount;
-
-    /* ---------------- Account Picker ---------------- */
-
-    private final ActivityResultLauncher<Intent> accountPickerLauncher =
-            registerForActivityResult(
-                    new ActivityResultContracts.StartActivityForResult(),
-                    result -> {
-                        if (result.getResultCode() != RESULT_OK || result.getData() == null) {
-                            Log.w(TAG, "Account picker cancelled");
-                            return;
-                        }
-
-                        String name = result.getData()
-                                .getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME);
-
-                        if (name == null) return;
-
-                        selectedAccount = new Account(name, "com.google");
-                        credential.setSelectedAccount(selectedAccount);
-
-                        Log.d(TAG, "Account selected: " + name);
-                        toast("Account selected");
-                    }
-            );
 
     /* ---------------- Consent Launcher ---------------- */
 
@@ -65,6 +43,7 @@ public class LoginActivity extends AppCompatActivity {
                             toast("Drive permission granted");
                         } else {
                             Log.w(TAG, "Drive consent denied");
+                            toast("Drive permission denied");
                         }
                     }
             );
@@ -74,13 +53,18 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        Log.d(TAG, "Initializing credential");
+
         credential = GoogleAccountCredential.usingOAuth2(
                 this,
                 Collections.singleton("https://www.googleapis.com/auth/drive.file")
         );
 
-        findViewById(R.id.btnSelectAccount)
-                .setOnClickListener(v -> pickAccount());
+        // ✅ Set account directly
+        Account selectedAccount = new Account(HARDCODED_EMAIL, "com.google");
+        credential.setSelectedAccount(selectedAccount);
+
+        Log.d(TAG, "Hardcoded account set: " + HARDCODED_EMAIL);
 
         findViewById(R.id.btnGrantDriveConsent)
                 .setOnClickListener(v -> requestConsent());
@@ -89,80 +73,97 @@ public class LoginActivity extends AppCompatActivity {
                 .setOnClickListener(v -> createOrOpenFolder());
     }
 
-    /* ---------------- Actions ---------------- */
-
-    private void pickAccount() {
-        Log.d(TAG, "Selecting Google account");
-        accountPickerLauncher.launch(credential.newChooseAccountIntent());
-    }
+    /* ---------------- CONSENT FLOW ---------------- */
 
     private void requestConsent() {
 
-        if (selectedAccount == null) {
-            toast("Select account first");
-            return;
-        }
+        Log.d(TAG, "Checking Drive consent");
 
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 Drive drive = buildDrive();
-                drive.about().get().setFields("user").execute();
+
+                // Lightweight call to trigger auth
+                drive.about()
+                        .get()
+                        .setFields("user")
+                        .execute();
+
                 Log.d(TAG, "Consent already granted");
-                toast("Consent already granted");
+                toast("Drive access already granted");
+
             } catch (UserRecoverableAuthIOException e) {
-                Log.d(TAG, "Launching consent screen");
+                Log.d(TAG, "Consent required, launching consent screen");
                 runOnUiThread(() -> consentLauncher.launch(e.getIntent()));
             } catch (Exception e) {
                 Log.e(TAG, "Consent check failed", e);
+                toast("Consent check failed");
             }
         });
     }
 
+    /* ---------------- DRIVE OPERATION ---------------- */
+
     private void createOrOpenFolder() {
 
-        if (selectedAccount == null) {
-            toast("Select account first");
-            return;
-        }
+        Log.d(TAG, "Create/Open VaultSpace folder requested");
 
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 Drive drive = buildDrive();
 
-                FileList list = drive.files().list()
-                        .setQ("name='" + ROOT_FOLDER + "' and mimeType='application/vnd.google-apps.folder' and trashed=false")
-                        .setFields("files(id,name)")
-                        .execute();
+                // 🔍 Check existing folder
+                FileList list =
+                        drive.files().list()
+                                .setQ(
+                                        "name='" + ROOT_FOLDER + "' " +
+                                                "and mimeType='application/vnd.google-apps.folder' " +
+                                                "and trashed=false"
+                                )
+                                .setFields("files(id,name)")
+                                .execute();
 
-                if (!list.getFiles().isEmpty()) {
-                    Log.d(TAG, "Folder exists: " + list.getFiles().get(0).getId());
+                if (list.getFiles() != null && !list.getFiles().isEmpty()) {
+                    String id = list.getFiles().get(0).getId();
+                    Log.d(TAG, "Folder exists, ID = " + id);
                     toast("VaultSpace folder ready");
                     return;
                 }
 
+                // 📁 Create folder
                 File folder = new File();
                 folder.setName(ROOT_FOLDER);
                 folder.setMimeType("application/vnd.google-apps.folder");
 
-                File created = drive.files().create(folder).setFields("id").execute();
-                Log.d(TAG, "Folder created: " + created.getId());
+                File created =
+                        drive.files()
+                                .create(folder)
+                                .setFields("id")
+                                .execute();
+
+                Log.d(TAG, "Folder created, ID = " + created.getId());
                 toast("VaultSpace folder created");
 
             } catch (UserRecoverableAuthIOException e) {
-                Log.w(TAG, "Consent missing");
+                Log.w(TAG, "Drive consent missing");
                 toast("Grant Drive access first");
             } catch (Exception e) {
                 Log.e(TAG, "Drive error", e);
+                toast("Drive error");
             }
         });
     }
+
+    /* ---------------- Helpers ---------------- */
 
     private Drive buildDrive() {
         return new Drive.Builder(
                 new NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
-        ).setApplicationName("VaultSpace").build();
+        )
+                .setApplicationName("VaultSpace")
+                .build();
     }
 
     private void toast(String msg) {
