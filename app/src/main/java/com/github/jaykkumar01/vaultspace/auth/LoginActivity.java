@@ -4,6 +4,7 @@ import android.accounts.Account;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResult;
@@ -14,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentFlowHelper;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleAccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.DashboardActivity;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
@@ -21,11 +23,14 @@ import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccoun
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Login";
+
     private UserSession userSession;
     private GoogleAccountCredential credential;
     private DriveConsentFlowHelper consentHelper;
     private GoogleAccountPickerHelper accountPickerHelper;
     private Account pendingAccount;
+
+    private View loadingOverlay;
 
     /* ---------------- Launchers ---------------- */
 
@@ -43,6 +48,7 @@ public class LoginActivity extends AppCompatActivity {
                             Log.d(TAG, "Consent granted from UI");
                             finalizeLogin();
                         } else {
+                            hideLoading();
                             Log.w(TAG, "Consent denied by user");
                             toast("Drive permission required to continue");
                         }
@@ -56,11 +62,11 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        Log.d(TAG, "onCreate");
-
         userSession = new UserSession(this);
         consentHelper = new DriveConsentFlowHelper();
         credential = DriveConsentFlowHelper.createCredential(this);
+
+        loadingOverlay = findViewById(R.id.loadingOverlay);
 
         accountPickerHelper =
                 new GoogleAccountPickerHelper(
@@ -71,12 +77,14 @@ public class LoginActivity extends AppCompatActivity {
                                 Log.d(TAG, "Primary account selected: " + account.name);
                                 pendingAccount = account;
                                 credential.setSelectedAccount(account);
+                                showLoading();
                                 checkConsent();
                             }
 
                             @Override
                             public void onCancelled() {
-                                Log.d(TAG, "Account picker cancelled by user");
+                                hideLoading();
+                                Log.d(TAG, "Account picker cancelled");
                             }
                         }
                 );
@@ -101,25 +109,22 @@ public class LoginActivity extends AppCompatActivity {
     /* ---------------- Consent Flow ---------------- */
 
     private void checkConsent() {
-        Log.d(TAG, "Starting Drive consent flow");
-
         consentHelper.checkConsent(
                 credential,
                 new DriveConsentFlowHelper.Callback() {
                     @Override
                     public void onConsentGranted() {
-                        Log.d(TAG, "Drive consent already granted");
                         finalizeLogin();
                     }
 
                     @Override
                     public void onConsentRequired(Intent intent) {
-                        Log.d(TAG, "Launching Drive consent UI");
                         consentLauncher.launch(intent);
                     }
 
                     @Override
                     public void onFailure(Exception e) {
+                        hideLoading();
                         Log.e(TAG, "Consent check failed", e);
                         toast("Failed to verify Drive permission");
                     }
@@ -134,10 +139,38 @@ public class LoginActivity extends AppCompatActivity {
 
         userSession.savePrimaryAccountEmail(pendingAccount.name);
 
-        Intent i = new Intent(this, DashboardActivity.class);
-        i.putExtra("FROM_LOGIN", true);
-        startActivity(i);
+        GoogleUserProfileFetcher.fetch(
+                credential,
+                profile -> {
+                    if (profile != null) {
+                        Log.d(TAG, "👤 Profile name: " + profile.name);
+                        Log.d(TAG, "🖼 Profile photo: " + profile.picture);
+
+                        userSession.saveProfileName(profile.name);
+                        userSession.saveProfilePhoto(profile.picture);
+                    }
+
+                    navigateToDashboard();
+                }
+        );
+    }
+
+
+    private void navigateToDashboard() {
+        hideLoading();
+        startActivity(new Intent(this, DashboardActivity.class)
+                .putExtra("FROM_LOGIN", true));
         finish();
+    }
+
+    /* ---------------- Loading Helpers ---------------- */
+
+    private void showLoading() {
+        loadingOverlay.setVisibility(View.VISIBLE);
+    }
+
+    private void hideLoading() {
+        loadingOverlay.setVisibility(View.GONE);
     }
 
     /* ---------------- UI Helpers ---------------- */

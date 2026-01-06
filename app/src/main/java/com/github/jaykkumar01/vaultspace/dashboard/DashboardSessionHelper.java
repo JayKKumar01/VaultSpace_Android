@@ -27,6 +27,12 @@ public class DashboardSessionHelper {
         return email;
     }
 
+    public String getProfileName() {
+        String name = userSession.getProfileName();
+        Log.d(TAG, "Profile name = " + name);
+        return name;
+    }
+
     public void logout() {
         Log.d(TAG, "Clearing session");
         userSession.clearSession();

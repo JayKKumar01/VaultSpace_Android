@@ -99,4 +99,6 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <include layout="@layout/view_loading_overlay"/>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

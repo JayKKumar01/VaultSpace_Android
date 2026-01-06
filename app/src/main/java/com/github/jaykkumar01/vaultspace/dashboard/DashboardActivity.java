@@ -1,10 +1,10 @@
 package com.github.jaykkumar01.vaultspace.dashboard;
 
 import android.accounts.Account;
-import android.app.ProgressDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,9 +30,10 @@ public class DashboardActivity extends AppCompatActivity {
     private GoogleAccountPickerHelper pickerHelper;
 
     private String primaryEmail;
+    private String profileName;
     private Account pendingTrustedAccount;
 
-    private ProgressDialog loadingDialog;
+    private View loadingOverlay;
 
     /* ---------------- Launchers ---------------- */
 
@@ -88,13 +89,12 @@ public class DashboardActivity extends AppCompatActivity {
         consentHelper = new DriveConsentFlowHelper();
         credential = DriveConsentFlowHelper.createCredential(this);
 
-        loadingDialog = new ProgressDialog(this);
-        loadingDialog.setMessage("Adding trusted account…");
-        loadingDialog.setCancelable(false);
+        loadingOverlay = findViewById(R.id.loadingOverlay);
     }
 
     private void initSession() {
         primaryEmail = sessionHelper.getPrimaryEmail();
+        profileName = sessionHelper.getProfileName();
         if (primaryEmail == null) {
             Log.e(TAG, "Primary email missing, forcing logout");
             forceLogout("Session expired. Please login again.");
@@ -105,7 +105,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void initUI() {
         ((TextView) findViewById(R.id.tvUserEmail))
-                .setText(primaryEmail);
+                .setText(profileName != null ? profileName : primaryEmail);
 
         findViewById(R.id.btnAddTrustedAccount)
                 .setOnClickListener(v -> {
@@ -154,9 +154,6 @@ public class DashboardActivity extends AppCompatActivity {
         runConsentCheck(true);
     }
 
-
-
-
     /* ---------------- Trusted Account Flow ---------------- */
 
     private void logTrustedAccounts() {
@@ -184,7 +181,6 @@ public class DashboardActivity extends AppCompatActivity {
             }
         }).start();
     }
-
 
     private void handleTrustedAccountPicked(Account account) {
         Log.d(TAG, "Trusted account selected: " + account.name);
@@ -228,7 +224,7 @@ public class DashboardActivity extends AppCompatActivity {
                             pendingTrustedAccount = null;
 
                             Log.d(TAG, "Starting trusted account registration: " + trusted.name);
-                            runOnUiThread(() -> loadingDialog.show());
+                            runOnUiThread(() -> showLoading());
 
                             new Thread(() -> {
                                 try {
@@ -243,7 +239,7 @@ public class DashboardActivity extends AppCompatActivity {
                                     Log.d(TAG, "Trusted account successfully added");
 
                                     runOnUiThread(() -> {
-                                        loadingDialog.dismiss();
+                                        hideLoading();
                                         Toast.makeText(
                                                 DashboardActivity.this,
                                                 "Trusted account added ✔",
@@ -256,7 +252,7 @@ public class DashboardActivity extends AppCompatActivity {
                                     Log.e(TAG, "Failed to add trusted account", e);
 
                                     runOnUiThread(() -> {
-                                        loadingDialog.dismiss();
+                                        hideLoading();
                                         Toast.makeText(
                                                 DashboardActivity.this,
                                                 "Failed to add trusted account",
@@ -304,6 +300,16 @@ public class DashboardActivity extends AppCompatActivity {
                     }
                 }
         );
+    }
+
+    /* ---------------- Loading Helpers ---------------- */
+
+    private void showLoading() {
+        loadingOverlay.setVisibility(View.VISIBLE);
+    }
+
+    private void hideLoading() {
+        loadingOverlay.setVisibility(View.GONE);
     }
 
     /* ---------------- Logout ---------------- */

@@ -12,6 +12,7 @@ import com.google.api.services.drive.Drive;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 public class DriveConsentFlowHelper {
@@ -75,11 +76,14 @@ public class DriveConsentFlowHelper {
      * --------------------------------------------------- */
 
     public static GoogleAccountCredential createCredential(Context context) {
-        Log.d(TAG, "Creating GoogleAccountCredential");
 
         return GoogleAccountCredential.usingOAuth2(
                 context,
-                Collections.singleton("https://www.googleapis.com/auth/drive.file")
+                Arrays.asList(
+                        "https://www.googleapis.com/auth/drive.file",
+                        "https://www.googleapis.com/auth/userinfo.profile"
+                )
         );
     }
+
 }
