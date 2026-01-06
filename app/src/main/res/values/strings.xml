@@ -8,12 +8,6 @@
     <string name="your_data_stays_in_your_own_google_drive">• Your data stays in your own Google Drive</string>
     <string name="albums_without_storage_limits">• Albums without storage limits</string>
     <string name="secure_private_yours">Secure • Private • Yours</string>
-    <!-- res/values/strings.xml -->
-    <string name="google_server_android_client_id">856973607932-3odf7e9rear423i308d4v7933m2m409u.apps.googleusercontent.com</string>
-    <string name="google_server_web_client_id">856973607932-k1h49pa7qpq6e77efuuln8rs0aogi9qq.apps.googleusercontent.com</string>
-    <string name="google_server_web_client_secret">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</string>
-    <!-- ✅ DESKTOP / INSTALLED APP CLIENT (THIS IS THE ONE TO USE) -->
-    <string name="google_server_desktop_client_id">856973607932-eesflkt8fp44v63lg65j7q8pdlna0kf8.apps.googleusercontent.com</string>
     <string name="choose_primary_google_drive">Choose Primary Google Drive</string>
 
 </resources>

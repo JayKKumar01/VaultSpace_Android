@@ -17,6 +17,7 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
+import com.google.api.services.drive.model.FileList;
 
 import java.util.Collections;
 import java.util.concurrent.Executors;
@@ -24,6 +25,7 @@ import java.util.concurrent.Executors;
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpaceDrive";
+    private static final String ROOT_FOLDER_NAME = "VaultSpace";
 
     private GoogleAccountCredential credential;
 
@@ -57,7 +59,7 @@ public class LoginActivity extends AppCompatActivity {
                         Account account = new Account(accountName, "com.google");
                         credential.setSelectedAccount(account);
 
-                        createDriveFolder();
+                        findOrCreateRootFolder();
                     }
             );
 
@@ -71,7 +73,7 @@ public class LoginActivity extends AppCompatActivity {
                         Log.d(TAG, "Returned from Drive consent screen");
                         if (result.getResultCode() == RESULT_OK) {
                             Log.d(TAG, "Consent granted, retrying Drive operation");
-                            createDriveFolder();
+                            findOrCreateRootFolder();
                         } else {
                             Log.w(TAG, "User denied Drive permission");
                         }
@@ -107,9 +109,9 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     /* ---------------------------------------------------
-     * STEP 2: Create VaultSpace folder
+     * STEP 2: Find OR create VaultSpace folder
      * --------------------------------------------------- */
-    private void createDriveFolder() {
+    private void findOrCreateRootFolder() {
 
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
@@ -124,11 +126,47 @@ public class LoginActivity extends AppCompatActivity {
                                 .setApplicationName("VaultSpace")
                                 .build();
 
-                File folderMeta = new File();
-                folderMeta.setName("VaultSpace");
-                folderMeta.setMimeType("application/vnd.google-apps.folder");
+                // 1️⃣ Check if folder already exists
+                String query =
+                        "name = '" + ROOT_FOLDER_NAME + "' " +
+                                "and mimeType = 'application/vnd.google-apps.folder' " +
+                                "and trashed = false";
 
-                Log.d(TAG, "Calling Drive API");
+                Log.d(TAG, "Searching for existing VaultSpace folder");
+
+                FileList result =
+                        drive.files()
+                                .list()
+                                .setQ(query)
+                                .setSpaces("drive")
+                                .setFields("files(id, name)")
+                                .execute();
+
+                if (result.getFiles() != null && !result.getFiles().isEmpty()) {
+
+                    File existingFolder = result.getFiles().get(0);
+
+                    Log.d(TAG, "Existing folder found");
+                    Log.d(TAG, "Folder ID: " + existingFolder.getId());
+
+                    runOnUiThread(() ->
+                            Toast.makeText(
+                                    this,
+                                    "VaultSpace folder already exists",
+                                    Toast.LENGTH_LONG
+                            ).show()
+                    );
+
+                    // 👉 Save folder ID locally later if needed
+                    return;
+                }
+
+                // 2️⃣ Folder not found → create it
+                Log.d(TAG, "No existing folder found, creating new one");
+
+                File folderMeta = new File();
+                folderMeta.setName(ROOT_FOLDER_NAME);
+                folderMeta.setMimeType("application/vnd.google-apps.folder");
 
                 File folder =
                         drive.files()
