@@ -13,6 +13,8 @@ import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.R;
 
+import java.util.Locale;
+
 public class StorageBarView extends View {
 
     private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -25,27 +27,27 @@ public class StorageBarView extends View {
     private boolean isLoading = true;
 
     private float usageFraction = 0f;
-    private String usedText;
-    private String totalText;
+    private float usedValue;
+    private float totalValue;
     private String unitText = "GB";
 
     private static final String LABEL = "Your Space · ";
     private static final String LOADING_VALUE = "–";
 
+    /* ================= Precision ================= */
+
+    private static final int DECIMAL_PRECISION = 1;
+
     /* ================= Animation tuning ================= */
 
-    // You can tweak ONLY this to find the best feel
-    private static final int LOADING_FPS = 24; // try 24 / 30 / 45 / 60
+    private static final int LOADING_FPS = 24;
     private static final long FRAME_DELAY_MS = 1000L / LOADING_FPS;
-
-    // Time-based speed (FPS independent)
     private static final float SPEED_PER_MS = 0.0006f;
 
-    // Loading bar appearance
     private static final float LOADING_BAR_WIDTH_FRACTION = 0.40f;
-    private static final int LOADING_BAR_ALPHA = 160; // ~63%
+    private static final int LOADING_BAR_ALPHA = 160;
 
-    private float loadingProgress = 0f; // 0 → 1
+    private float loadingProgress = 0f;
     private long lastFrameTime = 0L;
 
     /* ================= Dimensions ================= */
@@ -69,15 +71,11 @@ public class StorageBarView extends View {
             if (lastFrameTime != 0L) {
                 long delta = now - lastFrameTime;
                 loadingProgress += delta * SPEED_PER_MS;
-
-                if (loadingProgress > 1f) {
-                    loadingProgress = 0f;
-                }
+                if (loadingProgress > 1f) loadingProgress = 0f;
             }
 
             lastFrameTime = now;
             invalidate();
-
             postOnAnimationDelayed(this, FRAME_DELAY_MS);
         }
     };
@@ -111,13 +109,12 @@ public class StorageBarView extends View {
         cornerRadius = dpToPx(2);
         textSpacing = dpToPx(4);
 
-        // ---- XML preview support ----
         if (attrs != null) {
             TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.StorageBarView);
             if (a.hasValue(R.styleable.StorageBarView_usedText)) {
                 isLoading = false;
-                usedText = a.getString(R.styleable.StorageBarView_usedText);
-                totalText = a.getString(R.styleable.StorageBarView_totalText);
+                usedValue = a.getFloat(R.styleable.StorageBarView_usedText, 0f);
+                totalValue = a.getFloat(R.styleable.StorageBarView_totalText, 0f);
                 unitText = getOrDefault(
                         a.getString(R.styleable.StorageBarView_unitText),
                         unitText
@@ -130,7 +127,6 @@ public class StorageBarView extends View {
             a.recycle();
         }
 
-        // Stable width during loading
         loadingTextWidth = textPaint.measureText(LABEL + LOADING_VALUE);
         recalculateContentWidth();
 
@@ -157,10 +153,8 @@ public class StorageBarView extends View {
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         float textY = -fm.ascent;
 
-        // ---- Text ----
         canvas.drawText(buildText(), 0, textY, textPaint);
 
-        // ---- Bar ----
         float barTop = textY + fm.descent + textSpacing;
         float barBottom = barTop + barHeight;
 
@@ -176,7 +170,6 @@ public class StorageBarView extends View {
 
             if (endX > 0 && startX < contentWidth) {
                 fillPaint.setAlpha(LOADING_BAR_ALPHA);
-
                 rect.set(
                         Math.max(0, startX),
                         barTop,
@@ -184,7 +177,6 @@ public class StorageBarView extends View {
                         barBottom
                 );
                 canvas.drawRoundRect(rect, cornerRadius, cornerRadius, fillPaint);
-
                 fillPaint.setAlpha(255);
             }
         } else if (usageFraction > 0f) {
@@ -195,17 +187,23 @@ public class StorageBarView extends View {
 
     /* ================= Public API ================= */
 
+    // 🔒 Backward compatible
     public void setUsage(long used, long total, @NonNull String unit) {
+        setUsage((float) used, (float) total, unit);
+    }
+
+    // ✅ Decimal-aware API
+    public void setUsage(float used, float total, @NonNull String unit) {
         stopLoadingAnimation();
 
         isLoading = false;
-        usedText = String.valueOf(used);
-        totalText = String.valueOf(total);
+        usedValue = used;
+        totalValue = total;
         unitText = unit;
 
-        usageFraction = total <= 0
+        usageFraction = total <= 0f
                 ? 0f
-                : Math.min(1f, (float) used / total);
+                : Math.min(1f, used / total);
 
         recalculateContentWidth();
         requestLayout();
@@ -248,9 +246,24 @@ public class StorageBarView extends View {
     /* ================= Helpers ================= */
 
     private String buildText() {
-        return isLoading
-                ? LABEL + LOADING_VALUE
-                : LABEL + usedText + " / " + totalText + " " + unitText;
+        if (isLoading) {
+            return LABEL + LOADING_VALUE;
+        }
+
+        return LABEL
+                + format(usedValue)
+                + " / "
+                + format(totalValue)
+                + " "
+                + unitText;
+    }
+
+    private String format(float value) {
+        return String.format(
+                Locale.US,
+                "%." + DECIMAL_PRECISION + "f",
+                value
+        );
     }
 
     private void recalculateContentWidth() {
