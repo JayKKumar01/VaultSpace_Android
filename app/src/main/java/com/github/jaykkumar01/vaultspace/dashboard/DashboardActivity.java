@@ -68,9 +68,6 @@ public class DashboardActivity extends AppCompatActivity {
         storageBarHelper =
                 new DashboardStorageBarHelper(this, storageBar, primaryEmail);
 
-        ((TextView) findViewById(R.id.tvUserEmail))
-                .setText(profileName != null ? profileName : primaryEmail);
-
         findViewById(R.id.btnLogout)
                 .setOnClickListener(v -> logout());
     }
