@@ -22,6 +22,7 @@ import com.github.jaykkumar01.vaultspace.core.auth.GoogleAccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.utils.Base;
+import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
@@ -41,9 +42,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     private View loadingOverlay;
 
-    private TextView tvName;
-    private TextView tvEmail;
-    private ImageView ivProfile;
+    private ProfileInfoView profileInfoView;
     private StorageBarView storageBar;
 
 
@@ -116,9 +115,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initUI() {
-        tvName = findViewById(R.id.tvName);
-        tvEmail = findViewById(R.id.tvEmail);
-        ivProfile = findViewById(R.id.ivProfile);
+        profileInfoView = findViewById(R.id.profileInfo);
         storageBar = findViewById(R.id.storageBar);
 
         bindProfileHeader();
@@ -140,25 +137,30 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void bindProfileHeader() {
 
-        // ---- Name / Email ----
+        // ---- Resolve display name ----
+        String displayName;
+        String displayEmail;
+
         if (profileName != null && !profileName.isEmpty()) {
-            tvName.setText(profileName);
-            tvEmail.setText(primaryEmail);
+            displayName = profileName;
+            displayEmail = primaryEmail;
         } else {
-            tvName.setText(primaryEmail);
-            tvEmail.setVisibility(View.GONE);
+            displayName = primaryEmail;
+            displayEmail = ""; // ProfileInfoView will still render cleanly
         }
 
-        // ---- Profile photo ----
+        // ---- Load cached profile photo ----
         Bitmap profileBitmap =
                 GoogleUserProfileFetcher.loadSavedProfilePhoto(this);
 
-        if (profileBitmap != null) {
-            ivProfile.setImageBitmap(profileBitmap);
-        } else {
-            ivProfile.setImageResource(R.drawable.ic_profile_placeholder);
-        }
+        // ---- Bind to custom view ----
+        profileInfoView.setProfile(
+                profileBitmap,
+                displayName,
+                displayEmail
+        );
     }
+
 
 
     private void initTrustedAccountPicker() {

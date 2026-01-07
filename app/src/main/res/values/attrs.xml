@@ -6,5 +6,11 @@
         <attr name="totalText" format="string" />
         <attr name="unitText" format="string" />
     </declare-styleable>
+
+    <declare-styleable name="ProfileInfoView">
+        <attr name="profileName" format="string" />
+        <attr name="profileEmail" format="string" />
+        <attr name="profileImage" format="reference" />
+    </declare-styleable>
 </resources>
 
