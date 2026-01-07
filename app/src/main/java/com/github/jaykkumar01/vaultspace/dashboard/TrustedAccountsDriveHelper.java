@@ -104,12 +104,21 @@ public class TrustedAccountsDriveHelper {
             if (email == null) continue;
             if (email.equalsIgnoreCase(primaryEmail)) continue;
 
-            result.add(fetchStorageInfo(email));
+            try {
+                result.add(fetchStorageInfo(email));
+            } catch (Exception e) {
+                // ❌ Skip this account if storage info cannot be fetched
+                Log.w(TAG,
+                        "Skipping trusted account (no storage access): " + email,
+                        e
+                );
+            }
         }
 
         Log.d(TAG, "Trusted accounts with storage info: " + result.size());
         return result;
     }
+
 
     /* ---------------------------------------------------
      * INTERNAL HELPERS
