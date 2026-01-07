@@ -1,21 +1,18 @@
 package com.github.jaykkumar01.vaultspace.auth;
 
-import android.accounts.Account;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentFlowHelper;
-import com.github.jaykkumar01.vaultspace.core.auth.GoogleAccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.auth.AccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
+import com.github.jaykkumar01.vaultspace.core.auth.UserProfileConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.DashboardActivity;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
@@ -25,35 +22,14 @@ public class LoginActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpace:Login";
 
     private UserSession userSession;
-    private GoogleAccountCredential credential;
-    private DriveConsentFlowHelper consentHelper;
-    private GoogleAccountPickerHelper accountPickerHelper;
-    private Account pendingAccount;
+
+    private AccountPickerHelper accountPickerHelper;
+    private DriveConsentHelper driveConsentHelper;
+    private UserProfileConsentHelper profileConsentHelper;
+
+    private String pendingEmail;
 
     private View loadingOverlay;
-
-    /* ---------------- Launchers ---------------- */
-
-    private final ActivityResultLauncher<Intent> accountPickerLauncher =
-            registerForActivityResult(
-                    new ActivityResultContracts.StartActivityForResult(),
-                    this::onAccountPickerResult
-            );
-
-    private final ActivityResultLauncher<Intent> consentLauncher =
-            registerForActivityResult(
-                    new ActivityResultContracts.StartActivityForResult(),
-                    result -> {
-                        if (result.getResultCode() == RESULT_OK) {
-                            Log.d(TAG, "Consent granted from UI");
-                            finalizeLogin();
-                        } else {
-                            hideLoading();
-                            Log.w(TAG, "Consent denied by user");
-                            toast("Drive permission required to continue");
-                        }
-                    }
-            );
 
     /* ---------------- Lifecycle ---------------- */
 
@@ -63,86 +39,101 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_login);
 
         userSession = new UserSession(this);
-        consentHelper = new DriveConsentFlowHelper();
-        credential = DriveConsentFlowHelper.createCredential(this, true);
-
         loadingOverlay = findViewById(R.id.loadingOverlay);
 
-        accountPickerHelper =
-                new GoogleAccountPickerHelper(
-                        accountPickerLauncher,
-                        new GoogleAccountPickerHelper.Callback() {
+        initHelpers();
+        initUI();
+    }
+
+    /* ---------------- Init ---------------- */
+
+    private void initHelpers() {
+
+        profileConsentHelper =
+                new UserProfileConsentHelper(
+                        this,
+                        new UserProfileConsentHelper.Callback() {
                             @Override
-                            public void onAccountPicked(Account account) {
-                                Log.d(TAG, "Primary account selected: " + account.name);
-                                pendingAccount = account;
-                                credential.setSelectedAccount(account);
-                                showLoading();
-                                checkConsent();
+                            public void onConsentGranted() {
+                                finalizeLogin();
                             }
 
                             @Override
-                            public void onCancelled() {
+                            public void onConsentDenied() {
                                 hideLoading();
-                                Log.d(TAG, "Account picker cancelled");
+                                toast("Profile permission required to continue");
+                            }
+
+                            @Override
+                            public void onFailure(Exception e) {
+                                hideLoading();
+                                Log.e(TAG, "Profile consent check failed", e);
+                                toast("Failed to verify profile permission");
                             }
                         }
                 );
 
-        findViewById(R.id.btnSelectPrimaryAccount)
-                .setOnClickListener(v ->
-                        accountPickerLauncher.launch(
-                                credential.newChooseAccountIntent()
-                        )
+        driveConsentHelper =
+                new DriveConsentHelper(
+                        this,
+                        new DriveConsentHelper.Callback() {
+                            @Override
+                            public void onConsentGranted() {
+                                // 🔹 NEW LAYER
+                                profileConsentHelper.launch(pendingEmail);
+                            }
+
+                            @Override
+                            public void onConsentDenied() {
+                                hideLoading();
+                                toast("Drive permission required to continue");
+                            }
+
+                            @Override
+                            public void onFailure(Exception e) {
+                                hideLoading();
+                                Log.e(TAG, "Drive consent check failed", e);
+                                toast("Failed to verify Drive permission");
+                            }
+                        }
+                );
+
+        accountPickerHelper =
+                new AccountPickerHelper(
+                        this,
+                        email -> {
+                            Log.d(TAG, "Primary account selected: " + email);
+
+                            pendingEmail = email;
+
+                            showLoading();
+                            driveConsentHelper.launch(email);
+                        }
                 );
     }
 
-    /* ---------------- Account Picker Result ---------------- */
 
-    private void onAccountPickerResult(ActivityResult result) {
-        accountPickerHelper.handleResult(
-                result.getResultCode(),
-                result.getData()
-        );
-    }
-
-    /* ---------------- Consent Flow ---------------- */
-
-    private void checkConsent() {
-        consentHelper.checkConsent(
-                credential,
-                new DriveConsentFlowHelper.Callback() {
-                    @Override
-                    public void onConsentGranted() {
-                        finalizeLogin();
-                    }
-
-                    @Override
-                    public void onConsentRequired(Intent intent) {
-                        consentLauncher.launch(intent);
-                    }
-
-                    @Override
-                    public void onFailure(Exception e) {
-                        hideLoading();
-                        Log.e(TAG, "Consent check failed", e);
-                        toast("Failed to verify Drive permission");
-                    }
-                }
-        );
+    private void initUI() {
+        findViewById(R.id.btnSelectPrimaryAccount)
+                .setOnClickListener(v -> accountPickerHelper.launch());
     }
 
     /* ---------------- Finalization ---------------- */
 
     private void finalizeLogin() {
-        Log.d(TAG, "Finalizing login for: " + pendingAccount.name);
+        if (pendingEmail == null) {
+            Log.w(TAG, "finalizeLogin() called with invalid state");
+            hideLoading();
+            return;
+        }
 
-        // Save primary account email
-        userSession.savePrimaryAccountEmail(pendingAccount.name);
+        Log.d(TAG, "Finalizing login for: " + pendingEmail);
+
+        userSession.savePrimaryAccountEmail(pendingEmail);
 
         GoogleUserProfileFetcher.fetch(
                 getApplicationContext(),
-                credential,
+                pendingEmail,
                 profileName -> {
                     if (profileName != null) {
                         userSession.saveProfileName(profileName);
@@ -150,20 +141,18 @@ public class LoginActivity extends AppCompatActivity {
                     navigateToDashboard();
                 }
         );
-
     }
-
-
-
 
     private void navigateToDashboard() {
         hideLoading();
-        startActivity(new Intent(this, DashboardActivity.class)
-                .putExtra("FROM_LOGIN", true));
+        startActivity(
+                new Intent(this, DashboardActivity.class)
+                        .putExtra("FROM_LOGIN", true)
+        );
         finish();
     }
 
-    /* ---------------- Loading Helpers ---------------- */
+    /* ---------------- UI Helpers ---------------- */
 
     private void showLoading() {
         loadingOverlay.setVisibility(View.VISIBLE);
@@ -172,8 +161,6 @@ public class LoginActivity extends AppCompatActivity {
     private void hideLoading() {
         loadingOverlay.setVisibility(View.GONE);
     }
-
-    /* ---------------- UI Helpers ---------------- */
 
     private void toast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();

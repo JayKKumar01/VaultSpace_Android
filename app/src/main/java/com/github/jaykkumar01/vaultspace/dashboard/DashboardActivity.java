@@ -11,21 +11,19 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.auth.LoginActivity;
+import com.github.jaykkumar01.vaultspace.dashboard.trusted.DashboardTrustedAccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 
 public class DashboardActivity extends AppCompatActivity {
-
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
-
     private DashboardSessionHelper sessionHelper;
-
     private String primaryEmail;
     private String profileName;
-
     private DashboardStorageBarHelper storageBarHelper;
     private DashboardPrimaryConsentHelper consentHelper;
+    private DashboardTrustedAccountPickerHelper trustedAccountPicker;
 
     /* ---------------- Lifecycle ---------------- */
 
@@ -67,14 +65,31 @@ public class DashboardActivity extends AppCompatActivity {
         StorageBarView storageBar = findViewById(R.id.storageBar);
         storageBarHelper =
                 new DashboardStorageBarHelper(this, storageBar, primaryEmail);
+        findViewById(R.id.btnExpandVault)
+                .setOnClickListener(v -> trustedAccountPicker.launch());
+
 
         findViewById(R.id.btnLogout)
                 .setOnClickListener(v -> logout());
     }
-
     private void initHelpers() {
         consentHelper = new DashboardPrimaryConsentHelper(this, primaryEmail);
+
+        trustedAccountPicker =
+                new DashboardTrustedAccountPickerHelper(
+                        this,
+                        primaryEmail,
+                        email -> {
+                            Log.d(TAG, "Trusted account picked: " + email);
+                            // For now: just log / toast
+                            // NEXT STEP:
+                            // → pendingTrustedAccount = email
+                            // → Drive consent flow
+                        }
+                );
     }
+
+
 
     /* ---------------- Consent Flow ---------------- */
 

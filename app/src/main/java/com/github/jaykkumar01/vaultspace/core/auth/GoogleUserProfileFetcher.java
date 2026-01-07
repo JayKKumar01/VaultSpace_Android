@@ -20,18 +20,19 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * Fetches Google user profile (PRIMARY account only).
  *
+ * - Owns GoogleAccountCredential internally
  * - Fetches profile name
  * - Downloads latest profile photo
  * - Saves photo privately (LOSSLESS)
- * - Returns ONLY stable data to caller
  *
- * Scope required:
+ * Scope:
  * https://www.googleapis.com/auth/userinfo.profile
  */
 public final class GoogleUserProfileFetcher {
@@ -60,13 +61,20 @@ public final class GoogleUserProfileFetcher {
 
     public static void fetch(
             @NonNull Context context,
-            @NonNull GoogleAccountCredential credential,
+            @NonNull String email,
             @NonNull Callback callback
     ) {
         EXECUTOR.execute(() -> {
             String profileName = null;
 
             try {
+                GoogleAccountCredential credential =
+                        GoogleAccountCredential.usingOAuth2(
+                                context.getApplicationContext(),
+                                Collections.singleton("https://www.googleapis.com/auth/userinfo.profile")
+                        );
+                credential.setSelectedAccountName(email);
+
                 String accessToken = credential.getToken();
 
                 HttpURLConnection conn =
@@ -89,14 +97,13 @@ public final class GoogleUserProfileFetcher {
 
                     profileName = raw.name;
 
-                    // 🔹 Always normalize to fetch latest profile photo
                     String latestPhotoUrl =
                             normalizeProfilePhotoUrl(raw.picture);
 
                     Bitmap bitmap = downloadBitmap(latestPhotoUrl);
                     if (bitmap != null) {
                         saveProfilePhoto(context, bitmap);
-                        bitmap.recycle(); // free native memory early
+                        bitmap.recycle();
                     }
 
                     Log.d(TAG, "Profile fetched: " + profileName);
@@ -117,21 +124,15 @@ public final class GoogleUserProfileFetcher {
      * Internals
      * --------------------------------------------------- */
 
-    /**
-     * Normalizes Google profile photo URL to always fetch
-     * the latest image (avoids cached variants).
-     */
     @Nullable
     private static String normalizeProfilePhotoUrl(@Nullable String url) {
         if (url == null) return null;
 
-        // Strip existing size / cache params if present
         int sizeIndex = url.indexOf("=s");
         if (sizeIndex != -1) {
             url = url.substring(0, sizeIndex);
         }
 
-        // Force fresh, high-quality avatar
         return url + "=s256-c";
     }
 
@@ -183,7 +184,7 @@ public final class GoogleUserProfileFetcher {
     }
 
     /* ---------------------------------------------------
-     * UI helper
+     * UI helpers
      * --------------------------------------------------- */
 
     @Nullable
