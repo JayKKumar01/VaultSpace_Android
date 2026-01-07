@@ -5,7 +5,7 @@ import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.github.jaykkumar01.vaultspace.auth.LoginActivity;
+import com.github.jaykkumar01.vaultspace.login.LoginActivity;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.DashboardActivity;
 

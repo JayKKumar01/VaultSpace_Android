@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.core.auth;
+package com.github.jaykkumar01.vaultspace.core.consent;
 
 import android.content.Intent;
 import android.os.Handler;

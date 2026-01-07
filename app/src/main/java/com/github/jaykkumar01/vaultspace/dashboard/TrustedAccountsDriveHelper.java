@@ -4,7 +4,6 @@ import android.accounts.Account;
 import android.content.Context;
 import android.util.Log;
 
-import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentFlowHelper;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -17,12 +16,15 @@ import com.google.api.services.drive.model.Permission;
 import com.google.api.services.drive.model.PermissionList;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class TrustedAccountsDriveHelper {
 
     private static final String TAG = "VaultSpace:TrustedAccountsHelper";
     private static final String ROOT_FOLDER_NAME = "VaultSpace";
+    private static final String DRIVE_SCOPE =
+            "https://www.googleapis.com/auth/drive.file";
 
     private final Context appContext;
     private final Drive primaryDrive;
@@ -33,19 +35,17 @@ public class TrustedAccountsDriveHelper {
         this.appContext = context.getApplicationContext();
         this.primaryEmail = primaryEmail;
 
-        // ✅ SINGLE credential, reused everywhere
         GoogleAccountCredential credential =
-                DriveConsentFlowHelper.createCredential(appContext, false);
+                createCredential(primaryEmail);
 
-        credential.setSelectedAccount(
-                new Account(primaryEmail, "com.google")
-        );
-
-        this.primaryDrive = new Drive.Builder(
-                new NetHttpTransport(),
-                GsonFactory.getDefaultInstance(),
-                credential
-        ).setApplicationName("VaultSpace").build();
+        this.primaryDrive =
+                new Drive.Builder(
+                        new NetHttpTransport(),
+                        GsonFactory.getDefaultInstance(),
+                        credential
+                )
+                        .setApplicationName("VaultSpace")
+                        .build();
 
         Log.d(TAG, "Drive helper initialized for primary: " + primaryEmail);
     }
@@ -66,10 +66,10 @@ public class TrustedAccountsDriveHelper {
             return;
         }
 
-        Permission permission = new Permission();
-        permission.setType("user");
-        permission.setRole("writer");
-        permission.setEmailAddress(trustedEmail);
+        Permission permission = new Permission()
+                .setType("user")
+                .setRole("writer")
+                .setEmailAddress(trustedEmail);
 
         primaryDrive.permissions()
                 .create(folderId, permission)
@@ -107,8 +107,9 @@ public class TrustedAccountsDriveHelper {
             try {
                 result.add(fetchStorageInfo(email));
             } catch (Exception e) {
-                // ❌ Skip this account if storage info cannot be fetched
-                Log.w(TAG,
+                // Fail-soft: permissions are truth, storage is optional
+                Log.w(
+                        TAG,
                         "Skipping trusted account (no storage access): " + email,
                         e
                 );
@@ -119,28 +120,39 @@ public class TrustedAccountsDriveHelper {
         return result;
     }
 
-
     /* ---------------------------------------------------
      * INTERNAL HELPERS
      * --------------------------------------------------- */
+
+    private GoogleAccountCredential createCredential(String email) {
+
+        GoogleAccountCredential credential =
+                GoogleAccountCredential.usingOAuth2(
+                        appContext,
+                        Collections.singleton(DRIVE_SCOPE)
+                );
+
+        credential.setSelectedAccount(
+                new Account(email, "com.google")
+        );
+
+        return credential;
+    }
 
     /**
      * Fetches storage quota for a trusted account.
      * Requires prior Drive consent from that account.
      */
-    private TrustedAccount fetchStorageInfo(String email)
-            throws Exception {
+    private TrustedAccount fetchStorageInfo(String email) throws Exception {
 
-        GoogleAccountCredential credential =
-                DriveConsentFlowHelper.createCredential(appContext, false);
-
-        credential.setSelectedAccount(new Account(email, "com.google"));
-
-        Drive drive = new Drive.Builder(
-                new NetHttpTransport(),
-                GsonFactory.getDefaultInstance(),
-                credential
-        ).setApplicationName("VaultSpace").build();
+        Drive drive =
+                new Drive.Builder(
+                        new NetHttpTransport(),
+                        GsonFactory.getDefaultInstance(),
+                        createCredential(email)
+                )
+                        .setApplicationName("VaultSpace")
+                        .build();
 
         About about =
                 drive.about()
@@ -195,9 +207,9 @@ public class TrustedAccountsDriveHelper {
             return list.getFiles().get(0).getId();
         }
 
-        File folder = new File();
-        folder.setName(ROOT_FOLDER_NAME);
-        folder.setMimeType("application/vnd.google-apps.folder");
+        File folder = new File()
+                .setName(ROOT_FOLDER_NAME)
+                .setMimeType("application/vnd.google-apps.folder");
 
         return primaryDrive.files()
                 .create(folder)

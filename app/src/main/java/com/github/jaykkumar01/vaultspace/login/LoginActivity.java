@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.auth;
+package com.github.jaykkumar01.vaultspace.login;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -9,9 +9,9 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.auth.AccountPickerHelper;
-import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
-import com.github.jaykkumar01.vaultspace.core.auth.PrimaryAccountConsentHelper;
+import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
+import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.DashboardActivity;
 
@@ -45,40 +45,36 @@ public class LoginActivity extends AppCompatActivity {
 
     private void initHelpers() {
 
-        primaryConsentHelper =
-                new PrimaryAccountConsentHelper(
-                        this,
-                        new PrimaryAccountConsentHelper.Callback() {
-                            @Override
-                            public void onAllConsentsGranted() {
-                                finalizeLogin();
-                            }
-
-                            @Override
-                            public void onConsentDenied() {
-                                hideLoading();
-                                toast("Required permissions not granted");
-                            }
-
-                            @Override
-                            public void onFailure(Exception e) {
-                                hideLoading();
-                                Log.e(TAG, "Consent flow failed", e);
-                                toast("Failed to verify permissions");
-                            }
-                        }
-                );
+        primaryConsentHelper = new PrimaryAccountConsentHelper(this);
 
         accountPickerHelper =
                 new AccountPickerHelper(
                         this,
                         email -> {
-                            Log.d(TAG, "Primary account selected: " + email);
-
                             pendingEmail = email;
                             showLoading();
 
-                            primaryConsentHelper.launch(email);
+                            primaryConsentHelper.startLoginConsentFlow(
+                                    email,
+                                    new PrimaryAccountConsentHelper.LoginCallback() {
+                                        @Override
+                                        public void onAllConsentsGranted() {
+                                            finalizeLogin();
+                                        }
+
+                                        @Override
+                                        public void onConsentDenied() {
+                                            hideLoading();
+                                            toast("Required permissions not granted");
+                                        }
+
+                                        @Override
+                                        public void onFailure(Exception e) {
+                                            hideLoading();
+                                            toast("Failed to verify permissions");
+                                        }
+                                    }
+                            );
                         }
                 );
     }

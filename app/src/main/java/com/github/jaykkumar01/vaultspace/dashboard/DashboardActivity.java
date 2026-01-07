@@ -3,27 +3,30 @@ package com.github.jaykkumar01.vaultspace.dashboard;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.auth.LoginActivity;
-import com.github.jaykkumar01.vaultspace.dashboard.trusted.DashboardTrustedAccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.login.LoginActivity;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 
 public class DashboardActivity extends AppCompatActivity {
+
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
-    private DashboardSessionHelper sessionHelper;
+
+    private UserSession userSession;
+
     private String primaryEmail;
     private String profileName;
+
     private DashboardStorageBarHelper storageBarHelper;
-    private DashboardPrimaryConsentHelper consentHelper;
-    private DashboardTrustedAccountPickerHelper trustedAccountPicker;
+    private PrimaryAccountConsentHelper primaryAccountConsentHelper;
 
     /* ---------------- Lifecycle ---------------- */
 
@@ -46,10 +49,13 @@ public class DashboardActivity extends AppCompatActivity {
     /* ---------------- Init ---------------- */
 
     private void initSession() {
-        sessionHelper = new DashboardSessionHelper(this);
+        userSession = new UserSession(this);
 
-        primaryEmail = sessionHelper.getPrimaryEmail();
-        profileName = sessionHelper.getProfileName();
+        primaryEmail = userSession.getPrimaryAccountEmail();
+        profileName = userSession.getProfileName();
+
+        Log.d(TAG, "Primary email = " + primaryEmail);
+        Log.d(TAG, "Profile name = " + profileName);
 
         if (primaryEmail == null) {
             Log.e(TAG, "Primary email missing");
@@ -65,31 +71,17 @@ public class DashboardActivity extends AppCompatActivity {
         StorageBarView storageBar = findViewById(R.id.storageBar);
         storageBarHelper =
                 new DashboardStorageBarHelper(this, storageBar, primaryEmail);
-        findViewById(R.id.btnExpandVault)
-                .setOnClickListener(v -> trustedAccountPicker.launch());
 
+        findViewById(R.id.btnExpandVault)
+                .setOnClickListener(v -> { /* future trusted account flow */ });
 
         findViewById(R.id.btnLogout)
                 .setOnClickListener(v -> logout());
     }
+
     private void initHelpers() {
-        consentHelper = new DashboardPrimaryConsentHelper(this, primaryEmail);
-
-        trustedAccountPicker =
-                new DashboardTrustedAccountPickerHelper(
-                        this,
-                        primaryEmail,
-                        email -> {
-                            Log.d(TAG, "Trusted account picked: " + email);
-                            // For now: just log / toast
-                            // NEXT STEP:
-                            // → pendingTrustedAccount = email
-                            // → Drive consent flow
-                        }
-                );
+        primaryAccountConsentHelper = new PrimaryAccountConsentHelper(this);
     }
-
-
 
     /* ---------------- Consent Flow ---------------- */
 
@@ -100,15 +92,16 @@ public class DashboardActivity extends AppCompatActivity {
             return;
         }
 
-        consentHelper.checkConsent(new DashboardPrimaryConsentHelper.Callback() {
-            @Override
-            public void onConsentGranted() {
-                storageBarHelper.loadAndBindStorage();
-            }
+        primaryAccountConsentHelper.checkConsentsSilently(primaryEmail, result -> {
+            switch (result) {
+                case GRANTED:
+                    storageBarHelper.loadAndBindStorage();
+                    break;
 
-            @Override
-            public void onConsentDenied() {
-                forceLogout("Drive access required. Please login again.");
+                case RECOVERABLE:
+                case FAILED:
+                    forceLogout("Permissions were revoked. Please login again.");
+                    break;
             }
         });
     }
@@ -121,7 +114,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void logout() {
-        sessionHelper.logout();
+        Log.d(TAG, "Clearing session");
+        userSession.clearSession();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }

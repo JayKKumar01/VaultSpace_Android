@@ -32,7 +32,7 @@
 
         <!-- ================= Auth ================= -->
         <activity
-            android:name=".auth.LoginActivity"
+            android:name=".login.LoginActivity"
             android:exported="false" />
 
         <!-- ================= Dashboard ================= -->

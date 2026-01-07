@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.dashboard.trusted;
+package com.github.jaykkumar01.vaultspace.core.picker;
 
 import android.accounts.AccountManager;
 import android.content.Intent;
@@ -8,29 +8,25 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentFlowHelper;
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.android.gms.common.AccountPicker;
+import com.google.android.gms.common.AccountPicker.AccountChooserOptions;
 
-public class DashboardTrustedAccountPickerHelper {
+import java.util.Collections;
 
-    private static final String TAG = "VaultSpace:TrustedPicker";
+public class AccountPickerHelper {
+
+    private static final String TAG = "VaultSpace:AccountPicker";
 
     public interface Callback {
         void onAccountSelected(String email);
     }
 
-    private final GoogleAccountCredential credential;
     private final ActivityResultLauncher<Intent> pickerLauncher;
 
-    public DashboardTrustedAccountPickerHelper(
+    public AccountPickerHelper(
             AppCompatActivity activity,
-            String primaryEmail,
             Callback callback
     ) {
-        // Credential owned by helper (future Drive use)
-        this.credential =
-                DriveConsentFlowHelper.createCredential(activity, false);
-
         this.pickerLauncher =
                 activity.registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
@@ -51,12 +47,7 @@ public class DashboardTrustedAccountPickerHelper {
                                 return;
                             }
 
-                            if (email.equalsIgnoreCase(primaryEmail)) {
-                                Log.w(TAG, "Primary account selected as trusted — ignored");
-                                return;
-                            }
-
-                            Log.d(TAG, "Trusted account selected: " + email);
+                            Log.d(TAG, "Account selected: " + email);
                             callback.onAccountSelected(email);
                         }
                 );
@@ -65,12 +56,19 @@ public class DashboardTrustedAccountPickerHelper {
     /* ---------------- Public API ---------------- */
 
     public void launch() {
-        pickerLauncher.launch(credential.newChooseAccountIntent());
+        pickerLauncher.launch(createPickerIntent());
     }
 
-    /* ---------------- Future-ready ---------------- */
+    /* ---------------- Internals ---------------- */
 
-    public GoogleAccountCredential getCredential() {
-        return credential;
+    private Intent createPickerIntent() {
+        AccountChooserOptions options =
+                new AccountChooserOptions.Builder()
+                        .setAllowableAccountsTypes(
+                                Collections.singletonList("com.google")
+                        )
+                        .build();
+
+        return AccountPicker.newChooseAccountIntent(options);
     }
 }

@@ -3,7 +3,7 @@ package com.github.jaykkumar01.vaultspace.core.session;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
+import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
 
 public class UserSession {
 

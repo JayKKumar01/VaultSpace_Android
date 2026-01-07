@@ -4,7 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.text.TextUtils;
 
-import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
+import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 
 /**

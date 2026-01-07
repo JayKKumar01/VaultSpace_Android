@@ -7,7 +7,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/vs_content_bg"
-    tools:context=".auth.LoginActivity">
+    tools:context=".login.LoginActivity">
 
     <!-- ================= Top Spacing ================= -->
     <androidx.constraintlayout.widget.Guideline

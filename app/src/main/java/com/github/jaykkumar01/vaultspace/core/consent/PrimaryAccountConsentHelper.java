@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.core.auth;
+package com.github.jaykkumar01.vaultspace.core.consent;
 
 import android.content.Intent;
 import android.os.Handler;
@@ -19,41 +19,46 @@ import com.google.api.services.drive.Drive;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 public final class PrimaryAccountConsentHelper {
 
     private static final String TAG = "VaultSpace:PrimaryConsent";
 
-    public interface Callback {
+    /* ---------------- Public Types ---------------- */
+
+    public interface LoginCallback {
         void onAllConsentsGranted();
         void onConsentDenied();
         void onFailure(Exception e);
     }
 
-    private enum ConsentResult {
+    public enum ConsentResult {
         GRANTED,
         RECOVERABLE,
         FAILED
     }
 
-    private final AppCompatActivity activity;
-    private final Callback callback;
+    /* ---------------- Core ---------------- */
 
+    private final AppCompatActivity activity;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
 
-    private final ActivityResultLauncher<Intent> consentLauncher;
+    /* ---------------- Login-only state ---------------- */
 
+    private LoginCallback loginCallback;
     private String pendingEmail;
     private boolean consentUiShown = false;
+    private volatile Intent lastRecoverableIntent;
 
-    public PrimaryAccountConsentHelper(
-            AppCompatActivity activity,
-            Callback callback
-    ) {
+    private final ActivityResultLauncher<Intent> consentLauncher;
+
+    /* ---------------- Constructor ---------------- */
+
+    public PrimaryAccountConsentHelper(AppCompatActivity activity) {
         this.activity = activity;
-        this.callback = callback;
 
         this.consentLauncher =
                 activity.registerForActivityResult(
@@ -61,89 +66,94 @@ public final class PrimaryAccountConsentHelper {
                         result -> {
                             Log.d(TAG, "Consent UI returned");
 
-                            if (pendingEmail == null) {
-                                callback.onFailure(
-                                        new IllegalStateException("Missing pending email")
-                                );
+                            if (pendingEmail == null || loginCallback == null) {
+                                Log.e(TAG, "Invalid state after consent UI");
                                 return;
                             }
 
-                            // 🚫 DO NOT relaunch UI again
                             verifyAfterUi(pendingEmail);
                         }
                 );
     }
 
-    /* ---------------------------------------------------
-     * Public API
-     * --------------------------------------------------- */
+    /* ===================================================
+     * DASHBOARD API (NO UI)
+     * =================================================== */
 
-    public void launch(String email) {
-        Log.d(TAG, "launch() → starting consent flow for " + email);
-
-        this.pendingEmail = email;
-        this.consentUiShown = false;
-
-        runInitialCheck(email);
+    public void checkConsentsSilently(
+            String email,
+            Consumer<ConsentResult> resultCallback
+    ) {
+        executor.execute(() -> {
+            ConsentResult result = checkConsentsInternal(email);
+            mainHandler.post(() -> resultCallback.accept(result));
+        });
     }
 
-    /* ---------------------------------------------------
-     * Flow Control
-     * --------------------------------------------------- */
+    /* ===================================================
+     * LOGIN API (UI + SINGLE RETRY)
+     * =================================================== */
 
-    private void runInitialCheck(String email) {
+    public void startLoginConsentFlow(
+            String email,
+            LoginCallback callback
+    ) {
+        Log.d(TAG, "Starting login consent flow for " + email);
+
+        this.pendingEmail = email;
+        this.loginCallback = callback;
+        this.consentUiShown = false;
+
         executor.execute(() -> {
-            ConsentResult result = checkBothConsents(email);
-
-            mainHandler.post(() -> {
-                switch (result) {
-                    case GRANTED:
-                        callback.onAllConsentsGranted();
-                        break;
-
-                    case RECOVERABLE:
-                        if (!consentUiShown) {
-                            consentUiShown = true;
-                            Log.w(TAG, "Launching consent UI");
-                            consentLauncher.launch(lastRecoverableIntent);
-                        } else {
-                            Log.w(TAG, "Consent denied after UI");
-                            callback.onConsentDenied();
-                        }
-                        break;
-
-                    case FAILED:
-                        callback.onFailure(
-                                new IllegalStateException("Consent check failed")
-                        );
-                        break;
-                }
-            });
+            ConsentResult result = checkConsentsInternal(email);
+            mainHandler.post(() -> handleLoginResult(result));
         });
+    }
+
+    private void handleLoginResult(ConsentResult result) {
+        switch (result) {
+            case GRANTED:
+                loginCallback.onAllConsentsGranted();
+                break;
+
+            case RECOVERABLE:
+                if (!consentUiShown && lastRecoverableIntent != null) {
+                    consentUiShown = true;
+                    Log.w(TAG, "Launching consent UI");
+                    consentLauncher.launch(lastRecoverableIntent);
+                } else {
+                    Log.w(TAG, "Consent denied after UI");
+                    loginCallback.onConsentDenied();
+                }
+                break;
+
+            case FAILED:
+                loginCallback.onFailure(
+                        new IllegalStateException("Consent validation failed")
+                );
+                break;
+        }
     }
 
     private void verifyAfterUi(String email) {
         executor.execute(() -> {
-            ConsentResult result = checkBothConsents(email);
+            ConsentResult result = checkConsentsInternal(email);
 
             mainHandler.post(() -> {
                 if (result == ConsentResult.GRANTED) {
-                    callback.onAllConsentsGranted();
+                    loginCallback.onAllConsentsGranted();
                 } else {
-                    Log.w(TAG, "User returned without granting consent");
-                    callback.onConsentDenied();
+                    loginCallback.onConsentDenied();
                 }
             });
         });
     }
 
-    /* ---------------------------------------------------
-     * Core Utility (Reusable & Testable)
-     * --------------------------------------------------- */
+    /* ===================================================
+     * CORE VALIDATION (PRIVATE)
+     * =================================================== */
 
-    private volatile Intent lastRecoverableIntent;
-
-    private ConsentResult checkBothConsents(String email) {
+    private ConsentResult checkConsentsInternal(String email) {
         try {
             GoogleAccountCredential credential =
                     GoogleAccountCredential.usingOAuth2(
@@ -174,12 +184,10 @@ public final class PrimaryAccountConsentHelper {
             return ConsentResult.GRANTED;
 
         } catch (UserRecoverableAuthException e) {
-            Log.w(TAG, "Recoverable consent needed (GMS)");
             lastRecoverableIntent = e.getIntent();
             return ConsentResult.RECOVERABLE;
 
         } catch (UserRecoverableAuthIOException e) {
-            Log.w(TAG, "Recoverable consent needed (HTTP)");
             lastRecoverableIntent = e.getIntent();
             return ConsentResult.RECOVERABLE;
 
