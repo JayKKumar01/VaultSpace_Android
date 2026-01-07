@@ -121,15 +121,12 @@
 
             <com.github.jaykkumar01.vaultspace.views.StorageBarView
                 android:id="@+id/storageBar"
-                android:layout_width="88dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:usageFraction="0.4"
-                app:usedText="40"
-                app:totalText="100"
-                app:unitText="GB"
                 app:layout_constraintTop_toTopOf="@id/ivProfile"
                 app:layout_constraintBottom_toBottomOf="@id/ivProfile"
                 app:layout_constraintEnd_toEndOf="parent"/>
+
 
 
         </androidx.constraintlayout.widget.ConstraintLayout>

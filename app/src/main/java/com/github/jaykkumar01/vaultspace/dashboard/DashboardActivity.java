@@ -2,9 +2,11 @@ package com.github.jaykkumar01.vaultspace.dashboard;
 
 import android.accounts.Account;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -17,8 +19,10 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.auth.LoginActivity;
 import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentFlowHelper;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleAccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.utils.Base;
+import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
 public class DashboardActivity extends AppCompatActivity {
@@ -36,6 +40,12 @@ public class DashboardActivity extends AppCompatActivity {
     private Account pendingTrustedAccount;
 
     private View loadingOverlay;
+
+    private TextView tvName;
+    private TextView tvEmail;
+    private ImageView ivProfile;
+    private StorageBarView storageBar;
+
 
     /* ---------------- Launchers ---------------- */
 
@@ -106,6 +116,13 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initUI() {
+        tvName = findViewById(R.id.tvName);
+        tvEmail = findViewById(R.id.tvEmail);
+        ivProfile = findViewById(R.id.ivProfile);
+        storageBar = findViewById(R.id.storageBar);
+
+        bindProfileHeader();
+
         ((TextView) findViewById(R.id.tvUserEmail))
                 .setText(profileName != null ? profileName : primaryEmail);
 
@@ -120,6 +137,29 @@ public class DashboardActivity extends AppCompatActivity {
         findViewById(R.id.btnLogout)
                 .setOnClickListener(v -> logout());
     }
+
+    private void bindProfileHeader() {
+
+        // ---- Name / Email ----
+        if (profileName != null && !profileName.isEmpty()) {
+            tvName.setText(profileName);
+            tvEmail.setText(primaryEmail);
+        } else {
+            tvName.setText(primaryEmail);
+            tvEmail.setVisibility(View.GONE);
+        }
+
+        // ---- Profile photo ----
+        Bitmap profileBitmap =
+                GoogleUserProfileFetcher.loadSavedProfilePhoto(this);
+
+        if (profileBitmap != null) {
+            ivProfile.setImageBitmap(profileBitmap);
+        } else {
+            ivProfile.setImageResource(R.drawable.ic_profile_placeholder);
+        }
+    }
+
 
     private void initTrustedAccountPicker() {
         pickerHelper =

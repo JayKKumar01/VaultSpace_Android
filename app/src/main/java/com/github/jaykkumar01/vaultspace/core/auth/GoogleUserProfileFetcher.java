@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
  * Fetches Google user profile (PRIMARY account only).
  *
  * - Fetches profile name
- * - Downloads profile photo once
+ * - Downloads latest profile photo
  * - Saves photo privately (LOSSLESS)
  * - Returns ONLY stable data to caller
  *
@@ -89,7 +89,11 @@ public final class GoogleUserProfileFetcher {
 
                     profileName = raw.name;
 
-                    Bitmap bitmap = downloadBitmap(raw.picture);
+                    // 🔹 Always normalize to fetch latest profile photo
+                    String latestPhotoUrl =
+                            normalizeProfilePhotoUrl(raw.picture);
+
+                    Bitmap bitmap = downloadBitmap(latestPhotoUrl);
                     if (bitmap != null) {
                         saveProfilePhoto(context, bitmap);
                         bitmap.recycle(); // free native memory early
@@ -112,6 +116,24 @@ public final class GoogleUserProfileFetcher {
     /* ---------------------------------------------------
      * Internals
      * --------------------------------------------------- */
+
+    /**
+     * Normalizes Google profile photo URL to always fetch
+     * the latest image (avoids cached variants).
+     */
+    @Nullable
+    private static String normalizeProfilePhotoUrl(@Nullable String url) {
+        if (url == null) return null;
+
+        // Strip existing size / cache params if present
+        int sizeIndex = url.indexOf("=s");
+        if (sizeIndex != -1) {
+            url = url.substring(0, sizeIndex);
+        }
+
+        // Force fresh, high-quality avatar
+        return url + "=s256-c";
+    }
 
     @Nullable
     private static Bitmap downloadBitmap(@Nullable String url) {
@@ -140,14 +162,12 @@ public final class GoogleUserProfileFetcher {
         try (FileOutputStream out = new FileOutputStream(file)) {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                // Guaranteed lossless + best compression
                 bitmap.compress(
                         Bitmap.CompressFormat.WEBP_LOSSLESS,
                         100,
                         out
                 );
             } else {
-                // Older devices: PNG is safest lossless fallback
                 bitmap.compress(
                         Bitmap.CompressFormat.PNG,
                         100,
@@ -181,7 +201,6 @@ public final class GoogleUserProfileFetcher {
             file.delete();
         }
     }
-
 
     /* ---------------------------------------------------
      * DTO
