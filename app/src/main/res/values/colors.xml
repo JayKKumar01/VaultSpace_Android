@@ -32,5 +32,10 @@
 
     <color name="vs_surface_soft">#1B2430</color>
 
+    <!-- ===== Ripple Effects ===== -->
+    <color name="vs_ripple_primary">#337BE495</color> <!-- green ripple (Expand Vault) -->
+    <color name="vs_ripple_neutral">#33E6EDF3</color> <!-- neutral ripple (Logout) -->
+
+
 
 </resources>

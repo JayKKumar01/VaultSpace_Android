@@ -136,6 +136,50 @@
             android:paddingTop="12dp"
             android:paddingBottom="12dp">
 
+            <!-- Expand Vault Button -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/btnExpandVault"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_expand_vault_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
+                android:elevation="2dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/btnLogout"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                android:layout_marginEnd="12dp">
+
+            <TextView
+                    android:id="@+id/tvExpandVaultTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Expand Vault"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/vs_brand_text"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"/>
+
+                <TextView
+                    android:id="@+id/tvExpandVaultDesc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Add a trusted account to get more space"
+                    android:textSize="11sp"
+                    android:textColor="@color/vs_text_content"
+                    android:alpha="0.75"
+                    android:layout_marginTop="2dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvExpandVaultTitle"/>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/btnLogout"
                 android:layout_width="40dp"

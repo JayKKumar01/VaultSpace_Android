@@ -7,6 +7,8 @@ import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Fetches trusted account storage and binds it to StorageBarView
@@ -21,6 +23,9 @@ public class DashboardStorageBarHelper {
     private final Context appContext;
     private final StorageBarView storageBarView;
     private final String primaryEmail;
+
+    // Single background executor (I/O bound work)
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public DashboardStorageBarHelper(
             Context context,
@@ -39,10 +44,10 @@ public class DashboardStorageBarHelper {
 
         Log.d(TAG, "Loading storage info");
 
-        // Enter loading state immediately
+        // Enter loading state immediately (UI thread)
         storageBarView.post(() -> storageBarView.setLoading(true));
 
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 TrustedAccountsDriveHelper helper =
                         new TrustedAccountsDriveHelper(appContext, primaryEmail);
@@ -80,6 +85,13 @@ public class DashboardStorageBarHelper {
                         storageBarView.setUsage(0f, 0f, UNIT_GB)
                 );
             }
-        }).start();
+        });
+    }
+
+    /**
+     * Call if you ever want to clean up explicitly (optional).
+     */
+    public void shutdown() {
+        executor.shutdown();
     }
 }
