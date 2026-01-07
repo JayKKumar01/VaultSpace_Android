@@ -227,9 +227,4 @@
 
     </androidx.cardview.widget.CardView>
 
-
-
-
-    <include layout="@layout/view_loading_overlay"/>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

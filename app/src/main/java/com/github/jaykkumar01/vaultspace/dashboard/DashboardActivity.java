@@ -12,6 +12,7 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.login.LoginActivity;
+import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 
@@ -27,6 +28,8 @@ public class DashboardActivity extends AppCompatActivity {
 
     private DashboardStorageBarHelper storageBarHelper;
     private PrimaryAccountConsentHelper primaryAccountConsentHelper;
+    private ExpandVaultHelper expandVaultHelper;
+    private ActivityLoadingOverlay loading;
 
     /* ---------------- Lifecycle ---------------- */
 
@@ -37,6 +40,8 @@ public class DashboardActivity extends AppCompatActivity {
         setContentView(R.layout.activity_dashboard);
 
         Log.d(TAG, "onCreate()");
+
+        loading = new ActivityLoadingOverlay(this);
 
         initSession();
         initUI();
@@ -69,11 +74,10 @@ public class DashboardActivity extends AppCompatActivity {
                 .bindProfile(primaryEmail, profileName);
 
         StorageBarView storageBar = findViewById(R.id.storageBar);
-        storageBarHelper =
-                new DashboardStorageBarHelper(this, storageBar, primaryEmail);
+        storageBarHelper = new DashboardStorageBarHelper(this, storageBar, primaryEmail);
 
         findViewById(R.id.btnExpandVault)
-                .setOnClickListener(v -> { /* future trusted account flow */ });
+                .setOnClickListener(v -> onExpandVaultClicked());
 
         findViewById(R.id.btnLogout)
                 .setOnClickListener(v -> logout());
@@ -81,6 +85,28 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void initHelpers() {
         primaryAccountConsentHelper = new PrimaryAccountConsentHelper(this);
+        expandVaultHelper = new ExpandVaultHelper(this, primaryEmail);
+    }
+
+    /* ---------------- Expand Vault ---------------- */
+
+    private void onExpandVaultClicked() {
+        expandVaultHelper.launch(new ExpandVaultHelper.Callback() {
+            @Override public void onStart() { loading.show(); }
+
+            @Override public void onTrustedAccountAdded() {
+                loading.hide();
+                storageBarHelper.loadAndBindStorage();
+            }
+
+            @Override public void onError(String message) {
+                loading.hide();
+                showToast(message);
+            }
+
+            @Override public void onEnd() { loading.hide(); }
+        });
+
     }
 
     /* ---------------- Consent Flow ---------------- */
@@ -109,7 +135,7 @@ public class DashboardActivity extends AppCompatActivity {
     /* ---------------- Logout ---------------- */
 
     private void forceLogout(String reason) {
-        Toast.makeText(this, reason, Toast.LENGTH_LONG).show();
+        showToast(reason);
         logout();
     }
 
@@ -118,5 +144,11 @@ public class DashboardActivity extends AppCompatActivity {
         userSession.clearSession();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
+    }
+
+    /* ---------------- Utils ---------------- */
+
+    private void showToast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
 }

@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -24,17 +25,6 @@ import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Fetches Google user profile (PRIMARY account only).
- *
- * - Owns GoogleAccountCredential internally
- * - Fetches profile name
- * - Downloads latest profile photo
- * - Saves photo privately (LOSSLESS)
- *
- * Scope:
- * https://www.googleapis.com/auth/userinfo.profile
- */
 public final class GoogleUserProfileFetcher {
 
     private static final String TAG = "VaultSpace:UserProfile";
@@ -65,17 +55,29 @@ public final class GoogleUserProfileFetcher {
             @NonNull Callback callback
     ) {
         EXECUTOR.execute(() -> {
+
+            long totalStart = SystemClock.elapsedRealtime();
             String profileName = null;
 
             try {
                 GoogleAccountCredential credential =
                         GoogleAccountCredential.usingOAuth2(
                                 context.getApplicationContext(),
-                                Collections.singleton("https://www.googleapis.com/auth/userinfo.profile")
+                                Collections.singleton(
+                                        "https://www.googleapis.com/auth/userinfo.profile"
+                                )
                         );
                 credential.setSelectedAccountName(email);
 
+                // 🔍 Measure token fetch time
+                long tokenStart = SystemClock.elapsedRealtime();
                 String accessToken = credential.getToken();
+                long tokenEnd = SystemClock.elapsedRealtime();
+
+                Log.d(
+                        TAG,
+                        "Token fetch took " + (tokenEnd - tokenStart) + " ms"
+                );
 
                 HttpURLConnection conn =
                         (HttpURLConnection) new URL(USERINFO_URL).openConnection();
@@ -114,6 +116,14 @@ public final class GoogleUserProfileFetcher {
             } catch (Exception e) {
                 Log.w(TAG, "Failed to fetch profile", e);
             }
+
+            long totalEnd = SystemClock.elapsedRealtime();
+            Log.d(
+                    TAG,
+                    "Total profile fetch flow took "
+                            + (totalEnd - totalStart)
+                            + " ms"
+            );
 
             String finalName = profileName;
             MAIN.post(() -> callback.onResult(finalName));
@@ -198,7 +208,6 @@ public final class GoogleUserProfileFetcher {
     public static void clearSavedProfilePhoto(@NonNull Context context) {
         File file = new File(context.getFilesDir(), PROFILE_PHOTO_FILE);
         if (file.exists()) {
-            //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
     }

@@ -23,46 +23,52 @@ public class DriveConsentHelper {
     private static final String TAG = "VaultSpace:DriveConsent";
 
     public interface Callback {
-        void onConsentGranted();
-        void onConsentDenied();
-        void onFailure(Exception e);
+        void onConsentGranted(String email);
+        void onConsentDenied(String email);
+        void onFailure(String email, Exception e);
     }
 
     private final AppCompatActivity activity;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ActivityResultLauncher<Intent> consentLauncher;
 
-    private final Callback callback;
+    private Callback callback;
+    private String pendingEmail;
 
     /* ---------------- Constructor ---------------- */
 
-    public DriveConsentHelper(AppCompatActivity activity, Callback callback) {
+    public DriveConsentHelper(AppCompatActivity activity) {
         this.activity = activity;
-        this.callback = callback;
 
         this.consentLauncher =
                 activity.registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
                         result -> {
+                            if (callback == null || pendingEmail == null) return;
+
                             if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
                                 Log.d(TAG, "Consent granted from UI");
-                                callback.onConsentGranted();
+                                callback.onConsentGranted(pendingEmail);
                             } else {
                                 Log.w(TAG, "Consent denied by user");
-                                callback.onConsentDenied();
+                                callback.onConsentDenied(pendingEmail);
                             }
+
+                            pendingEmail = null;
                         }
                 );
     }
 
-    /* ---------------- Public API (LIKE AccountPickerHelper) ---------------- */
+    /* ---------------- Public API ---------------- */
 
-    public void launch(String email) {
-        Log.d(TAG, "launch() → checking Drive consent for " + email);
+    public void launch(String email, Callback callback) {
+        this.callback = callback;
+        this.pendingEmail = email;
+
+        Log.d(TAG, "Checking Drive consent for " + email);
 
         new Thread(() -> {
             try {
-                // ✅ Credential created INSIDE helper
                 GoogleAccountCredential credential =
                         GoogleAccountCredential.usingOAuth2(
                                 activity.getApplicationContext(),
@@ -79,11 +85,12 @@ public class DriveConsentHelper {
                                 .setApplicationName("VaultSpace")
                                 .build();
 
-                // Lightweight call → forces token / consent
                 drive.about().get().setFields("user").execute();
 
                 Log.d(TAG, "Drive consent already granted");
-                mainHandler.post(callback::onConsentGranted);
+                mainHandler.post(() ->
+                        callback.onConsentGranted(email)
+                );
 
             } catch (UserRecoverableAuthIOException e) {
                 Log.w(TAG, "Drive consent required");
@@ -94,7 +101,7 @@ public class DriveConsentHelper {
             } catch (Exception e) {
                 Log.e(TAG, "Drive consent check failed", e);
                 mainHandler.post(() ->
-                        callback.onFailure(e)
+                        callback.onFailure(email, e)
                 );
             }
         }).start();

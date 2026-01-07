@@ -18,6 +18,8 @@ import com.google.api.services.drive.model.PermissionList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class TrustedAccountsDriveHelper {
 
@@ -26,9 +28,18 @@ public class TrustedAccountsDriveHelper {
     private static final String DRIVE_SCOPE =
             "https://www.googleapis.com/auth/drive.file";
 
+    public interface AddResultCallback {
+        void onAdded();
+        void onAlreadyExists();
+        void onFailure(Exception e);
+    }
+
     private final Context appContext;
     private final Drive primaryDrive;
     private final String primaryEmail;
+
+    private final ExecutorService executor =
+            Executors.newSingleThreadExecutor();
 
     public TrustedAccountsDriveHelper(Context context, String primaryEmail) {
 
@@ -54,35 +65,40 @@ public class TrustedAccountsDriveHelper {
      * PUBLIC API
      * --------------------------------------------------- */
 
-    /**
-     * Grants writer access on VaultSpace root folder
-     */
-    public void addTrustedAccount(String trustedEmail) throws Exception {
+    public void addTrustedAccountAsync(
+            String trustedEmail,
+            AddResultCallback callback
+    ) {
+        executor.execute(() -> {
+            try {
+                String folderId = getOrCreateRootFolder();
 
-        String folderId = getOrCreateRootFolder();
+                if (hasWriterAccess(folderId, trustedEmail)) {
+                    Log.d(TAG, "Trusted account already has access: " + trustedEmail);
+                    callback.onAlreadyExists();
+                    return;
+                }
 
-        if (hasWriterAccess(folderId, trustedEmail)) {
-            Log.d(TAG, "Trusted account already has access: " + trustedEmail);
-            return;
-        }
+                Permission permission = new Permission()
+                        .setType("user")
+                        .setRole("writer")
+                        .setEmailAddress(trustedEmail);
 
-        Permission permission = new Permission()
-                .setType("user")
-                .setRole("writer")
-                .setEmailAddress(trustedEmail);
+                primaryDrive.permissions()
+                        .create(folderId, permission)
+                        .setSendNotificationEmail(true)
+                        .execute();
 
-        primaryDrive.permissions()
-                .create(folderId, permission)
-                .setSendNotificationEmail(true)
-                .execute();
+                Log.d(TAG, "✅ Access granted to trusted account: " + trustedEmail);
+                callback.onAdded();
 
-        Log.d(TAG, "✅ Access granted to trusted account: " + trustedEmail);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to add trusted account", e);
+                callback.onFailure(e);
+            }
+        });
     }
 
-    /**
-     * Returns trusted accounts with storage quota info.
-     * NOTE: Storage quota belongs to the ACCOUNT, not the folder.
-     */
     public List<TrustedAccount> getTrustedAccounts() throws Exception {
 
         String folderId = getOrCreateRootFolder();
@@ -107,9 +123,7 @@ public class TrustedAccountsDriveHelper {
             try {
                 result.add(fetchStorageInfo(email));
             } catch (Exception e) {
-                // Fail-soft: permissions are truth, storage is optional
-                Log.w(
-                        TAG,
+                Log.w(TAG,
                         "Skipping trusted account (no storage access): " + email,
                         e
                 );
@@ -121,7 +135,7 @@ public class TrustedAccountsDriveHelper {
     }
 
     /* ---------------------------------------------------
-     * INTERNAL HELPERS
+     * INTERNALS
      * --------------------------------------------------- */
 
     private GoogleAccountCredential createCredential(String email) {
@@ -139,10 +153,6 @@ public class TrustedAccountsDriveHelper {
         return credential;
     }
 
-    /**
-     * Fetches storage quota for a trusted account.
-     * Requires prior Drive consent from that account.
-     */
     private TrustedAccount fetchStorageInfo(String email) throws Exception {
 
         Drive drive =

@@ -26,55 +26,66 @@ import java.util.concurrent.Executors;
 public final class UserProfileConsentHelper {
 
     private static final String TAG = "VaultSpace:ProfileConsent";
+    private static final String PROFILE_SCOPE =
+            "https://www.googleapis.com/auth/userinfo.profile";
 
     public interface Callback {
-        void onConsentGranted();
-        void onConsentDenied();
-        void onFailure(Exception e);
+        void onConsentGranted(String email);
+        void onConsentDenied(String email);
+        void onFailure(String email, Exception e);
     }
 
     private final AppCompatActivity activity;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ActivityResultLauncher<Intent> consentLauncher;
-
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
 
-    private final Callback callback;
+    private final ActivityResultLauncher<Intent> consentLauncher;
 
-    public UserProfileConsentHelper(
-            AppCompatActivity activity,
-            Callback callback
-    ) {
+    private Callback callback;
+    private String pendingEmail;
+
+    /* ---------------- Constructor ---------------- */
+
+    public UserProfileConsentHelper(AppCompatActivity activity) {
         this.activity = activity;
-        this.callback = callback;
 
+        // ✅ Registered EARLY and ONCE (lifecycle-safe)
         this.consentLauncher =
                 activity.registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
                         result -> {
+
+                            if (callback == null || pendingEmail == null) return;
+
                             if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
                                 Log.d(TAG, "Profile consent granted from UI");
-                                callback.onConsentGranted();
+                                callback.onConsentGranted(pendingEmail);
                             } else {
                                 Log.w(TAG, "Profile consent denied by user");
-                                callback.onConsentDenied();
+                                callback.onConsentDenied(pendingEmail);
                             }
+
+                            pendingEmail = null;
                         }
                 );
     }
 
-    public void launch(String email) {
-        Log.d(TAG, "launch() → checking profile consent for " + email);
+    /* ---------------- Public API ---------------- */
+
+    public void launch(String email, Callback callback) {
+
+        this.pendingEmail = email;
+        this.callback = callback;
+
+        Log.d(TAG, "Checking profile consent for " + email);
 
         executor.execute(() -> {
             try {
                 GoogleAccountCredential credential =
                         GoogleAccountCredential.usingOAuth2(
                                 activity.getApplicationContext(),
-                                Collections.singleton(
-                                        "https://www.googleapis.com/auth/userinfo.profile"
-                                )
+                                Collections.singleton(PROFILE_SCOPE)
                         );
                 credential.setSelectedAccountName(email);
 
@@ -82,17 +93,19 @@ public final class UserProfileConsentHelper {
                 credential.getToken();
 
                 Log.d(TAG, "Profile consent already granted");
-                mainHandler.post(callback::onConsentGranted);
+                mainHandler.post(() ->
+                        callback.onConsentGranted(email)
+                );
 
             }
-            // ✅ HANDLE THIS (your missing piece)
+            // 🔁 Google Play Services flow
             catch (UserRecoverableAuthException e) {
                 Log.w(TAG, "Profile consent required (GMS)");
                 mainHandler.post(() ->
                         consentLauncher.launch(e.getIntent())
                 );
             }
-            // ✅ ALSO KEEP THIS (future-proof)
+            // 🔁 HTTP / Drive-style flow
             catch (UserRecoverableAuthIOException e) {
                 Log.w(TAG, "Profile consent required (HTTP)");
                 mainHandler.post(() ->
@@ -102,7 +115,7 @@ public final class UserProfileConsentHelper {
             catch (Exception e) {
                 Log.e(TAG, "Profile consent check failed", e);
                 mainHandler.post(() ->
-                        callback.onFailure(e)
+                        callback.onFailure(email, e)
                 );
             }
         });
