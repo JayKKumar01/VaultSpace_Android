@@ -10,12 +10,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.auth.AccountPickerHelper;
-import com.github.jaykkumar01.vaultspace.core.auth.DriveConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleUserProfileFetcher;
-import com.github.jaykkumar01.vaultspace.core.auth.UserProfileConsentHelper;
+import com.github.jaykkumar01.vaultspace.core.auth.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.DashboardActivity;
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -24,11 +22,9 @@ public class LoginActivity extends AppCompatActivity {
     private UserSession userSession;
 
     private AccountPickerHelper accountPickerHelper;
-    private DriveConsentHelper driveConsentHelper;
-    private UserProfileConsentHelper profileConsentHelper;
+    private PrimaryAccountConsentHelper primaryConsentHelper;
 
     private String pendingEmail;
-
     private View loadingOverlay;
 
     /* ---------------- Lifecycle ---------------- */
@@ -49,51 +45,26 @@ public class LoginActivity extends AppCompatActivity {
 
     private void initHelpers() {
 
-        profileConsentHelper =
-                new UserProfileConsentHelper(
+        primaryConsentHelper =
+                new PrimaryAccountConsentHelper(
                         this,
-                        new UserProfileConsentHelper.Callback() {
+                        new PrimaryAccountConsentHelper.Callback() {
                             @Override
-                            public void onConsentGranted() {
+                            public void onAllConsentsGranted() {
                                 finalizeLogin();
                             }
 
                             @Override
                             public void onConsentDenied() {
                                 hideLoading();
-                                toast("Profile permission required to continue");
+                                toast("Required permissions not granted");
                             }
 
                             @Override
                             public void onFailure(Exception e) {
                                 hideLoading();
-                                Log.e(TAG, "Profile consent check failed", e);
-                                toast("Failed to verify profile permission");
-                            }
-                        }
-                );
-
-        driveConsentHelper =
-                new DriveConsentHelper(
-                        this,
-                        new DriveConsentHelper.Callback() {
-                            @Override
-                            public void onConsentGranted() {
-                                // 🔹 NEW LAYER
-                                profileConsentHelper.launch(pendingEmail);
-                            }
-
-                            @Override
-                            public void onConsentDenied() {
-                                hideLoading();
-                                toast("Drive permission required to continue");
-                            }
-
-                            @Override
-                            public void onFailure(Exception e) {
-                                hideLoading();
-                                Log.e(TAG, "Drive consent check failed", e);
-                                toast("Failed to verify Drive permission");
+                                Log.e(TAG, "Consent flow failed", e);
+                                toast("Failed to verify permissions");
                             }
                         }
                 );
@@ -105,13 +76,12 @@ public class LoginActivity extends AppCompatActivity {
                             Log.d(TAG, "Primary account selected: " + email);
 
                             pendingEmail = email;
-
                             showLoading();
-                            driveConsentHelper.launch(email);
+
+                            primaryConsentHelper.launch(email);
                         }
                 );
     }
-
 
     private void initUI() {
         findViewById(R.id.btnSelectPrimaryAccount)
@@ -122,7 +92,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void finalizeLogin() {
         if (pendingEmail == null) {
-            Log.w(TAG, "finalizeLogin() called with invalid state");
+            Log.w(TAG, "finalizeLogin() called with null email");
             hideLoading();
             return;
         }
