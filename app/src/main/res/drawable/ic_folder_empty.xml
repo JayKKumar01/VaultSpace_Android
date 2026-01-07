@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Back folder -->
+    <path
+        android:fillColor="@color/vs_text_content"
+        android:fillAlpha="0.35"
+        android:pathData="M3,6h6l2,2h10a2,2 0 0,1 2,2v8a2,2 0 0,1 -2,2H3a2,2 0 0,1 -2,-2V8a2,2 0 0,1 2,-2z"/>
+
+    <!-- Front folder -->
+    <path
+        android:fillColor="@color/vs_text_content"
+        android:fillAlpha="0.75"
+        android:pathData="M3,8h18a2,2 0 0,1 2,2v8a2,2 0 0,1 -2,2H3a2,2 0 0,1 -2,-2V10a2,2 0 0,1 2,-2z"/>
+
+    <!-- Inner divider line -->
+    <path
+        android:strokeColor="@color/vs_surface_soft"
+        android:strokeWidth="1.5"
+        android:pathData="M5,13h14"/>
+</vector>

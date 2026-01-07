@@ -1,8 +1,13 @@
 package com.github.jaykkumar01.vaultspace.dashboard;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -30,6 +35,20 @@ public class DashboardActivity extends AppCompatActivity {
     private PrimaryAccountConsentHelper primaryAccountConsentHelper;
     private ExpandVaultHelper expandVaultHelper;
     private ActivityLoadingOverlay loading;
+
+    /* ---------------- View Mode (Albums / Folders) ---------------- */
+
+    private TextView segmentAlbums;
+    private TextView segmentFolders;
+
+    private FrameLayout albumsContainer;
+    private FrameLayout foldersContainer;
+
+    private VaultViewMode currentViewMode = null;
+
+    private View albumsEmptyView;
+    private View foldersEmptyView;
+
 
     /* ---------------- Lifecycle ---------------- */
 
@@ -81,6 +100,8 @@ public class DashboardActivity extends AppCompatActivity {
 
         findViewById(R.id.btnLogout)
                 .setOnClickListener(v -> logout());
+
+        initSegmentUI();
     }
 
     private void initHelpers() {
@@ -88,11 +109,82 @@ public class DashboardActivity extends AppCompatActivity {
         expandVaultHelper = new ExpandVaultHelper(this, primaryEmail);
     }
 
+    /* ---------------- Segment UI ---------------- */
+
+    private void initSegmentUI() {
+        segmentAlbums = findViewById(R.id.segmentAlbums);
+        segmentFolders = findViewById(R.id.segmentFolders);
+
+        albumsContainer = findViewById(R.id.albumsContainer);
+        foldersContainer = findViewById(R.id.foldersContainer);
+
+        albumsEmptyView = getLayoutInflater()
+                .inflate(R.layout.view_empty_state, albumsContainer, false);
+
+        foldersEmptyView = getLayoutInflater()
+                .inflate(R.layout.view_empty_state, foldersContainer, false);
+
+        albumsContainer.addView(albumsEmptyView);
+        foldersContainer.addView(foldersEmptyView);
+
+        bindAlbumsEmptyState();
+        bindFoldersEmptyState();
+
+        segmentAlbums.setOnClickListener(v ->
+                applyViewMode(VaultViewMode.ALBUMS));
+
+        segmentFolders.setOnClickListener(v ->
+                applyViewMode(VaultViewMode.FOLDERS));
+
+        applyViewMode(VaultViewMode.ALBUMS);
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void bindAlbumsEmptyState() {
+        ((ImageView) albumsEmptyView.findViewById(R.id.ivEmptyIcon))
+                .setImageResource(R.drawable.ic_album_empty);
+
+        ((TextView) albumsEmptyView.findViewById(R.id.tvEmptyTitle))
+                .setText("No albums yet");
+
+        ((TextView) albumsEmptyView.findViewById(R.id.tvEmptySubtitle))
+                .setText("Albums help you organize memories your way.");
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void bindFoldersEmptyState() {
+        ((ImageView) foldersEmptyView.findViewById(R.id.ivEmptyIcon))
+                .setImageResource(R.drawable.ic_folder_empty);
+
+        ((TextView) foldersEmptyView.findViewById(R.id.tvEmptyTitle))
+                .setText("No folders found");
+
+        ((TextView) foldersEmptyView.findViewById(R.id.tvEmptySubtitle))
+                .setText("Folders reflect how your files are stored in Drive.");
+    }
+
+
+    private void applyViewMode(VaultViewMode mode) {
+        if (currentViewMode == mode) return;
+
+        currentViewMode = mode;
+
+        boolean isAlbums = (mode == VaultViewMode.ALBUMS);
+
+        segmentAlbums.setSelected(isAlbums);
+        segmentFolders.setSelected(!isAlbums);
+
+        albumsContainer.setVisibility(isAlbums ? View.VISIBLE : View.GONE);
+        foldersContainer.setVisibility(isAlbums ? View.GONE : View.VISIBLE);
+    }
+
     /* ---------------- Expand Vault ---------------- */
 
     private void onExpandVaultClicked() {
         expandVaultHelper.launch(new ExpandVaultHelper.Callback() {
-            @Override public void onStart() { loading.show(); }
+            @Override public void onStart() {
+                loading.show();
+            }
 
             @Override public void onTrustedAccountAdded() {
                 loading.hide();
@@ -104,9 +196,10 @@ public class DashboardActivity extends AppCompatActivity {
                 showToast(message);
             }
 
-            @Override public void onEnd() { loading.hide(); }
+            @Override public void onEnd() {
+                loading.hide();
+            }
         });
-
     }
 
     /* ---------------- Consent Flow ---------------- */

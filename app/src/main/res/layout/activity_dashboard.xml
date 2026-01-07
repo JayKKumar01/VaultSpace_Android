@@ -108,6 +108,100 @@
     </androidx.cardview.widget.CardView>
 
 
+    <!-- ================= Middle Content Card ================= -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/middleContentCard"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:cardBackgroundColor="@color/vs_surface_soft"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="6dp"
+        android:layout_marginHorizontal="9dp"
+        app:layout_constraintTop_toBottomOf="@id/dashboardHeaderCard"
+        app:layout_constraintBottom_toTopOf="@id/bottomActionBarCard"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="16dp">
+
+            <!-- ================= Segmented Control ================= -->
+
+            <LinearLayout
+                android:id="@+id/segmentControl"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_segment_container"
+                android:padding="4dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent">
+
+                <TextView
+                    android:id="@+id/segmentAlbums"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="16dp"
+                    android:gravity="center"
+                    android:text="Albums"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/segment_text_color"
+                    android:background="@drawable/bg_segment_item"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/segmentFolders"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="16dp"
+                    android:gravity="center"
+                    android:text="Folders"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/segment_text_color"
+                    android:background="@drawable/bg_segment_item"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
+
+            <!-- ================= Content Container ================= -->
+
+            <FrameLayout
+                android:id="@+id/contentContainer"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                app:layout_constraintTop_toBottomOf="@id/segmentControl"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <!-- Albums container (default visible) -->
+                <FrameLayout
+                    android:id="@+id/albumsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <!-- Folders container -->
+                <FrameLayout
+                    android:id="@+id/foldersContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
+
+            </FrameLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </androidx.cardview.widget.CardView>
+
+
+
 
 
 
