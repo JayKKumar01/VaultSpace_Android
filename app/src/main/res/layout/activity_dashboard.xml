@@ -155,30 +155,55 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 android:layout_marginEnd="12dp">
 
-            <TextView
-                    android:id="@+id/tvExpandVaultTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Expand Vault"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/vs_brand_text"
+                <!-- Plus Icon -->
+                <ImageView
+                    android:id="@+id/ivExpandVaultIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_add"
+                    android:contentDescription="Add account"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"/>
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
 
-                <TextView
-                    android:id="@+id/tvExpandVaultDesc"
-                    android:layout_width="wrap_content"
+                <!-- Text Container -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/expandVaultTextContainer"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Add a trusted account to get more space"
-                    android:textSize="11sp"
-                    android:textColor="@color/vs_text_content"
-                    android:alpha="0.75"
-                    android:layout_marginTop="2dp"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tvExpandVaultTitle"/>
+                    android:layout_marginStart="12dp"
+                    app:layout_constraintStart_toEndOf="@id/ivExpandVaultIcon"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <TextView
+                        android:id="@+id/tvExpandVaultTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Expand Vault"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/vs_brand_text"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"/>
+
+                    <TextView
+                        android:id="@+id/tvExpandVaultDesc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Add a trusted account to get more space"
+                        android:textSize="11sp"
+                        android:textColor="@color/vs_text_content"
+                        android:alpha="0.75"
+                        android:layout_marginTop="2dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/tvExpandVaultTitle"/>
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
 
             </androidx.constraintlayout.widget.ConstraintLayout>
+
 
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/btnLogout"
