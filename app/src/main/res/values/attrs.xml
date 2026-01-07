@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="StorageBarView">
+        <attr name="usageFraction" format="float" />
+        <attr name="usedText" format="string" />
+        <attr name="totalText" format="string" />
+        <attr name="unitText" format="string" />
+    </declare-styleable>
+</resources>
+
