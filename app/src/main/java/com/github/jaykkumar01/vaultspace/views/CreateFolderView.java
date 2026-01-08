@@ -1,7 +1,7 @@
 package com.github.jaykkumar01.vaultspace.views;
 
 import android.content.Context;
-import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -15,6 +15,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.R;
 import com.google.android.material.button.MaterialButton;
 
 public class CreateFolderView extends FrameLayout {
@@ -37,21 +38,24 @@ public class CreateFolderView extends FrameLayout {
     public CreateFolderView(@NonNull Context context) {
         super(context);
 
-        // Root overlay
         setLayoutParams(new LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
         setClickable(true);
-        setBackgroundColor(Color.TRANSPARENT);
+        setBackgroundColor(0x990D1117); // dimmed vs_console_bg
 
         /* ---------------- Card ---------------- */
 
         card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(24), dp(20), dp(24), dp(20));
-        card.setBackgroundColor(Color.WHITE);
-        card.setElevation(dp(8));
+        card.setPadding(dp(20), dp(18), dp(20), dp(18));
+        card.setElevation(dp(10));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(context.getColor(R.color.vs_surface_soft));
+        bg.setCornerRadius(dp(16));
+        card.setBackground(bg);
 
         LayoutParams cardParams = new LayoutParams(
                 dp(320),
@@ -64,12 +68,15 @@ public class CreateFolderView extends FrameLayout {
 
         titleView = new TextView(context);
         titleView.setTextSize(18);
-        titleView.setTextColor(Color.BLACK);
+        titleView.setTextColor(context.getColor(R.color.vs_text_header));
 
         /* ---------------- Input ---------------- */
 
         input = new EditText(context);
         input.setSingleLine(true);
+        input.setTextColor(context.getColor(R.color.vs_text_header));
+        input.setHintTextColor(context.getColor(R.color.vs_text_content));
+        input.setBackgroundTintList(context.getColorStateList(R.color.vs_toggle_off));
 
         /* ---------------- Actions ---------------- */
 
@@ -77,11 +84,19 @@ public class CreateFolderView extends FrameLayout {
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.END);
 
-        MaterialButton cancelBtn = new MaterialButton(context);
+        MaterialButton cancelBtn = new MaterialButton(
+                context, null,
+                com.google.android.material.R.attr.borderlessButtonStyle
+        );
         cancelBtn.setText("Cancel");
+        cancelBtn.setTextColor(context.getColor(R.color.vs_text_content));
 
         positiveBtn = new MaterialButton(context);
-        positiveBtn.setText("Create");
+        positiveBtn.setTextColor(context.getColor(R.color.black));
+        positiveBtn.setBackgroundTintList(
+                context.getColorStateList(R.color.vs_accent_primary)
+        );
+        positiveBtn.setRippleColorResource(R.color.vs_ripple_primary);
 
         actions.addView(cancelBtn);
         actions.addView(positiveBtn);
@@ -89,18 +104,25 @@ public class CreateFolderView extends FrameLayout {
         /* ---------------- Assemble ---------------- */
 
         card.addView(titleView);
+        card.addView(space());
         card.addView(input);
+        card.addView(space());
         card.addView(actions);
 
         addView(card);
 
-        // Block touch-through
+        /* ---------------- Interactions ---------------- */
+
         card.setOnClickListener(v -> {});
 
-        /* ---------------- Actions ---------------- */
+        setOnClickListener(v -> {
+            Log.d(TAG, debugOwner + " → outside dismiss");
+            if (callback != null) callback.onCancel();
+            hide();
+        });
 
         cancelBtn.setOnClickListener(v -> {
-            Log.d(TAG, debugOwner + " → Cancel");
+            Log.d(TAG, debugOwner + " → cancel");
             if (callback != null) callback.onCancel();
             hide();
         });
@@ -111,7 +133,7 @@ public class CreateFolderView extends FrameLayout {
                 input.setError("Required");
                 return;
             }
-            Log.d(TAG, debugOwner + " → Create: " + value);
+            Log.d(TAG, debugOwner + " → create: " + value);
             if (callback != null) callback.onCreate(value);
             hide();
         });
@@ -119,9 +141,7 @@ public class CreateFolderView extends FrameLayout {
         setVisibility(GONE);
     }
 
-    /* ------------------------------------------------
-     * Public API
-     * ------------------------------------------------ */
+    /* ---------------- Public API ---------------- */
 
     public void show(
             String title,
@@ -138,12 +158,12 @@ public class CreateFolderView extends FrameLayout {
         positiveBtn.setText(positiveText);
         input.setText("");
 
-        Log.d(TAG, debugOwner + " → show()");
+        Log.d(TAG, debugOwner + " → show");
 
         setVisibility(VISIBLE);
 
-        card.setScaleX(0.85f);
-        card.setScaleY(0.85f);
+        card.setScaleX(0.9f);
+        card.setScaleY(0.9f);
         card.setAlpha(0f);
 
         card.animate()
@@ -163,7 +183,7 @@ public class CreateFolderView extends FrameLayout {
 
         card.animate()
                 .scaleX(0.9f)
-                .scaleY(0.9f)
+                .scaleY(0f)
                 .alpha(0f)
                 .setDuration(120)
                 .withEndAction(() -> {
@@ -177,9 +197,7 @@ public class CreateFolderView extends FrameLayout {
         return getVisibility() == VISIBLE;
     }
 
-    /* ------------------------------------------------
-     * Keyboard
-     * ------------------------------------------------ */
+    /* ---------------- Keyboard ---------------- */
 
     private void showKeyboard() {
         post(() -> {
@@ -195,6 +213,15 @@ public class CreateFolderView extends FrameLayout {
                 (InputMethodManager) getContext()
                         .getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
+    }
+
+    /* ---------------- Utils ---------------- */
+
+    private View space() {
+        View v = new View(getContext());
+        v.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(12)));
+        return v;
     }
 
     private int dp(int v) {
