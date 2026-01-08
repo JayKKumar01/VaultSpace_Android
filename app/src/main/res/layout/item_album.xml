@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="6dp"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="3dp"
+    app:cardUseCompatPadding="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Square container -->
+        <FrameLayout
+            android:id="@+id/square_container"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@color/vs_surface_soft"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintDimensionRatio="1:1">
+
+            <!-- Album cover (FIT, not crop) -->
+            <ImageView
+                android:id="@+id/album_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:background="@color/vs_surface_soft"/>
+
+            <!-- Placeholder icon (visible when image has padding space) -->
+            <ImageView
+                android:id="@+id/album_placeholder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_album_placeholder"
+                android:scaleType="fitCenter"/>
+
+            <!-- Bottom scrim -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_gravity="bottom"
+                android:background="@drawable/bg_album_title_scrim"/>
+
+            <!-- Album name -->
+            <TextView
+                android:id="@+id/album_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="10dp"
+                android:text="Album name"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/vs_text_header"
+                android:singleLine="true"
+                android:ellipsize="end"/>
+
+
+        </FrameLayout>
+
+        <!-- Spacer to give parent height -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@id/square_container"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.cardview.widget.CardView>

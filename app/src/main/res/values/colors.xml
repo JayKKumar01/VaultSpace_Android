@@ -37,5 +37,22 @@
     <color name="vs_ripple_neutral">#33E6EDF3</color> <!-- neutral ripple (Logout) -->
 
 
+    <!-- ===== Media / Album Theme ===== -->
+
+    <!-- Sky / cover background -->
+    <color name="vs_media_sky">#1E2A38</color>
+
+    <!-- Distant elements (soft mountains / shapes) -->
+    <color name="vs_media_back">#3A4A5E</color>
+
+    <!-- Foreground elements (stronger contrast) -->
+    <color name="vs_media_front">#6B7C91</color>
+
+    <!-- Highlight / sun / focal element -->
+    <color name="vs_media_highlight">#9BFFD1</color>
+
+    <!-- Decorative border / frame -->
+    <color name="vs_media_frame">#2A3441</color>
+
 
 </resources>

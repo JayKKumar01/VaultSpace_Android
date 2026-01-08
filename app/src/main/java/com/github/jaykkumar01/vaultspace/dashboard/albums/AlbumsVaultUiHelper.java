@@ -12,7 +12,9 @@ import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.views.AlbumsContentView;
 import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,7 +30,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     private UiState state = UiState.UNINITIALIZED;
     private boolean released;
     private AlbumsContentView albumsContentView;
-
 
     public AlbumsVaultUiHelper(Context context, FrameLayout container) {
         super(context, container);
@@ -49,38 +50,21 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     @Override
     protected View createContentView(Context context) {
         albumsContentView = new AlbumsContentView(context);
+        albumsContentView.setOnAddAlbumClickListener(v -> onCreateAlbum());
+        albumsContentView.setOnAlbumClickListener(album -> {
+            // TEMP: future navigation hook
+            Log.d(TAG, "Album clicked: " + album.name);
+            Toast.makeText(context, "Clicked: " + album.name, Toast.LENGTH_SHORT).show();
+        });
         return albumsContentView;
     }
 
-    private List<AlbumInfo> createDummyAlbums() {
-        List<AlbumInfo> list = new java.util.ArrayList<>();
-        long now = System.currentTimeMillis();
-
-        int count = 5 + new java.util.Random().nextInt(6); // 5–10
-
-        for (int i = 1; i <= count; i++) {
-            list.add(new AlbumInfo(
-                    "temp_" + i,
-                    "Album " + i,
-                    now - (i * 100000),
-                    now
-            ));
-        }
-        return list;
-    }
-
-
-
     @Override
     public void show() {
-        if (released || state != UiState.UNINITIALIZED) {
-            Log.d(TAG, "show() ignored state=" + state + " released=" + released);
-            return;
-        }
+        if (released || state != UiState.UNINITIALIZED) return;
 
         state = UiState.LOADING;
         showLoading();
-        Log.d(TAG, "state=LOADING");
 
         drive.fetchAlbums(executor, new AlbumsDriveHelper.Callback() {
 
@@ -88,7 +72,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             public void onSuccess(List<AlbumInfo> albums) {
                 if (released) return;
                 state = UiState.CONTENT;
-                Log.d(TAG, "state=CONTENT size=" + albums.size());
+                albumsContentView.submitAlbums(albums);
                 showContent();
             }
 
@@ -96,7 +80,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             public void onEmpty() {
                 if (released) return;
                 state = UiState.EMPTY;
-                Log.d(TAG, "state=EMPTY");
                 showEmpty();
             }
 
@@ -104,7 +87,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             public void onError(Exception e) {
                 if (released) return;
                 state = UiState.ERROR;
-                Log.e(TAG, "fetch error", e);
                 showEmpty();
             }
         });
@@ -115,7 +97,9 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     private void onCreateAlbum() {
         if (released) return;
 
-        Log.d(TAG, "show create popup state=" + state);
+        if (albumsContentView != null) {
+            albumsContentView.setFabVisible(false);
+        }
 
         showCreatePopup(
                 "Create Album",
@@ -124,41 +108,58 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                 TAG,
                 new FolderActionView.Callback() {
                     @Override public void onCreate(String name) { createAlbum(name); }
-                    @Override public void onCancel() { hideFolderActionPopup(); }
+                    @Override public void onCancel() { restoreFab(); hideFolderActionPopup(); }
                 }
         );
     }
 
     private void createAlbum(String name) {
         hideFolderActionPopup();
-        Log.d(TAG, "createAlbum name=" + name);
+        restoreFab();
+
         Toast.makeText(context, "Album name: " + name, Toast.LENGTH_SHORT).show();
-        // Future: Drive call + reload
+
         if (albumsContentView != null) {
             albumsContentView.submitAlbums(createDummyAlbums());
             showContent();
         }
     }
 
+    private void restoreFab() {
+        if (albumsContentView != null) {
+            albumsContentView.setFabVisible(true);
+        }
+    }
 
-    /* ---------------- Back ---------------- */
+    private List<AlbumInfo> createDummyAlbums() {
+        List<AlbumInfo> list = new ArrayList<>();
+        long now = System.currentTimeMillis();
+        int count = 8 + new Random().nextInt(6);
+
+        for (int i = 1; i <= count; i++) {
+            list.add(new AlbumInfo(
+                    "temp_" + i,
+                    "Album " + i,
+                    now - (i * 100000L),
+                    now
+            ));
+        }
+        return list;
+    }
 
     @Override
     public boolean onBackPressed() {
         if (folderActionView != null && folderActionView.isVisible()) {
-            Log.d(TAG, "back → dismiss popup");
             hideFolderActionPopup();
+            restoreFab();
             return true;
         }
         return false;
     }
 
-    /* ---------------- Lifecycle ---------------- */
-
     @Override
     public void release() {
         released = true;
         executor.shutdownNow();
-        Log.d(TAG, "release");
     }
 }

@@ -1,11 +1,14 @@
 package com.github.jaykkumar01.vaultspace.models;
 
+import android.graphics.Bitmap;
+
 public final class AlbumInfo {
 
     public final String id;
     public final String name;
     public final long createdTime;
     public final long modifiedTime;
+    public Bitmap cover;
 
     public AlbumInfo(
             String id,
