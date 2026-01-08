@@ -2,12 +2,14 @@ package com.github.jaykkumar01.vaultspace.dashboard.albums;
 
 import android.content.Context;
 import android.util.Log;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
+import com.github.jaykkumar01.vaultspace.views.AlbumsContentView;
 import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 
 import java.util.List;
@@ -25,6 +27,8 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     private UiState state = UiState.UNINITIALIZED;
     private boolean released;
+    private AlbumsContentView albumsContentView;
+
 
     public AlbumsVaultUiHelper(Context context, FrameLayout container) {
         super(context, container);
@@ -41,6 +45,31 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
         Log.d(TAG, "init");
     }
+
+    @Override
+    protected View createContentView(Context context) {
+        albumsContentView = new AlbumsContentView(context);
+        return albumsContentView;
+    }
+
+    private List<AlbumInfo> createDummyAlbums() {
+        List<AlbumInfo> list = new java.util.ArrayList<>();
+        long now = System.currentTimeMillis();
+
+        int count = 5 + new java.util.Random().nextInt(6); // 5–10
+
+        for (int i = 1; i <= count; i++) {
+            list.add(new AlbumInfo(
+                    "temp_" + i,
+                    "Album " + i,
+                    now - (i * 100000),
+                    now
+            ));
+        }
+        return list;
+    }
+
+
 
     @Override
     public void show() {
@@ -105,7 +134,12 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         Log.d(TAG, "createAlbum name=" + name);
         Toast.makeText(context, "Album name: " + name, Toast.LENGTH_SHORT).show();
         // Future: Drive call + reload
+        if (albumsContentView != null) {
+            albumsContentView.submitAlbums(createDummyAlbums());
+            showContent();
+        }
     }
+
 
     /* ---------------- Back ---------------- */
 

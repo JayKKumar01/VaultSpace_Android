@@ -2,13 +2,11 @@ package com.github.jaykkumar01.vaultspace.dashboard;
 
 import android.app.Activity;
 import android.content.Context;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
+import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 
 /* ---------------- Contract ---------------- */
@@ -38,13 +36,14 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
         initBaseUi();
     }
 
+    /* ---------------- Init ---------------- */
+
     private void initBaseUi() {
         container.removeAllViews();
 
         loadingView = new LoadingStateView(context);
         emptyView = new EmptyStateView(context);
-        contentView = LayoutInflater.from(context)
-                .inflate(R.layout.view_mock_content, container, false);
+        contentView = createContentView(context);
 
         container.addView(loadingView);
         container.addView(emptyView);
@@ -52,6 +51,11 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
 
         showLoading();
     }
+
+    /**
+     * Section-specific content view (Albums / Files)
+     */
+    protected abstract View createContentView(Context context);
 
     /* ---------------- States ---------------- */
 

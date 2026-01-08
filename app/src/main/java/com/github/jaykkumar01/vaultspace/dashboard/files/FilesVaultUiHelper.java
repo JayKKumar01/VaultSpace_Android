@@ -2,10 +2,12 @@ package com.github.jaykkumar01.vaultspace.dashboard.files;
 
 import android.content.Context;
 import android.util.Log;
+import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
+import com.github.jaykkumar01.vaultspace.views.FilesContentView;
 import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 
 public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
@@ -29,6 +31,12 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
             Log.d(TAG, "EmptyView → Create Folder clicked");
             showCreateFolderPopup();
         });
+
+    }
+
+    @Override
+    protected View createContentView(Context context) {
+        return new FilesContentView(context);
     }
 
     @Override
@@ -78,5 +86,10 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public void release() {
+        Log.d(TAG, "release");
     }
 }
