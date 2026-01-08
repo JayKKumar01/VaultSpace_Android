@@ -9,30 +9,57 @@ import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 
 /**
  * Handles profile header binding logic for Dashboard.
- * Keeps DashboardActivity clean and focused.
  */
 public class DashboardProfileInfoHelper {
 
+    public interface ProfileNameCallback {
+        void onProfileNameAvailable(String profileName);
+    }
+
     private final Context context;
     private final ProfileInfoView profileInfoView;
+    private final String primaryEmail;
 
     public DashboardProfileInfoHelper(
             Context context,
-            ProfileInfoView profileInfoView
+            ProfileInfoView profileInfoView,
+            String primaryEmail
     ) {
         this.context = context.getApplicationContext();
         this.profileInfoView = profileInfoView;
+        this.primaryEmail = primaryEmail;
     }
 
     /**
-     * Bind profile info to ProfileInfoView.
-     *
-     * @param primaryEmail Primary Google account email (non-null)
-     * @param profileName  Cached profile name (nullable)
+     * Bind profile using already-known name.
      */
-    public void bindProfile(String primaryEmail, String profileName) {
+    public void bindProfile(String profileName) {
+        bindInternal(profileName);
+    }
 
-        // ---- Resolve display name & email ----
+    /**
+     * Fetch latest profile name, bind UI,
+     * and notify Dashboard via callback.
+     */
+    public void bindProfileLatest(ProfileNameCallback callback) {
+
+        GoogleUserProfileFetcher.fetch(
+                context,
+                primaryEmail,
+                fetchedName -> {
+                    bindInternal(fetchedName);
+
+                    if (callback != null && !TextUtils.isEmpty(fetchedName)) {
+                        callback.onProfileNameAvailable(fetchedName);
+                    }
+                }
+        );
+    }
+
+    /* ---------------- Internal ---------------- */
+
+    private void bindInternal(String profileName) {
+
         String displayName;
         String displayEmail;
 
@@ -44,11 +71,9 @@ public class DashboardProfileInfoHelper {
             displayEmail = "";
         }
 
-        // ---- Load cached profile photo ----
         Bitmap profileBitmap =
                 GoogleUserProfileFetcher.loadSavedProfilePhoto(context);
 
-        // ---- Bind to custom view ----
         profileInfoView.setProfile(
                 profileBitmap,
                 displayName,
