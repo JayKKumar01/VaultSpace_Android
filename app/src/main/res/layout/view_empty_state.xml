@@ -6,13 +6,13 @@
     android:layout_height="match_parent">
 
     <!-- Centered content group -->
+
     <LinearLayout
         android:id="@+id/emptyContentGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        app:layout_constraintVertical_bias=".4"
         android:padding="24dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -42,6 +42,48 @@
             android:textSize="13sp"
             android:textColor="@color/vs_text_content"
             android:alpha="0.8" />
+
+        <!-- CTA container -->
+        <LinearLayout
+            android:id="@+id/ctaContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="20dp">
+
+            <!-- Primary CTA -->
+            <Button
+                android:id="@+id/btnPrimaryAction"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="160dp"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:backgroundTint="@color/vs_accent_primary"
+                android:textColor="@color/vs_console_bg" />
+
+            <!-- Secondary CTA (Files only) -->
+            <Button
+                android:id="@+id/btnSecondaryAction"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="160dp"
+                android:layout_marginTop="10dp"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:backgroundTint="@android:color/transparent"
+                android:textColor="@color/vs_text_content"
+                android:visibility="gone" />
+
+
+
+
+
+
+        </LinearLayout>
 
     </LinearLayout>
 

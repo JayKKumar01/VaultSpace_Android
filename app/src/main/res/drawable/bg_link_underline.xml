@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Transparent base -->
+    <item>
+        <shape>
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+
+    <!-- Underline closer to text baseline -->
+    <item
+        android:bottom="6dp">
+        <shape>
+            <size android:height="1dp" />
+            <solid android:color="@color/vs_text_content" />
+        </shape>
+    </item>
+
+</layer-list>

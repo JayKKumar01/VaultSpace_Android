@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -21,6 +22,7 @@ import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 
+@SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Dashboard";
@@ -142,29 +144,53 @@ public class DashboardActivity extends AppCompatActivity {
         applyViewMode(VaultViewMode.ALBUMS);
     }
 
-    @SuppressLint("SetTextI18n")
     private void bindAlbumsEmptyState() {
-        ((ImageView) albumsEmptyView.findViewById(R.id.ivEmptyIcon))
-                .setImageResource(R.drawable.ic_album_empty);
 
-        ((TextView) albumsEmptyView.findViewById(R.id.tvEmptyTitle))
-                .setText("No albums yet");
+        ImageView icon = albumsEmptyView.findViewById(R.id.ivEmptyIcon);
+        TextView title = albumsEmptyView.findViewById(R.id.tvEmptyTitle);
+        TextView subtitle = albumsEmptyView.findViewById(R.id.tvEmptySubtitle);
+        Button primaryBtn = albumsEmptyView.findViewById(R.id.btnPrimaryAction);
+        Button secondaryBtn = albumsEmptyView.findViewById(R.id.btnSecondaryAction);
 
-        ((TextView) albumsEmptyView.findViewById(R.id.tvEmptySubtitle))
-                .setText("Albums help you organize memories your way.");
+        icon.setImageResource(R.drawable.ic_album_empty);
+        title.setText("No albums yet");
+        subtitle.setText("Albums help you organize memories your way.");
+
+        // Primary CTA
+        primaryBtn.setText("Create Album");
+        primaryBtn.setOnClickListener(v -> {
+            // TODO: launch create-album flow
+            Toast.makeText(this, "Create Album clicked", Toast.LENGTH_SHORT).show();
+        });
     }
-
-    @SuppressLint("SetTextI18n")
     private void bindFilesEmptyState() {
-        ((ImageView) filesEmptyView.findViewById(R.id.ivEmptyIcon))
-                .setImageResource(R.drawable.ic_files_empty);
 
-        ((TextView) filesEmptyView.findViewById(R.id.tvEmptyTitle))
-                .setText("No files found");
+        ImageView icon = filesEmptyView.findViewById(R.id.ivEmptyIcon);
+        TextView title = filesEmptyView.findViewById(R.id.tvEmptyTitle);
+        TextView subtitle = filesEmptyView.findViewById(R.id.tvEmptySubtitle);
+        Button primaryBtn = filesEmptyView.findViewById(R.id.btnPrimaryAction);
+        Button secondaryBtn = filesEmptyView.findViewById(R.id.btnSecondaryAction);
 
-        ((TextView) filesEmptyView.findViewById(R.id.tvEmptySubtitle))
-                .setText("Files reflect how your files are stored in Drive.");
+        icon.setImageResource(R.drawable.ic_files_empty);
+        title.setText("No files found");
+        subtitle.setText("Files reflect how your data is stored in Drive.");
+
+        // Primary CTA → Upload
+        primaryBtn.setText("Upload Files");
+        primaryBtn.setOnClickListener(v -> {
+            // TODO: launch file picker
+            Toast.makeText(this, "Upload Files clicked", Toast.LENGTH_SHORT).show();
+        });
+
+        // Secondary CTA → Create Folder
+        secondaryBtn.setVisibility(View.VISIBLE);
+        secondaryBtn.setText("Create Folder");
+        secondaryBtn.setOnClickListener(v -> {
+            // TODO: launch create-folder flow
+            Toast.makeText(this, "Create Folder clicked", Toast.LENGTH_SHORT).show();
+        });
     }
+
 
 
     private void applyViewMode(VaultViewMode mode) {
