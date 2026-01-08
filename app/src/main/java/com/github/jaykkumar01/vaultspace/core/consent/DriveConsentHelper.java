@@ -9,14 +9,15 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.DriveScopes;
 
-import java.util.Collections;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class DriveConsentHelper {
 
@@ -30,6 +31,8 @@ public class DriveConsentHelper {
 
     private final AppCompatActivity activity;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
     private final ActivityResultLauncher<Intent> consentLauncher;
 
     private Callback callback;
@@ -67,14 +70,10 @@ public class DriveConsentHelper {
 
         Log.d(TAG, "Checking Drive consent for " + email);
 
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 GoogleAccountCredential credential =
-                        GoogleAccountCredential.usingOAuth2(
-                                activity.getApplicationContext(),
-                                Collections.singleton(DriveScopes.DRIVE_FILE)
-                        );
-                credential.setSelectedAccountName(email);
+                        GoogleCredentialFactory.forDrive(activity, email);
 
                 Drive drive =
                         new Drive.Builder(
@@ -104,6 +103,6 @@ public class DriveConsentHelper {
                         callback.onFailure(email, e)
                 );
             }
-        }).start();
+        });
     }
 }

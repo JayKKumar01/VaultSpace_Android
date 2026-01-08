@@ -5,10 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.animation.AnimationUtils;
-import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,8 +17,6 @@ import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelpe
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.login.LoginActivity;
 import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
-import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
-import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 
@@ -49,15 +44,6 @@ public class DashboardActivity extends AppCompatActivity {
     private FrameLayout albumsContainer;
     private FrameLayout filesContainer;
 
-    /* ---------------- Container Views ---------------- */
-    private LoadingStateView albumsLoadingView;
-    private LoadingStateView filesLoadingView;
-
-    private EmptyStateView albumsEmptyView;
-    private EmptyStateView filesEmptyView;
-    private View albumsContentView;
-    private View filesContentView;
-
     /* ---------------- Helpers ---------------- */
 
     private DashboardProfileInfoHelper profileInfoHelper;
@@ -65,14 +51,18 @@ public class DashboardActivity extends AppCompatActivity {
     private PrimaryAccountConsentHelper primaryAccountConsentHelper;
     private ExpandVaultHelper expandVaultHelper;
 
+    /* ---------------- Vault Section UI ---------------- */
+
+    private VaultSectionUi albumsUi;
+    private VaultSectionUi filesUi;
+
     /* ---------------- State ---------------- */
 
-    private VaultViewMode currentViewMode = null;
+    private VaultViewMode currentViewMode;
 
-    enum ContainerState {
-        LOADING,
-        EMPTY,
-        CONTENT
+    public enum VaultViewMode {
+        ALBUMS,
+        FILES
     }
 
     /* ---------------- Lifecycle ---------------- */
@@ -90,11 +80,13 @@ public class DashboardActivity extends AppCompatActivity {
         initSession();
         initViews();
         initHelpers();
+        initVaultSections();
         initClickListeners();
-        initSegments();
 
         boolean fromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
         handleConsent(fromLogin);
+
+        applyViewMode(VaultViewMode.ALBUMS);
     }
 
     /* ---------------- Init: Session ---------------- */
@@ -105,12 +97,13 @@ public class DashboardActivity extends AppCompatActivity {
         primaryEmail = userSession.getPrimaryAccountEmail();
         profileName = userSession.getProfileName();
 
-        Log.d(TAG, "Primary email = " + primaryEmail);
-        Log.d(TAG, "Profile name = " + profileName);
-
         if (primaryEmail == null) {
             forceLogout("Session expired. Please login again.");
+            return;
         }
+
+        Log.d(TAG, "Primary email = " + primaryEmail);
+        Log.d(TAG, "Profile name = " + profileName);
     }
 
     /* ---------------- Init: Views ---------------- */
@@ -135,105 +128,21 @@ public class DashboardActivity extends AppCompatActivity {
         expandVaultHelper = new ExpandVaultHelper(this, primaryEmail);
     }
 
+    /* ---------------- Init: Vault Sections ---------------- */
+
+    private void initVaultSections() {
+        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer);
+        filesUi = new FilesVaultUiHelper(this, filesContainer);
+    }
+
     /* ---------------- Init: Click Listeners ---------------- */
 
     private void initClickListeners() {
-        findViewById(R.id.btnExpandVault)
-                .setOnClickListener(v -> onExpandVaultClicked());
+        segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
+        segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
 
-        findViewById(R.id.btnLogout)
-                .setOnClickListener(v -> logout());
-
-        segmentAlbums.setOnClickListener(v ->
-                applyViewMode(VaultViewMode.ALBUMS));
-
-        segmentFiles.setOnClickListener(v ->
-                applyViewMode(VaultViewMode.FILES));
-    }
-
-    /* ---------------- Init: Segments & Containers ---------------- */
-
-    private void initSegments() {
-        initContainerViews();
-        initEmptyStates();
-        initLoadingTexts();
-
-        setAlbumsState(ContainerState.LOADING);
-        setFilesState(ContainerState.LOADING);
-
-        applyViewMode(VaultViewMode.ALBUMS);
-    }
-
-    private void initContainerViews() {
-
-        // Albums
-        albumsLoadingView = new LoadingStateView(this);
-        albumsContainer.addView(albumsLoadingView);
-
-        albumsEmptyView = new EmptyStateView(this);
-        albumsContainer.addView(albumsEmptyView);
-
-        filesEmptyView = new EmptyStateView(this);
-        filesContainer.addView(filesEmptyView);
-
-        albumsContentView = inflate(R.layout.view_mock_content, albumsContainer);
-
-        // Files
-        filesLoadingView = new LoadingStateView(this);
-        filesContainer.addView(filesLoadingView);
-
-        filesContentView = inflate(R.layout.view_mock_content, filesContainer);
-    }
-
-    private void initEmptyStates() {
-        configureAlbumsEmptyState();
-        configureFilesEmptyState();
-    }
-
-    private void configureAlbumsEmptyState() {
-        albumsEmptyView.setIcon(R.drawable.ic_album_empty);
-        albumsEmptyView.setTitle("No albums yet");
-        albumsEmptyView.setSubtitle("Albums help you organize memories your way.");
-
-        albumsEmptyView.setPrimaryAction("Create Album", v ->
-                Toast.makeText(this, "Create Album clicked", Toast.LENGTH_SHORT).show()
-        );
-
-        albumsEmptyView.hideSecondaryAction();
-    }
-
-    private void configureFilesEmptyState() {
-        filesEmptyView.setIcon(R.drawable.ic_files_empty);
-        filesEmptyView.setTitle("No files found");
-        filesEmptyView.setSubtitle("Files reflect how your data is stored in Drive.");
-
-        filesEmptyView.setPrimaryAction("Upload Files", v ->
-                Toast.makeText(this, "Upload Files clicked", Toast.LENGTH_SHORT).show()
-        );
-
-        filesEmptyView.setSecondaryAction("Create Folder", v ->
-                Toast.makeText(this, "Create Folder clicked", Toast.LENGTH_SHORT).show()
-        );
-    }
-
-
-    private void initLoadingTexts() {
-        setLoadingText(albumsLoadingView, "Loading albums…");
-        setLoadingText(filesLoadingView, "Loading files…");
-    }
-
-    private void setLoadingText(LoadingStateView view, String text) {
-        if (view != null) {
-            view.setText(text);
-        }
-    }
-
-
-
-    private View inflate(int layout, FrameLayout parent) {
-        View view = getLayoutInflater().inflate(layout, parent, false);
-        parent.addView(view);
-        return view;
+        findViewById(R.id.btnExpandVault).setOnClickListener(v -> onExpandVaultClicked());
+        findViewById(R.id.btnLogout).setOnClickListener(v -> logout());
     }
 
     /* ---------------- View Mode ---------------- */
@@ -242,53 +151,19 @@ public class DashboardActivity extends AppCompatActivity {
         if (currentViewMode == mode) return;
 
         currentViewMode = mode;
-        boolean isAlbums = mode == VaultViewMode.ALBUMS;
+        boolean showAlbums = mode == VaultViewMode.ALBUMS;
 
-        segmentAlbums.setSelected(isAlbums);
-        segmentFiles.setSelected(!isAlbums);
+        segmentAlbums.setSelected(showAlbums);
+        segmentFiles.setSelected(!showAlbums);
 
-        albumsContainer.setVisibility(isAlbums ? View.VISIBLE : View.GONE);
-        filesContainer.setVisibility(isAlbums ? View.GONE : View.VISIBLE);
+        albumsContainer.setVisibility(showAlbums ? View.VISIBLE : View.GONE);
+        filesContainer.setVisibility(showAlbums ? View.GONE : View.VISIBLE);
 
-        if (isAlbums) {
-            loadAlbumsMock();
+        if (showAlbums) {
+            albumsUi.show();
         } else {
-            loadFilesMock();
+            filesUi.show();
         }
-    }
-
-    /* ---------------- Container State ---------------- */
-
-    private void setAlbumsState(ContainerState state) {
-        albumsLoadingView.setVisibility(state == ContainerState.LOADING ? View.VISIBLE : View.GONE);
-        albumsEmptyView.setVisibility(state == ContainerState.EMPTY ? View.VISIBLE : View.GONE);
-        albumsContentView.setVisibility(state == ContainerState.CONTENT ? View.VISIBLE : View.GONE);
-    }
-
-    private void setFilesState(ContainerState state) {
-        filesLoadingView.setVisibility(state == ContainerState.LOADING ? View.VISIBLE : View.GONE);
-        filesEmptyView.setVisibility(state == ContainerState.EMPTY ? View.VISIBLE : View.GONE);
-        filesContentView.setVisibility(state == ContainerState.CONTENT ? View.VISIBLE : View.GONE);
-    }
-
-    /* ---------------- Mock Loaders ---------------- */
-
-    private void loadAlbumsMock() {
-        setAlbumsState(ContainerState.LOADING);
-
-        albumsContainer.postDelayed(() -> {
-            boolean hasAlbums = false;
-            setAlbumsState(hasAlbums ? ContainerState.CONTENT : ContainerState.EMPTY);
-        }, 12000);
-    }
-
-    private void loadFilesMock() {
-        setFilesState(ContainerState.LOADING);
-
-        filesContainer.postDelayed(() -> {
-            boolean hasFiles = false;
-            setFilesState(hasFiles ? ContainerState.CONTENT : ContainerState.EMPTY);
-        }, 1200);
     }
 
     /* ---------------- Expand Vault ---------------- */
@@ -296,14 +171,19 @@ public class DashboardActivity extends AppCompatActivity {
     private void onExpandVaultClicked() {
         expandVaultHelper.launch(new ExpandVaultHelper.Callback() {
             @Override public void onStart() { loading.show(); }
-            @Override public void onTrustedAccountAdded() {
+
+            @Override
+            public void onTrustedAccountAdded() {
                 loading.hide();
                 storageBarHelper.loadAndBindStorage();
             }
-            @Override public void onError(String message) {
+
+            @Override
+            public void onError(String message) {
                 loading.hide();
                 showToast(message);
             }
+
             @Override public void onEnd() { loading.hide(); }
         });
     }
@@ -312,6 +192,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void handleConsent(boolean fromLogin) {
         profileInfoHelper.bindProfile(profileName);
+
         if (fromLogin) {
             storageBarHelper.loadAndBindStorage();
             return;
@@ -320,11 +201,10 @@ public class DashboardActivity extends AppCompatActivity {
         primaryAccountConsentHelper.checkConsentsSilently(primaryEmail, result -> {
             switch (result) {
                 case GRANTED:
-                    profileInfoHelper.bindProfileLatest(updatedName -> {
-                        profileName = updatedName;
-                    });
+                    profileInfoHelper.bindProfileLatest(updatedName -> profileName = updatedName);
                     storageBarHelper.loadAndBindStorage();
                     break;
+
                 case RECOVERABLE:
                 case FAILED:
                     forceLogout("Permissions were revoked. Please login again.");

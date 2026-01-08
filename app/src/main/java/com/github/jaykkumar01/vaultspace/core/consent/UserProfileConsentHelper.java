@@ -9,25 +9,20 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
 
-import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * Ensures Google user profile consent (userinfo.profile).
- *
- * Scope:
- * https://www.googleapis.com/auth/userinfo.profile
  */
 public final class UserProfileConsentHelper {
 
     private static final String TAG = "VaultSpace:ProfileConsent";
-    private static final String PROFILE_SCOPE =
-            "https://www.googleapis.com/auth/userinfo.profile";
 
     public interface Callback {
         void onConsentGranted(String email);
@@ -37,8 +32,7 @@ public final class UserProfileConsentHelper {
 
     private final AppCompatActivity activity;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ExecutorService executor =
-            Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private final ActivityResultLauncher<Intent> consentLauncher;
 
@@ -50,12 +44,10 @@ public final class UserProfileConsentHelper {
     public UserProfileConsentHelper(AppCompatActivity activity) {
         this.activity = activity;
 
-        // ✅ Registered EARLY and ONCE (lifecycle-safe)
         this.consentLauncher =
                 activity.registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
                         result -> {
-
                             if (callback == null || pendingEmail == null) return;
 
                             if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
@@ -74,7 +66,6 @@ public final class UserProfileConsentHelper {
     /* ---------------- Public API ---------------- */
 
     public void launch(String email, Callback callback) {
-
         this.pendingEmail = email;
         this.callback = callback;
 
@@ -83,11 +74,7 @@ public final class UserProfileConsentHelper {
         executor.execute(() -> {
             try {
                 GoogleAccountCredential credential =
-                        GoogleAccountCredential.usingOAuth2(
-                                activity.getApplicationContext(),
-                                Collections.singleton(PROFILE_SCOPE)
-                        );
-                credential.setSelectedAccountName(email);
+                        GoogleCredentialFactory.forProfile(activity, email);
 
                 // 🔑 Consent probe
                 credential.getToken();
@@ -105,7 +92,7 @@ public final class UserProfileConsentHelper {
                         consentLauncher.launch(e.getIntent())
                 );
             }
-            // 🔁 HTTP / Drive-style flow
+            // 🔁 HTTP-style flow
             catch (UserRecoverableAuthIOException e) {
                 Log.w(TAG, "Profile consent required (HTTP)");
                 mainHandler.post(() ->

@@ -15,6 +15,9 @@ public class UserSession {
     private final SharedPreferences prefs;
     private final Context appContext;
 
+    // Session-scoped cache holder
+    private VaultSessionCache vaultCache;
+
     public UserSession(Context context) {
         this.appContext = context.getApplicationContext();
         this.prefs = appContext.getSharedPreferences(
@@ -26,9 +29,7 @@ public class UserSession {
     /* ---------------- Primary Account ---------------- */
 
     public void savePrimaryAccountEmail(String email) {
-        prefs.edit()
-                .putString(KEY_PRIMARY_EMAIL, email)
-                .apply();
+        prefs.edit().putString(KEY_PRIMARY_EMAIL, email).apply();
     }
 
     public String getPrimaryAccountEmail() {
@@ -38,13 +39,20 @@ public class UserSession {
     /* ---------------- Profile Info ---------------- */
 
     public void saveProfileName(String name) {
-        prefs.edit()
-                .putString(KEY_PROFILE_NAME, name)
-                .apply();
+        prefs.edit().putString(KEY_PROFILE_NAME, name).apply();
     }
 
     public String getProfileName() {
         return prefs.getString(KEY_PROFILE_NAME, null);
+    }
+
+    /* ---------------- Vault Cache ---------------- */
+
+    public VaultSessionCache getVaultCache() {
+        if (vaultCache == null) {
+            vaultCache = new VaultSessionCache();
+        }
+        return vaultCache;
     }
 
     /* ---------------- Session ---------------- */
@@ -53,15 +61,14 @@ public class UserSession {
         return getPrimaryAccountEmail() != null;
     }
 
-    /**
-     * Clears logical session state and delegates
-     * physical cleanup to owning components.
-     */
     public void clearSession() {
-        // Clear session data
         prefs.edit().clear().apply();
 
-        // Delegate profile photo cleanup
+        if (vaultCache != null) {
+            vaultCache.clear();
+            vaultCache = null;
+        }
+
         GoogleUserProfileFetcher.clearSavedProfilePhoto(appContext);
     }
 }

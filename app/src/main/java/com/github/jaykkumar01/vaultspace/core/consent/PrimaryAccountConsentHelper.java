@@ -9,6 +9,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
@@ -155,15 +156,7 @@ public final class PrimaryAccountConsentHelper {
 
     private ConsentResult checkConsentsInternal(String email) {
         try {
-            GoogleAccountCredential credential =
-                    GoogleAccountCredential.usingOAuth2(
-                            activity.getApplicationContext(),
-                            Arrays.asList(
-                                    "https://www.googleapis.com/auth/drive.file",
-                                    "https://www.googleapis.com/auth/userinfo.profile"
-                            )
-                    );
-            credential.setSelectedAccountName(email);
+            GoogleAccountCredential credential = GoogleCredentialFactory.forPrimaryAccount(activity, email);
 
             // Drive probe
             Drive drive =

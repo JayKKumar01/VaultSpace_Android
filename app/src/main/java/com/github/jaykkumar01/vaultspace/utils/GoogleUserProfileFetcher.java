@@ -12,6 +12,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
@@ -60,14 +61,7 @@ public final class GoogleUserProfileFetcher {
             String profileName = null;
 
             try {
-                GoogleAccountCredential credential =
-                        GoogleAccountCredential.usingOAuth2(
-                                context.getApplicationContext(),
-                                Collections.singleton(
-                                        "https://www.googleapis.com/auth/userinfo.profile"
-                                )
-                        );
-                credential.setSelectedAccountName(email);
+                GoogleAccountCredential credential = GoogleCredentialFactory.forProfile(context.getApplicationContext(),email);
 
                 // 🔍 Measure token fetch time
                 long tokenStart = SystemClock.elapsedRealtime();
