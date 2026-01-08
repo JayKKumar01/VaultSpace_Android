@@ -20,6 +20,7 @@ import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelpe
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.login.LoginActivity;
 import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
+import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
@@ -51,9 +52,10 @@ public class DashboardActivity extends AppCompatActivity {
     /* ---------------- Container Views ---------------- */
     private LoadingStateView albumsLoadingView;
     private LoadingStateView filesLoadingView;
-    private View albumsEmptyView;
+
+    private EmptyStateView albumsEmptyView;
+    private EmptyStateView filesEmptyView;
     private View albumsContentView;
-    private View filesEmptyView;
     private View filesContentView;
 
     /* ---------------- Helpers ---------------- */
@@ -168,23 +170,52 @@ public class DashboardActivity extends AppCompatActivity {
         albumsLoadingView = new LoadingStateView(this);
         albumsContainer.addView(albumsLoadingView);
 
-        albumsEmptyView = inflate(R.layout.view_empty_state, albumsContainer);
+        albumsEmptyView = new EmptyStateView(this);
+        albumsContainer.addView(albumsEmptyView);
+
+        filesEmptyView = new EmptyStateView(this);
+        filesContainer.addView(filesEmptyView);
+
         albumsContentView = inflate(R.layout.view_mock_content, albumsContainer);
 
         // Files
         filesLoadingView = new LoadingStateView(this);
         filesContainer.addView(filesLoadingView);
 
-        filesEmptyView = inflate(R.layout.view_empty_state, filesContainer);
         filesContentView = inflate(R.layout.view_mock_content, filesContainer);
     }
 
-
-
     private void initEmptyStates() {
-        bindAlbumsEmptyState();
-        bindFilesEmptyState();
+        configureAlbumsEmptyState();
+        configureFilesEmptyState();
     }
+
+    private void configureAlbumsEmptyState() {
+        albumsEmptyView.setIcon(R.drawable.ic_album_empty);
+        albumsEmptyView.setTitle("No albums yet");
+        albumsEmptyView.setSubtitle("Albums help you organize memories your way.");
+
+        albumsEmptyView.setPrimaryAction("Create Album", v ->
+                Toast.makeText(this, "Create Album clicked", Toast.LENGTH_SHORT).show()
+        );
+
+        albumsEmptyView.hideSecondaryAction();
+    }
+
+    private void configureFilesEmptyState() {
+        filesEmptyView.setIcon(R.drawable.ic_files_empty);
+        filesEmptyView.setTitle("No files found");
+        filesEmptyView.setSubtitle("Files reflect how your data is stored in Drive.");
+
+        filesEmptyView.setPrimaryAction("Upload Files", v ->
+                Toast.makeText(this, "Upload Files clicked", Toast.LENGTH_SHORT).show()
+        );
+
+        filesEmptyView.setSecondaryAction("Create Folder", v ->
+                Toast.makeText(this, "Create Folder clicked", Toast.LENGTH_SHORT).show()
+        );
+    }
+
 
     private void initLoadingTexts() {
         setLoadingText(albumsLoadingView, "Loading albums…");
@@ -258,44 +289,6 @@ public class DashboardActivity extends AppCompatActivity {
             boolean hasFiles = false;
             setFilesState(hasFiles ? ContainerState.CONTENT : ContainerState.EMPTY);
         }, 1200);
-    }
-
-    /* ---------------- Empty States ---------------- */
-
-    private void bindAlbumsEmptyState() {
-        ImageView icon = albumsEmptyView.findViewById(R.id.ivEmptyIcon);
-        TextView title = albumsEmptyView.findViewById(R.id.tvEmptyTitle);
-        TextView subtitle = albumsEmptyView.findViewById(R.id.tvEmptySubtitle);
-        Button primaryBtn = albumsEmptyView.findViewById(R.id.btnPrimaryAction);
-
-        icon.setImageResource(R.drawable.ic_album_empty);
-        title.setText("No albums yet");
-        subtitle.setText("Albums help you organize memories your way.");
-
-        primaryBtn.setText("Create Album");
-        primaryBtn.setOnClickListener(v ->
-                Toast.makeText(this, "Create Album clicked", Toast.LENGTH_SHORT).show());
-    }
-
-    private void bindFilesEmptyState() {
-        ImageView icon = filesEmptyView.findViewById(R.id.ivEmptyIcon);
-        TextView title = filesEmptyView.findViewById(R.id.tvEmptyTitle);
-        TextView subtitle = filesEmptyView.findViewById(R.id.tvEmptySubtitle);
-        Button primaryBtn = filesEmptyView.findViewById(R.id.btnPrimaryAction);
-        Button secondaryBtn = filesEmptyView.findViewById(R.id.btnSecondaryAction);
-
-        icon.setImageResource(R.drawable.ic_files_empty);
-        title.setText("No files found");
-        subtitle.setText("Files reflect how your data is stored in Drive.");
-
-        primaryBtn.setText("Upload Files");
-        primaryBtn.setOnClickListener(v ->
-                Toast.makeText(this, "Upload Files clicked", Toast.LENGTH_SHORT).show());
-
-        secondaryBtn.setVisibility(View.VISIBLE);
-        secondaryBtn.setText("Create Folder");
-        secondaryBtn.setOnClickListener(v ->
-                Toast.makeText(this, "Create Folder clicked", Toast.LENGTH_SHORT).show());
     }
 
     /* ---------------- Expand Vault ---------------- */
