@@ -1,9 +1,10 @@
-package com.github.jaykkumar01.vaultspace.dashboard;
+package com.github.jaykkumar01.vaultspace.dashboard.files;
 
 import android.content.Context;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
 
 public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
 

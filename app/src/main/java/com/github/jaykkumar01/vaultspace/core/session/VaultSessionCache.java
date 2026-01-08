@@ -1,40 +1,55 @@
 package com.github.jaykkumar01.vaultspace.core.session;
 
-/**
- * In-memory, session-scoped cache.
- * Cleared when user logs out or app process dies.
- */
-public class VaultSessionCache {
+import android.util.Log;
 
-    /* ---------------- Albums ---------------- */
+import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 
-    // null = unknown, true/false = cached
-    private Boolean hasAlbums;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-    public boolean hasAlbumsCached() {
-        return hasAlbums != null;
+public final class VaultSessionCache {
+
+    private static final String TAG = "VaultSpace:SessionCache";
+
+    /* ---------------- Albums cache ---------------- */
+
+    private boolean albumsCached = false;
+    private List<AlbumInfo> cachedAlbums = Collections.emptyList();
+
+    /* ---------------- Albums API ---------------- */
+
+    public boolean hasAlbumListCached() {
+        return albumsCached;
     }
 
-    public boolean getHasAlbums() {
-        return hasAlbums != null && hasAlbums;
+    public List<AlbumInfo> getAlbums() {
+        return albumsCached
+                ? cachedAlbums
+                : Collections.emptyList();
     }
 
-    public void setHasAlbums(boolean value) {
-        this.hasAlbums = value;
+    public void setAlbums(List<AlbumInfo> albums) {
+        if (albums == null) {
+            cachedAlbums = Collections.emptyList();
+        } else {
+            // Defensive copy to avoid external mutation
+            cachedAlbums = new ArrayList<>(albums);
+        }
+        albumsCached = true;
+        Log.d(TAG, "Albums cached: " + cachedAlbums.size());
     }
 
     public void invalidateAlbums() {
-        this.hasAlbums = null;
+        albumsCached = false;
+        cachedAlbums = Collections.emptyList();
+        Log.d(TAG, "Albums cache invalidated");
     }
 
-    /* ---------------- Files (future) ---------------- */
-    // Boolean hasFiles;
-    // List<FileItem> cachedFiles;
-
-    /* ---------------- Clear ---------------- */
+    /* ---------------- Full session clear ---------------- */
 
     public void clear() {
-        hasAlbums = null;
-        // clear files cache later
+        invalidateAlbums();
+        Log.d(TAG, "Session cache cleared");
     }
 }

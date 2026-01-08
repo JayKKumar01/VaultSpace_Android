@@ -15,6 +15,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileInfoHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardStorageBarHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.login.LoginActivity;
 import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
@@ -231,4 +236,13 @@ public class DashboardActivity extends AppCompatActivity {
     private void showToast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (albumsUi != null) albumsUi.release();
+        if (filesUi != null) filesUi.release();
+    }
+
 }

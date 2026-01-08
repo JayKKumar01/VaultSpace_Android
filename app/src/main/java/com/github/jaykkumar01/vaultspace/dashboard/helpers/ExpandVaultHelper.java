@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.dashboard;
+package com.github.jaykkumar01.vaultspace.dashboard.helpers;
 
 import android.widget.Toast;
 
