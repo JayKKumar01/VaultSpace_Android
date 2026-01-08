@@ -10,6 +10,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
@@ -86,6 +87,7 @@ public class DashboardActivity extends AppCompatActivity {
         initViews();
         initHelpers();
         initVaultSections();
+        setupBackHandling();
         initClickListeners();
 
         boolean fromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
@@ -236,6 +238,28 @@ public class DashboardActivity extends AppCompatActivity {
     private void showToast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
     }
+
+
+    private void setupBackHandling() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                boolean consumed = false;
+
+                if (currentViewMode == VaultViewMode.ALBUMS && albumsUi != null) {
+                    consumed = albumsUi.onBackPressed();
+                } else if (currentViewMode == VaultViewMode.FILES && filesUi != null) {
+                    consumed = filesUi.onBackPressed();
+                }
+
+                if (!consumed) {
+                    // No UI layer wants it → default behavior
+                    finish();
+                }
+            }
+        });
+    }
+
 
     @Override
     protected void onDestroy() {

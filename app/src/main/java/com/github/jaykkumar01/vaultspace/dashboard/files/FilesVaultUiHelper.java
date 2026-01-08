@@ -34,4 +34,10 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
             }
         });
     }
+
+    @Override
+    public boolean onBackPressed() {
+        return false;
+    }
+
 }

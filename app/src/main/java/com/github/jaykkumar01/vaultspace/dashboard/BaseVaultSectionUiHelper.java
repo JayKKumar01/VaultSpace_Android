@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.dashboard;
 
+import android.app.Activity;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,10 +15,11 @@ import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 
 interface VaultSectionUi {
     void show();
+    boolean onBackPressed();
     default void release() {}
 }
 
-/* ---------------- Base UI Helper ---------------- */
+/* ---------------- Base Helper ---------------- */
 
 public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
 
@@ -27,6 +29,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected LoadingStateView loadingView;
     protected EmptyStateView emptyView;
     protected View contentView;
+
     protected CreateFolderView createFolderView;
 
     protected BaseVaultSectionUiHelper(Context context, FrameLayout container) {
@@ -42,47 +45,57 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
         emptyView = new EmptyStateView(context);
         contentView = LayoutInflater.from(context)
                 .inflate(R.layout.view_mock_content, container, false);
-        createFolderView = new CreateFolderView(context);
 
         container.addView(loadingView);
         container.addView(emptyView);
         container.addView(contentView);
-        container.addView(createFolderView);
 
         showLoading();
     }
 
-    /* ---------------- State helpers ---------------- */
+    /* ---------------- States ---------------- */
 
     protected void showLoading() {
         loadingView.setVisibility(View.VISIBLE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.GONE);
-        createFolderView.setVisibility(View.GONE);
     }
 
     protected void showEmpty() {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.VISIBLE);
         contentView.setVisibility(View.GONE);
-        createFolderView.setVisibility(View.GONE);
     }
 
     protected void showContent() {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.VISIBLE);
-        createFolderView.setVisibility(View.GONE);
     }
 
-    protected void showCreateFolder(String hint, CreateFolderView.Callback callback) {
-        loadingView.setVisibility(View.GONE);
-        emptyView.setVisibility(View.GONE);
-        contentView.setVisibility(View.GONE);
-        createFolderView.show(hint, callback);
+    /* ---------------- Overlay ---------------- */
+
+    protected void showCreatePopup(
+            String title,
+            String hint,
+            String positiveText,
+            String debugOwner,
+            CreateFolderView.Callback callback
+    ) {
+        Activity activity = (Activity) context;
+        FrameLayout root = activity.findViewById(android.R.id.content);
+
+        if (createFolderView == null) {
+            createFolderView = new CreateFolderView(context);
+            root.addView(createFolderView);
+        }
+
+        createFolderView.show(title, hint, positiveText, debugOwner, callback);
     }
 
-    protected void hideCreateFolder() {
-        createFolderView.hide();
+    protected void hideCreatePopup() {
+        if (createFolderView != null && createFolderView.isVisible()) {
+            createFolderView.hide();
+        }
     }
 }

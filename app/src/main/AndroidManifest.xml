@@ -38,7 +38,11 @@
         <!-- ================= Dashboard ================= -->
         <activity
             android:name=".dashboard.DashboardActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
+
+
 
     </application>
 
