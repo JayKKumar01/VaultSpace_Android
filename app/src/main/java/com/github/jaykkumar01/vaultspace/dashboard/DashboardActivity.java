@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -19,6 +20,7 @@ import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelpe
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.login.LoginActivity;
 import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
+import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.StorageBarView;
 
@@ -47,12 +49,10 @@ public class DashboardActivity extends AppCompatActivity {
     private FrameLayout filesContainer;
 
     /* ---------------- Container Views ---------------- */
-
-    private View albumsLoadingView;
+    private LoadingStateView albumsLoadingView;
+    private LoadingStateView filesLoadingView;
     private View albumsEmptyView;
     private View albumsContentView;
-
-    private View filesLoadingView;
     private View filesEmptyView;
     private View filesContentView;
 
@@ -154,6 +154,7 @@ public class DashboardActivity extends AppCompatActivity {
     private void initSegments() {
         initContainerViews();
         initEmptyStates();
+        initLoadingTexts();
 
         setAlbumsState(ContainerState.LOADING);
         setFilesState(ContainerState.LOADING);
@@ -162,21 +163,41 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initContainerViews() {
+
         // Albums
-        albumsLoadingView = inflate(R.layout.view_loading_state, albumsContainer);
+        albumsLoadingView = new LoadingStateView(this);
+        albumsContainer.addView(albumsLoadingView);
+
         albumsEmptyView = inflate(R.layout.view_empty_state, albumsContainer);
         albumsContentView = inflate(R.layout.view_mock_content, albumsContainer);
 
         // Files
-        filesLoadingView = inflate(R.layout.view_loading_state, filesContainer);
+        filesLoadingView = new LoadingStateView(this);
+        filesContainer.addView(filesLoadingView);
+
         filesEmptyView = inflate(R.layout.view_empty_state, filesContainer);
         filesContentView = inflate(R.layout.view_mock_content, filesContainer);
     }
+
+
 
     private void initEmptyStates() {
         bindAlbumsEmptyState();
         bindFilesEmptyState();
     }
+
+    private void initLoadingTexts() {
+        setLoadingText(albumsLoadingView, "Loading albums…");
+        setLoadingText(filesLoadingView, "Loading files…");
+    }
+
+    private void setLoadingText(LoadingStateView view, String text) {
+        if (view != null) {
+            view.setText(text);
+        }
+    }
+
+
 
     private View inflate(int layout, FrameLayout parent) {
         View view = getLayoutInflater().inflate(layout, parent, false);
@@ -227,7 +248,7 @@ public class DashboardActivity extends AppCompatActivity {
         albumsContainer.postDelayed(() -> {
             boolean hasAlbums = false;
             setAlbumsState(hasAlbums ? ContainerState.CONTENT : ContainerState.EMPTY);
-        }, 1200);
+        }, 12000);
     }
 
     private void loadFilesMock() {
