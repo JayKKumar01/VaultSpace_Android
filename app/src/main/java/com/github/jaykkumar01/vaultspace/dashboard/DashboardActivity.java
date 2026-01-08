@@ -39,15 +39,17 @@ public class DashboardActivity extends AppCompatActivity {
     /* ---------------- View Mode (Albums / Folders) ---------------- */
 
     private TextView segmentAlbums;
-    private TextView segmentFolders;
+    private TextView segmentFiles;
 
     private FrameLayout albumsContainer;
-    private FrameLayout foldersContainer;
+    private FrameLayout filesContainer;
+
+
 
     private VaultViewMode currentViewMode = null;
 
     private View albumsEmptyView;
-    private View foldersEmptyView;
+    private View filesEmptyView;
 
 
     /* ---------------- Lifecycle ---------------- */
@@ -113,28 +115,29 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void initSegmentUI() {
         segmentAlbums = findViewById(R.id.segmentAlbums);
-        segmentFolders = findViewById(R.id.segmentFolders);
+        segmentFiles = findViewById(R.id.segmentFiles);
 
         albumsContainer = findViewById(R.id.albumsContainer);
-        foldersContainer = findViewById(R.id.foldersContainer);
-
-        albumsEmptyView = getLayoutInflater()
-                .inflate(R.layout.view_empty_state, albumsContainer, false);
-
-        foldersEmptyView = getLayoutInflater()
-                .inflate(R.layout.view_empty_state, foldersContainer, false);
-
-        albumsContainer.addView(albumsEmptyView);
-        foldersContainer.addView(foldersEmptyView);
-
-        bindAlbumsEmptyState();
-        bindFoldersEmptyState();
+        filesContainer = findViewById(R.id.filesContainer);
 
         segmentAlbums.setOnClickListener(v ->
                 applyViewMode(VaultViewMode.ALBUMS));
 
-        segmentFolders.setOnClickListener(v ->
-                applyViewMode(VaultViewMode.FOLDERS));
+        segmentFiles.setOnClickListener(v ->
+                applyViewMode(VaultViewMode.FILES));
+
+
+        albumsEmptyView = getLayoutInflater()
+                .inflate(R.layout.view_empty_state, albumsContainer, false);
+
+        filesEmptyView = getLayoutInflater()
+                .inflate(R.layout.view_empty_state, filesContainer, false);
+
+        albumsContainer.addView(albumsEmptyView);
+        filesContainer.addView(filesEmptyView);
+
+        bindAlbumsEmptyState();
+        bindFilesEmptyState();
 
         applyViewMode(VaultViewMode.ALBUMS);
     }
@@ -152,15 +155,15 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     @SuppressLint("SetTextI18n")
-    private void bindFoldersEmptyState() {
-        ((ImageView) foldersEmptyView.findViewById(R.id.ivEmptyIcon))
-                .setImageResource(R.drawable.ic_folder_empty);
+    private void bindFilesEmptyState() {
+        ((ImageView) filesEmptyView.findViewById(R.id.ivEmptyIcon))
+                .setImageResource(R.drawable.ic_files_empty);
 
-        ((TextView) foldersEmptyView.findViewById(R.id.tvEmptyTitle))
-                .setText("No folders found");
+        ((TextView) filesEmptyView.findViewById(R.id.tvEmptyTitle))
+                .setText("No files found");
 
-        ((TextView) foldersEmptyView.findViewById(R.id.tvEmptySubtitle))
-                .setText("Folders reflect how your files are stored in Drive.");
+        ((TextView) filesEmptyView.findViewById(R.id.tvEmptySubtitle))
+                .setText("Files reflect how your files are stored in Drive.");
     }
 
 
@@ -172,10 +175,10 @@ public class DashboardActivity extends AppCompatActivity {
         boolean isAlbums = (mode == VaultViewMode.ALBUMS);
 
         segmentAlbums.setSelected(isAlbums);
-        segmentFolders.setSelected(!isAlbums);
+        segmentFiles.setSelected(!isAlbums);
 
         albumsContainer.setVisibility(isAlbums ? View.VISIBLE : View.GONE);
-        foldersContainer.setVisibility(isAlbums ? View.GONE : View.VISIBLE);
+        filesContainer.setVisibility(isAlbums ? View.GONE : View.VISIBLE);
     }
 
     /* ---------------- Expand Vault ---------------- */

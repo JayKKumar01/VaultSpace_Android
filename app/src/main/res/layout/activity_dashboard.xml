@@ -154,12 +154,12 @@
                     android:focusable="true" />
 
                 <TextView
-                    android:id="@+id/segmentFolders"
+                    android:id="@+id/segmentFiles"
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:paddingHorizontal="16dp"
                     android:gravity="center"
-                    android:text="Folders"
+                    android:text="Files"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:textColor="@color/segment_text_color"
@@ -189,7 +189,7 @@
 
                 <!-- Folders container -->
                 <FrameLayout
-                    android:id="@+id/foldersContainer"
+                    android:id="@+id/filesContainer"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:visibility="gone" />

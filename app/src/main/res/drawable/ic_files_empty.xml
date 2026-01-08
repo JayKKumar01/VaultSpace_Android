@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Back file -->
+    <path
+        android:fillColor="@color/vs_text_content"
+        android:fillAlpha="0.30"
+        android:pathData="M7,4h8l3,3v11a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6a2,2 0 0,1 2,-2z"/>
+
+    <!-- Middle file -->
+    <path
+        android:fillColor="@color/vs_text_content"
+        android:fillAlpha="0.55"
+        android:pathData="M5,6h8l3,3v9a2,2 0 0,1 -2,2H5a2,2 0 0,1 -2,-2V8a2,2 0 0,1 2,-2z"/>
+
+    <!-- Front file -->
+    <path
+        android:fillColor="@color/vs_text_content"
+        android:fillAlpha="0.80"
+        android:pathData="M3,8h8l3,3v7a2,2 0 0,1 -2,2H3a2,2 0 0,1 -2,-2V10a2,2 0 0,1 2,-2z"/>
+
+    <!-- File lines -->
+    <path
+        android:strokeColor="@color/vs_surface_soft"
+        android:strokeWidth="1.4"
+        android:pathData="M5,13h6"/>
+
+    <path
+        android:strokeColor="@color/vs_surface_soft"
+        android:strokeWidth="1.4"
+        android:pathData="M5,16h6"/>
+
+</vector>
