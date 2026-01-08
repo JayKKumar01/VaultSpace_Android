@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.views.CreateFolderView;
 import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 
@@ -13,10 +14,7 @@ import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 
 interface VaultSectionUi {
     void show();
-
-    default void release() {
-        // optional lifecycle hook
-    }
+    default void release() {}
 }
 
 /* ---------------- Base UI Helper ---------------- */
@@ -29,6 +27,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected LoadingStateView loadingView;
     protected EmptyStateView emptyView;
     protected View contentView;
+    protected CreateFolderView createFolderView;
 
     protected BaseVaultSectionUiHelper(Context context, FrameLayout container) {
         this.context = context;
@@ -43,10 +42,12 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
         emptyView = new EmptyStateView(context);
         contentView = LayoutInflater.from(context)
                 .inflate(R.layout.view_mock_content, container, false);
+        createFolderView = new CreateFolderView(context);
 
         container.addView(loadingView);
         container.addView(emptyView);
         container.addView(contentView);
+        container.addView(createFolderView);
 
         showLoading();
     }
@@ -57,17 +58,31 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
         loadingView.setVisibility(View.VISIBLE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.GONE);
+        createFolderView.setVisibility(View.GONE);
     }
 
     protected void showEmpty() {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.VISIBLE);
         contentView.setVisibility(View.GONE);
+        createFolderView.setVisibility(View.GONE);
     }
 
     protected void showContent() {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.VISIBLE);
+        createFolderView.setVisibility(View.GONE);
+    }
+
+    protected void showCreateFolder(String hint, CreateFolderView.Callback callback) {
+        loadingView.setVisibility(View.GONE);
+        emptyView.setVisibility(View.GONE);
+        contentView.setVisibility(View.GONE);
+        createFolderView.show(hint, callback);
+    }
+
+    protected void hideCreateFolder() {
+        createFolderView.hide();
     }
 }

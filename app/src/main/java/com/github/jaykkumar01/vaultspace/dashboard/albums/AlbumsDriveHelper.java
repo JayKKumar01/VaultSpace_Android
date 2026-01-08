@@ -22,7 +22,7 @@ public final class AlbumsDriveHelper {
 
     private static final String TAG = "VaultSpace:AlbumsDrive";
 
-    private final Drive drive;
+    private final Drive primaryDrive;
     private final VaultSessionCache cache;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -32,50 +32,44 @@ public final class AlbumsDriveHelper {
         void onError(Exception e);
     }
 
+    public interface CreateAlbumCallback {
+        void onSuccess(AlbumInfo album);
+        void onError(Exception e);
+    }
+
     public AlbumsDriveHelper(Context context) {
         UserSession session = new UserSession(context);
         this.cache = session.getVaultCache();
-
-        String primaryEmail = session.getPrimaryAccountEmail();
-        this.drive = DriveClientProvider.forAccount(context, primaryEmail);
-
-        Log.d(TAG, "Initialized for " + primaryEmail);
+        String email = session.getPrimaryAccountEmail();
+        this.primaryDrive = DriveClientProvider.forAccount(context, email);
+        Log.d(TAG, "Initialized primaryDrive for " + email);
     }
 
-    public void fetchAlbums(
-            ExecutorService executor,
-            Callback callback
-    ) {
+    public void fetchAlbums(ExecutorService executor, Callback callback) {
         executor.execute(() -> {
             try {
                 if (cache.hasAlbumListCached()) {
-                    List<AlbumInfo> cached = cache.getAlbums();
-                    Log.d(TAG, "Using cached albums: " + cached.size());
-                    postResult(callback, cached);
+                    postResult(callback, cache.getAlbums());
                     return;
                 }
 
-                String rootId = DriveFolderRepository.findRootFolderId(drive);
-                if (rootId == null) {
+                String albumsRootId = DriveFolderRepository.findAlbumsRootId(primaryDrive);
+                if (albumsRootId == null) {
                     cache.setAlbums(List.of());
                     postEmpty(callback);
                     return;
                 }
 
-                String query =
-                        "'" + rootId + "' in parents " +
-                                "and mimeType='application/vnd.google-apps.folder' " +
-                                "and trashed=false";
+                String q = "'" + albumsRootId + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
 
-                FileList result =
-                        drive.files()
-                                .list()
-                                .setQ(query)
-                                .setFields("files(id,name,createdTime,modifiedTime)")
-                                .setOrderBy("modifiedTime desc")
-                                .execute();
+                FileList list = primaryDrive.files()
+                        .list()
+                        .setQ(q)
+                        .setFields("files(id,name,createdTime,modifiedTime)")
+                        .setOrderBy("modifiedTime desc")
+                        .execute();
 
-                List<File> files = result.getFiles();
+                List<File> files = list.getFiles();
                 if (files == null || files.isEmpty()) {
                     cache.setAlbums(List.of());
                     postEmpty(callback);
@@ -102,12 +96,32 @@ public final class AlbumsDriveHelper {
         });
     }
 
-    public void invalidateCache() {
-        cache.invalidateAlbums();
-        Log.d(TAG, "Album cache invalidated");
+    public void createAlbum(ExecutorService executor, String albumName, CreateAlbumCallback callback) {
+        executor.execute(() -> {
+            try {
+                String albumsRootId = DriveFolderRepository.getOrCreateAlbumsRootId(primaryDrive);
+                File created = DriveFolderRepository.createFolder(primaryDrive, albumName, albumsRootId);
+
+                AlbumInfo album = new AlbumInfo(
+                        created.getId(),
+                        created.getName(),
+                        created.getCreatedTime().getValue(),
+                        created.getModifiedTime().getValue()
+                );
+
+                cache.addAlbum(album);
+                mainHandler.post(() -> callback.onSuccess(album));
+
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to create album", e);
+                mainHandler.post(() -> callback.onError(e));
+            }
+        });
     }
 
-    /* ---------------- UI-thread dispatch ---------------- */
+    public void invalidateCache() {
+        cache.invalidateAlbums();
+    }
 
     private void postResult(Callback cb, List<AlbumInfo> albums) {
         mainHandler.post(() -> {
