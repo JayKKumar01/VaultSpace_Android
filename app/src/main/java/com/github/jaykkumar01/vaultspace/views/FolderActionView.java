@@ -18,7 +18,7 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.R;
 import com.google.android.material.button.MaterialButton;
 
-public class CreateFolderView extends FrameLayout {
+public class FolderActionView extends FrameLayout {
 
     private static final String TAG = "CreateFolderView";
 
@@ -35,7 +35,7 @@ public class CreateFolderView extends FrameLayout {
     private Callback callback;
     private String debugOwner = "unknown";
 
-    public CreateFolderView(@NonNull Context context) {
+    public FolderActionView(@NonNull Context context) {
         super(context);
 
         setLayoutParams(new LayoutParams(

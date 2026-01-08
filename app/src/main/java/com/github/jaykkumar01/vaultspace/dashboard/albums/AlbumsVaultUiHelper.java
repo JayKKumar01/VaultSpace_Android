@@ -8,7 +8,7 @@ import android.widget.Toast;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.views.CreateFolderView;
+import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -93,15 +93,15 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                 "Album name",
                 "Create",
                 TAG,
-                new CreateFolderView.Callback() {
+                new FolderActionView.Callback() {
                     @Override public void onCreate(String name) { createAlbum(name); }
-                    @Override public void onCancel() { hideCreatePopup(); }
+                    @Override public void onCancel() { hideFolderActionPopup(); }
                 }
         );
     }
 
     private void createAlbum(String name) {
-        hideCreatePopup();
+        hideFolderActionPopup();
         Log.d(TAG, "createAlbum name=" + name);
         Toast.makeText(context, "Album name: " + name, Toast.LENGTH_SHORT).show();
         // Future: Drive call + reload
@@ -111,9 +111,9 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     @Override
     public boolean onBackPressed() {
-        if (createFolderView != null && createFolderView.isVisible()) {
+        if (folderActionView != null && folderActionView.isVisible()) {
             Log.d(TAG, "back → dismiss popup");
-            hideCreatePopup();
+            hideFolderActionPopup();
             return true;
         }
         return false;

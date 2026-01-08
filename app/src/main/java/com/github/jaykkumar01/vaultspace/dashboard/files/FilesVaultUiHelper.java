@@ -1,12 +1,16 @@
 package com.github.jaykkumar01.vaultspace.dashboard.files;
 
 import android.content.Context;
+import android.util.Log;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
+import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 
 public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
+
+    private static final String TAG = "VaultSpace:FilesUI";
 
     public FilesVaultUiHelper(Context context, FrameLayout container) {
         super(context, container);
@@ -16,28 +20,63 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
         emptyView.setIcon(R.drawable.ic_files_empty);
         emptyView.setTitle("No files found");
         emptyView.setSubtitle("Files reflect how your data is stored in Drive.");
-        emptyView.setPrimaryAction("Upload Files", v -> {});
-        emptyView.setSecondaryAction("Create Folder", v -> {});
+
+        emptyView.setPrimaryAction("Upload Files", v ->
+                Log.d(TAG, "EmptyView → Upload Files clicked (stub)")
+        );
+
+        emptyView.setSecondaryAction("Create Folder", v -> {
+            Log.d(TAG, "EmptyView → Create Folder clicked");
+            showCreateFolderPopup();
+        });
     }
 
     @Override
     public void show() {
         showLoading();
 
-        // mocked for now
+        // mocked state for now
         container.post(() -> {
             boolean hasFiles = false;
-            if (hasFiles) {
-                showContent();
-            } else {
-                showEmpty();
-            }
+            Log.d(TAG, "mock show(), hasFiles=" + hasFiles);
+            if (hasFiles) showContent();
+            else showEmpty();
         });
     }
 
-    @Override
-    public boolean onBackPressed() {
-        return false;
+    /* ---------------- Popup (stub) ---------------- */
+
+    private void showCreateFolderPopup() {
+        showCreatePopup(
+                "Create Folder",
+                "Folder name",
+                "Create",
+                TAG,
+                new FolderActionView.Callback() {
+                    @Override
+                    public void onCreate(String name) {
+                        Log.d(TAG, "CreateFolderView → onCreate: " + name + " (stub)");
+                        hideFolderActionPopup();
+                    }
+
+                    @Override
+                    public void onCancel() {
+                        Log.d(TAG, "CreateFolderView → onCancel");
+                        hideFolderActionPopup();
+                    }
+                }
+        );
     }
 
+    /* ---------------- Back ---------------- */
+
+    @Override
+    public boolean onBackPressed() {
+        if (folderActionView != null && folderActionView.isVisible()) {
+            Log.d(TAG, "onBackPressed() → dismiss popup");
+            hideFolderActionPopup();
+            return true;
+        }
+        return false;
+    }
 }

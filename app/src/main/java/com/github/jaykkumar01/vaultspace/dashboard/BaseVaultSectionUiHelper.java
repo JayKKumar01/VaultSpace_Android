@@ -7,7 +7,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.views.CreateFolderView;
+import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 
@@ -30,7 +30,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected EmptyStateView emptyView;
     protected View contentView;
 
-    protected CreateFolderView createFolderView;
+    protected FolderActionView folderActionView;
 
     protected BaseVaultSectionUiHelper(Context context, FrameLayout container) {
         this.context = context;
@@ -80,22 +80,22 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
             String hint,
             String positiveText,
             String debugOwner,
-            CreateFolderView.Callback callback
+            FolderActionView.Callback callback
     ) {
         Activity activity = (Activity) context;
         FrameLayout root = activity.findViewById(android.R.id.content);
 
-        if (createFolderView == null) {
-            createFolderView = new CreateFolderView(context);
-            root.addView(createFolderView);
+        if (folderActionView == null) {
+            folderActionView = new FolderActionView(context);
+            root.addView(folderActionView);
         }
 
-        createFolderView.show(title, hint, positiveText, debugOwner, callback);
+        folderActionView.show(title, hint, positiveText, debugOwner, callback);
     }
 
-    protected void hideCreatePopup() {
-        if (createFolderView != null && createFolderView.isVisible()) {
-            createFolderView.hide();
+    protected void hideFolderActionPopup() {
+        if (folderActionView != null && folderActionView.isVisible()) {
+            folderActionView.hide();
         }
     }
 }
