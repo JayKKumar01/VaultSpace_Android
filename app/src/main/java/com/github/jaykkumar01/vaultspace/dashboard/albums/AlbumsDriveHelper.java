@@ -19,14 +19,19 @@ import com.google.api.services.drive.model.FileList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class AlbumsDriveHelper {
 
     private static final String TAG = "VaultSpace:AlbumsDrive";
+    private static final long OP_TIMEOUT_MS = 10_000;
 
     private final Drive primaryDrive;
     private final VaultSessionCache cache;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    /* ---------------- Callbacks ---------------- */
 
     public interface FetchCallback {
         void onResult(List<AlbumInfo> albums);
@@ -38,6 +43,11 @@ public final class AlbumsDriveHelper {
         void onError(Exception e);
     }
 
+    public interface DeleteAlbumCallback {
+        void onSuccess(String albumId);
+        void onError(Exception e);
+    }
+
     public AlbumsDriveHelper(Context context) {
         UserSession session = new UserSession(context);
         cache = session.getVaultCache();
@@ -45,6 +55,8 @@ public final class AlbumsDriveHelper {
         primaryDrive = DriveClientProvider.forAccount(context, email);
         Log.d(TAG, "Initialized primaryDrive for " + email);
     }
+
+    /* ---------------- Fetch albums (no timeout) ---------------- */
 
     public void fetchAlbums(ExecutorService executor, FetchCallback callback) {
         executor.execute(() -> {
@@ -75,7 +87,6 @@ public final class AlbumsDriveHelper {
                         .execute();
 
                 List<AlbumInfo> albums = getAlbums(list);
-
                 cache.setAlbums(albums);
                 postResult(callback, albums);
 
@@ -105,19 +116,32 @@ public final class AlbumsDriveHelper {
         return albums;
     }
 
+    /* ---------------- Create album (10s timeout) ---------------- */
+
     public void createAlbum(
             ExecutorService executor,
             String albumName,
             CreateAlbumCallback callback
     ) {
+        AtomicBoolean completed = new AtomicBoolean(false);
+
+        Runnable timeout = () -> {
+            if (completed.compareAndSet(false, true)) {
+                Log.w(TAG, "Create album timed out");
+                callback.onError(new TimeoutException("Album creation timed out"));
+            }
+        };
+
+        mainHandler.postDelayed(timeout, OP_TIMEOUT_MS);
+
         executor.execute(() -> {
             try {
-                String albumsRootId =
+                String rootId =
                         DriveFolderRepository.getOrCreateAlbumsRootId(primaryDrive);
 
                 File created =
                         DriveFolderRepository.createFolder(
-                                primaryDrive, albumName, albumsRootId
+                                primaryDrive, albumName, rootId
                         );
 
                 AlbumInfo album = new AlbumInfo(
@@ -128,19 +152,72 @@ public final class AlbumsDriveHelper {
                         null
                 );
 
-                cache.addAlbum(album);
-                mainHandler.post(() -> callback.onSuccess(album));
+                if (completed.compareAndSet(false, true)) {
+                    mainHandler.removeCallbacks(timeout);
+                    cache.addAlbum(album);
+                    mainHandler.post(() -> callback.onSuccess(album));
+                }
 
             } catch (Exception e) {
-                Log.e(TAG, "Failed to create album", e);
-                mainHandler.post(() -> callback.onError(e));
+                if (completed.compareAndSet(false, true)) {
+                    mainHandler.removeCallbacks(timeout);
+                    Log.e(TAG, "Failed to create album", e);
+                    mainHandler.post(() -> callback.onError(e));
+                }
             }
         });
     }
 
+    /* ---------------- Delete album (10s timeout) ---------------- */
+
+    public void deleteAlbum(
+            ExecutorService executor,
+            String albumId,
+            DeleteAlbumCallback callback
+    ) {
+        AtomicBoolean completed = new AtomicBoolean(false);
+
+        Runnable timeout = () -> {
+            if (completed.compareAndSet(false, true)) {
+                Log.w(TAG, "Delete album timed out");
+                callback.onError(new TimeoutException("Album deletion timed out"));
+            }
+        };
+
+        mainHandler.postDelayed(timeout, OP_TIMEOUT_MS);
+
+        executor.execute(() -> {
+            try {
+                if (albumId == null) {
+                    throw new IllegalArgumentException("albumId is null");
+                }
+
+                primaryDrive.files().delete(albumId).execute();
+
+                if (completed.compareAndSet(false, true)) {
+                    mainHandler.removeCallbacks(timeout);
+                    cache.removeAlbum(albumId);
+                    Log.d(TAG, "Deleted album " + albumId);
+                    mainHandler.post(() -> callback.onSuccess(albumId));
+                }
+
+            } catch (Exception e) {
+                if (completed.compareAndSet(false, true)) {
+                    mainHandler.removeCallbacks(timeout);
+                    Log.e(TAG, "Failed to delete album " + albumId, e);
+                    mainHandler.post(() -> callback.onError(e));
+                }
+            }
+        });
+    }
+
+    /* ---------------- Cache ---------------- */
+
     public void invalidateCache() {
         cache.invalidateAlbums();
     }
+
+    /* ---------------- Main thread helpers ---------------- */
 
     private void postResult(FetchCallback cb, List<AlbumInfo> albums) {
         mainHandler.post(() -> cb.onResult(albums));

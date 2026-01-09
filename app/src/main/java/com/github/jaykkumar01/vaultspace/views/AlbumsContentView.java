@@ -18,6 +18,7 @@ public class AlbumsContentView extends FrameLayout {
         void onAlbumClick(AlbumInfo album);
     }
 
+    private final RecyclerView recyclerView;
     private final AlbumsAdapter adapter;
     private final ImageButton addAlbumFab;
 
@@ -29,7 +30,7 @@ public class AlbumsContentView extends FrameLayout {
                 LayoutParams.MATCH_PARENT
         ));
 
-        RecyclerView recyclerView = new RecyclerView(context);
+        recyclerView = new RecyclerView(context);
         recyclerView.setLayoutParams(new LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT
@@ -51,25 +52,30 @@ public class AlbumsContentView extends FrameLayout {
         adapter.submitAlbums(albums);
     }
 
-    /** Incremental insert (e.g. after createAlbum) */
+    /** Incremental insert (newest-first UX) */
     public void addAlbum(AlbumInfo album) {
         adapter.addAlbum(album);
+        scrollToTop();
     }
 
-    /** Update album cover (async thumbnail / Drive update) */
+    /** Async thumbnail update */
     public void updateAlbumCover(String albumId, String coverPath) {
         adapter.updateAlbumCover(albumId, coverPath);
     }
 
-    /** Update album name (rename) */
+    /** Rename may affect ordering */
     public void updateAlbumName(String albumId, String newName) {
         adapter.updateAlbumName(albumId, newName);
+        scrollToTop();
     }
 
     public void deleteAlbum(String albumId) {
         adapter.deleteAlbum(albumId);
     }
 
+    public boolean isEmpty() {
+        return adapter.getItemCount() == 0;
+    }
 
     public void setOnAddAlbumClickListener(OnClickListener listener) {
         addAlbumFab.setOnClickListener(listener);
@@ -81,5 +87,11 @@ public class AlbumsContentView extends FrameLayout {
 
     public void setOnAlbumClickListener(OnAlbumClickListener listener) {
         adapter.setOnAlbumClickListener(listener);
+    }
+
+    /* ---------------- Scroll helper ---------------- */
+
+    private void scrollToTop() {
+        recyclerView.post(() -> recyclerView.scrollToPosition(0));
     }
 }

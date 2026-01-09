@@ -93,8 +93,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     private void onCreateAlbum() {
         if (released) return;
 
-        albumsContentView.setFabVisible(false);
-
         showFolderActionPopup(
                 "Create Album",
                 "Album name",
@@ -108,7 +106,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
                     @Override
                     public void onCancel() {
-                        restoreFab();
                         hideFolderActionPopup();
                     }
                 }
@@ -117,6 +114,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     private void createAlbum(String name) {
         hideFolderActionPopup();
+        moveToState(UiState.LOADING);
 
         drive.createAlbum(executor, name,
                 new AlbumsDriveHelper.CreateAlbumCallback() {
@@ -127,7 +125,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
                         albumsContentView.addAlbum(album);
                         moveToState(UiState.CONTENT);
-                        restoreFab();
                     }
 
                     @Override
@@ -140,39 +137,37 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                                 "Failed to create album",
                                 Toast.LENGTH_SHORT
                         ).show();
-                        restoreFab();
+
+                        // Restore correct UI state
+                        if (albumsContentView.isEmpty()) {
+                            moveToState(UiState.EMPTY);
+                        } else {
+                            moveToState(UiState.CONTENT);
+                        }
                     }
                 });
     }
 
-    /* ---------------- Future hooks (Phase 2.3 ready) ---------------- */
+    /* ---------------- Drive update hooks ---------------- */
 
-    /** Called after Drive thumbnail fetch */
     public void onAlbumCoverUpdated(String albumId, String coverPath) {
         if (released || albumsContentView == null) return;
         albumsContentView.updateAlbumCover(albumId, coverPath);
     }
 
-    /** Called after Drive rename */
     public void onAlbumRenamed(String albumId, String newName) {
         if (released || albumsContentView == null) return;
         albumsContentView.updateAlbumName(albumId, newName);
     }
 
-    /** Called after Drive delete */
     public void onAlbumDeleted(String albumId) {
         if (released || albumsContentView == null) return;
 
         albumsContentView.deleteAlbum(albumId);
 
-        if (state == UiState.CONTENT && isContentEmpty()) {
+        if (state == UiState.CONTENT && albumsContentView.isEmpty()) {
             moveToState(UiState.EMPTY);
         }
-    }
-
-    private boolean isContentEmpty() {
-        // lightweight state sync; no adapter exposure needed
-        return false; // can be enhanced later if needed
     }
 
     /* ---------------- State machine ---------------- */
@@ -199,19 +194,12 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         }
     }
 
-    private void restoreFab() {
-        if (albumsContentView != null) {
-            albumsContentView.setFabVisible(true);
-        }
-    }
-
     /* ---------------- Back / Lifecycle ---------------- */
 
     @Override
     public boolean onBackPressed() {
         if (folderActionView != null && folderActionView.isVisible()) {
             hideFolderActionPopup();
-            restoreFab();
             return true;
         }
         return false;

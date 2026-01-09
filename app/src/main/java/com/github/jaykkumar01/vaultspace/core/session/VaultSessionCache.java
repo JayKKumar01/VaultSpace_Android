@@ -24,7 +24,9 @@ public final class VaultSessionCache {
     }
 
     public void setAlbums(List<AlbumInfo> albums) {
-        cachedAlbums = albums == null ? Collections.emptyList() : new ArrayList<>(albums);
+        cachedAlbums = albums == null
+                ? Collections.emptyList()
+                : new ArrayList<>(albums);
         albumsCached = true;
         Log.d(TAG, "Albums cached: " + cachedAlbums.size());
     }
@@ -39,6 +41,23 @@ public final class VaultSessionCache {
         }
         cachedAlbums.add(0, album); // newest first
         Log.d(TAG, "Album added to cache: " + album.name);
+    }
+
+    /** Optimistic update on album deletion */
+    public void removeAlbum(String albumId) {
+        if (!albumsCached || cachedAlbums.isEmpty() || albumId == null) return;
+
+        if (!(cachedAlbums instanceof ArrayList)) {
+            cachedAlbums = new ArrayList<>(cachedAlbums);
+        }
+
+        for (int i = 0; i < cachedAlbums.size(); i++) {
+            if (albumId.equals(cachedAlbums.get(i).id)) {
+                cachedAlbums.remove(i);
+                Log.d(TAG, "Album removed from cache: " + albumId);
+                return;
+            }
+        }
     }
 
     /** Rare escape hatch */
