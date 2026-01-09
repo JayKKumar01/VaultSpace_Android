@@ -53,6 +53,7 @@
 
     <!-- Decorative border / frame -->
     <color name="vs_media_frame">#2A3441</color>
+    <color name="vs_icon_on_media">#E6FFFFFF</color>
 
 
 </resources>

@@ -14,13 +14,31 @@ import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import java.util.ArrayList;
 import java.util.List;
 
-class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder> {
+class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder>
+        implements AlbumItemCallbacks {
 
     private List<AlbumInfo> items = new ArrayList<>();
+
+    // Normal tap (open album)
     private AlbumsContentView.OnAlbumClickListener clickListener;
+
+    // Overflow / long-press actions
+    private AlbumItemCallbacks actionCallbacks;
 
     AlbumsAdapter() {
         setHasStableIds(true);
+    }
+
+    /* ---------------- Callbacks wiring ---------------- */
+
+    void setOnAlbumClickListener(
+            AlbumsContentView.OnAlbumClickListener listener
+    ) {
+        this.clickListener = listener;
+    }
+
+    void setAlbumItemCallbacks(AlbumItemCallbacks callbacks) {
+        this.actionCallbacks = callbacks;
     }
 
     /* ---------------- Full submit (DiffUtil) ---------------- */
@@ -109,7 +127,6 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder> {
         diffResult.dispatchUpdatesTo(this);
     }
 
-
     /* ---------------- Internal helpers ---------------- */
 
     private void replaceItem(int index, AlbumInfo updated) {
@@ -139,10 +156,20 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder> {
         return -1;
     }
 
-    void setOnAlbumClickListener(
-            AlbumsContentView.OnAlbumClickListener listener
-    ) {
-        this.clickListener = listener;
+    /* ---------------- AlbumItemCallbacks (forward only) ---------------- */
+
+    @Override
+    public void onOverflowClicked(AlbumInfo album) {
+        if (actionCallbacks != null) {
+            actionCallbacks.onOverflowClicked(album);
+        }
+    }
+
+    @Override
+    public void onLongPressed(AlbumInfo album) {
+        if (actionCallbacks != null) {
+            actionCallbacks.onLongPressed(album);
+        }
     }
 
     /* ---------------- RecyclerView ---------------- */
@@ -154,7 +181,8 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder> {
     ) {
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_album, parent, false);
-        return new AlbumsViewHolder(view);
+
+        return new AlbumsViewHolder(view, this);
     }
 
     @Override

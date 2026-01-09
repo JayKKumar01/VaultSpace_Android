@@ -1,6 +1,7 @@
 package com.github.jaykkumar01.vaultspace.views;
 
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -16,12 +17,21 @@ class AlbumsViewHolder extends RecyclerView.ViewHolder {
     private final TextView albumName;
     private final ImageView albumCover;
     private final ImageView albumPlaceholder;
+    private final ImageButton albumOverflow;
+    private final AlbumItemCallbacks callbacks;
 
-    AlbumsViewHolder(@NonNull View itemView) {
+
+    AlbumsViewHolder(
+            @NonNull View itemView,
+            @NonNull AlbumItemCallbacks callbacks
+    ) {
         super(itemView);
+        this.callbacks = callbacks;
+
         albumName = itemView.findViewById(R.id.album_name);
         albumCover = itemView.findViewById(R.id.album_cover);
         albumPlaceholder = itemView.findViewById(R.id.album_placeholder);
+        albumOverflow = itemView.findViewById(R.id.album_overflow);
     }
 
     void bind(AlbumInfo album) {
@@ -45,5 +55,16 @@ class AlbumsViewHolder extends RecyclerView.ViewHolder {
             albumCover.setVisibility(View.GONE);
             albumPlaceholder.setVisibility(View.VISIBLE);
         }
+
+        // Overflow menu click
+        albumOverflow.setOnClickListener(v ->
+                callbacks.onOverflowClicked(album)
+        );
+
+        // Long press on entire card
+        itemView.setOnLongClickListener(v -> {
+            callbacks.onLongPressed(album);
+            return true;
+        });
     }
 }

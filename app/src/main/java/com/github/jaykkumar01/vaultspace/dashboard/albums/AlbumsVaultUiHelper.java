@@ -51,13 +51,34 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
         albumsContentView.setOnAddAlbumClickListener(v -> onCreateAlbum());
 
+        albumsContentView.setOnAlbumClickListener(this::onAlbumClick);
         albumsContentView.setOnAlbumClickListener(album ->
                 Log.d(TAG, "Album clicked: " + album.name + " (" + album.id + ")")
         );
 
+        albumsContentView.setOnAlbumActionListener(onAlbumAction());
+
         return albumsContentView;
     }
 
+    private void onAlbumClick(AlbumInfo album){
+        Log.d(TAG, "Album clicked: " + album.name + " (" + album.id + ")");
+    }
+
+    private AlbumsContentView.OnAlbumActionListener onAlbumAction(){
+        return new AlbumsContentView.OnAlbumActionListener(){
+            @Override
+            public void onAlbumOverflowClicked(AlbumInfo album){
+                Log.d(TAG,"Overflow clicked: "+album.name+" ("+album.id+")");
+                Toast.makeText(context,"Overflow clicked: "+album.name,Toast.LENGTH_SHORT).show();
+            }
+            @Override
+            public void onAlbumLongPressed(AlbumInfo album){
+                Log.d(TAG,"Long-pressed: "+album.name+" ("+album.id+")");
+                Toast.makeText(context,"Long-pressed: "+album.name,Toast.LENGTH_SHORT).show();
+            }
+        };
+    }
     /* ---------------- Initial load ---------------- */
 
     @Override

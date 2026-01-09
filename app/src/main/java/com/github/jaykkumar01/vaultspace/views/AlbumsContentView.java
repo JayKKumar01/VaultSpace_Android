@@ -12,15 +12,29 @@ import com.github.jaykkumar01.vaultspace.views.util.VaultFabUtil;
 
 import java.util.List;
 
-public class AlbumsContentView extends FrameLayout {
+public class AlbumsContentView extends FrameLayout
+        implements AlbumItemCallbacks {
+
+    /* ---------------- Public callbacks ---------------- */
 
     public interface OnAlbumClickListener {
         void onAlbumClick(AlbumInfo album);
     }
 
+    public interface OnAlbumActionListener {
+        void onAlbumOverflowClicked(AlbumInfo album);
+        void onAlbumLongPressed(AlbumInfo album);
+    }
+
+    /* ---------------- Views ---------------- */
+
     private final RecyclerView recyclerView;
     private final AlbumsAdapter adapter;
     private final ImageButton addAlbumFab;
+
+    /* ---------------- Listeners ---------------- */
+
+    private OnAlbumActionListener albumActionListener;
 
     public AlbumsContentView(Context context) {
         super(context);
@@ -38,11 +52,28 @@ public class AlbumsContentView extends FrameLayout {
         recyclerView.setLayoutManager(new GridLayoutManager(context, 2));
 
         adapter = new AlbumsAdapter();
+        adapter.setAlbumItemCallbacks(this);
         recyclerView.setAdapter(adapter);
         addView(recyclerView);
 
         addAlbumFab = VaultFabUtil.createAddAlbumFab(context);
         addView(addAlbumFab);
+    }
+
+    /* ---------------- Adapter → ContentView ---------------- */
+
+    @Override
+    public void onOverflowClicked(AlbumInfo album) {
+        if (albumActionListener != null) {
+            albumActionListener.onAlbumOverflowClicked(album);
+        }
+    }
+
+    @Override
+    public void onLongPressed(AlbumInfo album) {
+        if (albumActionListener != null) {
+            albumActionListener.onAlbumLongPressed(album);
+        }
     }
 
     /* ---------------- Public API ---------------- */
@@ -87,6 +118,10 @@ public class AlbumsContentView extends FrameLayout {
 
     public void setOnAlbumClickListener(OnAlbumClickListener listener) {
         adapter.setOnAlbumClickListener(listener);
+    }
+
+    public void setOnAlbumActionListener(OnAlbumActionListener listener) {
+        this.albumActionListener = listener;
     }
 
     /* ---------------- Scroll helper ---------------- */
