@@ -7,6 +7,7 @@ import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.FolderActionView;
+import com.github.jaykkumar01.vaultspace.views.ItemActionView;
 import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
 
 /* ---------------- Contract ---------------- */
@@ -29,6 +30,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected View contentView;
 
     protected FolderActionView folderActionView;
+    protected ItemActionView itemActionView;
 
     protected BaseVaultSectionUiHelper(Context context, FrameLayout container) {
         this.context = context;
@@ -102,4 +104,21 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
             folderActionView.hide();
         }
     }
+
+    protected void showItemActionPopup(String title, String[] actions, String debugOwner, ItemActionView.Callback callback){
+        Activity activity=(Activity)context;
+        FrameLayout root=activity.findViewById(android.R.id.content);
+        if(itemActionView==null){
+            itemActionView=new ItemActionView(context);
+            root.addView(itemActionView);
+        }
+        itemActionView.show(title,actions,debugOwner,callback);
+    }
+
+    protected void hideItemActionPopup(){
+        if(itemActionView!=null&&itemActionView.isVisible()){
+            itemActionView.hide();
+        }
+    }
+
 }

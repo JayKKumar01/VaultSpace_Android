@@ -22,8 +22,7 @@ public class AlbumsContentView extends FrameLayout
     }
 
     public interface OnAlbumActionListener {
-        void onAlbumOverflowClicked(AlbumInfo album);
-        void onAlbumLongPressed(AlbumInfo album);
+        void onAlbumAction(AlbumInfo album);
     }
 
     /* ---------------- Views ---------------- */
@@ -65,14 +64,14 @@ public class AlbumsContentView extends FrameLayout
     @Override
     public void onOverflowClicked(AlbumInfo album) {
         if (albumActionListener != null) {
-            albumActionListener.onAlbumOverflowClicked(album);
+            albumActionListener.onAlbumAction(album);
         }
     }
 
     @Override
     public void onLongPressed(AlbumInfo album) {
         if (albumActionListener != null) {
-            albumActionListener.onAlbumLongPressed(album);
+            albumActionListener.onAlbumAction(album);
         }
     }
 

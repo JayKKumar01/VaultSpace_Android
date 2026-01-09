@@ -62,9 +62,13 @@ class AlbumsViewHolder extends RecyclerView.ViewHolder {
         );
 
         // Long press on entire card
-        itemView.setOnLongClickListener(v -> {
-            callbacks.onLongPressed(album);
+        itemView.setOnLongClickListener(v->{
+            v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).withEndAction(()->{
+                v.animate().scaleX(1f).scaleY(1f).setDuration(80).start();
+                callbacks.onLongPressed(album);
+            }).start();
             return true;
         });
+
     }
 }

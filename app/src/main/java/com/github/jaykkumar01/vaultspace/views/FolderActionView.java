@@ -20,7 +20,7 @@ import com.google.android.material.button.MaterialButton;
 
 public class FolderActionView extends FrameLayout {
 
-    private static final String TAG = "CreateFolderView";
+    private static final String TAG = "VaultSpace:CreateFolderView";
 
     public interface Callback {
         void onCreate(String name);

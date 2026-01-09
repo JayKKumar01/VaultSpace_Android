@@ -11,6 +11,7 @@ import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.views.AlbumsContentView;
 import com.github.jaykkumar01.vaultspace.views.FolderActionView;
+import com.github.jaykkumar01.vaultspace.views.ItemActionView;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -18,208 +19,193 @@ import java.util.concurrent.Executors;
 
 public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
-    private static final String TAG = "VaultSpace:AlbumsUI";
+    private static final String TAG="VaultSpace:AlbumsUI";
 
-    private enum UiState { UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR }
+    private enum UiState{UNINITIALIZED,LOADING,EMPTY,CONTENT,ERROR}
 
     private final AlbumsDriveHelper drive;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor=Executors.newSingleThreadExecutor();
 
-    private UiState state = UiState.UNINITIALIZED;
+    private UiState state=UiState.UNINITIALIZED;
     private boolean released;
     private AlbumsContentView albumsContentView;
 
-    public AlbumsVaultUiHelper(Context context, FrameLayout container) {
-        super(context, container);
-
-        drive = new AlbumsDriveHelper(context);
-
+    public AlbumsVaultUiHelper(Context context,FrameLayout container){
+        super(context,container);
+        drive=new AlbumsDriveHelper(context);
         loadingView.setText("Loading albums…");
-
         emptyView.setIcon(R.drawable.ic_album_empty);
         emptyView.setTitle("No albums yet");
         emptyView.setSubtitle("Albums help you organize memories your way.");
-        emptyView.setPrimaryAction("Create Album", v -> onCreateAlbum());
+        emptyView.setPrimaryAction("Create Album",v->onCreateAlbum());
         emptyView.hideSecondaryAction();
-
-        Log.d(TAG, "init");
+        Log.d(TAG,"init");
     }
 
     @Override
-    protected View createContentView(Context context) {
-        albumsContentView = new AlbumsContentView(context);
-
-        albumsContentView.setOnAddAlbumClickListener(v -> onCreateAlbum());
-
+    protected View createContentView(Context context){
+        albumsContentView=new AlbumsContentView(context);
+        albumsContentView.setOnAddAlbumClickListener(v->onCreateAlbum());
+        albumsContentView.setOnAlbumActionListener(this::onAlbumAction);
         albumsContentView.setOnAlbumClickListener(this::onAlbumClick);
-        albumsContentView.setOnAlbumClickListener(album ->
-                Log.d(TAG, "Album clicked: " + album.name + " (" + album.id + ")")
-        );
-
-        albumsContentView.setOnAlbumActionListener(onAlbumAction());
-
         return albumsContentView;
     }
 
     private void onAlbumClick(AlbumInfo album){
-        Log.d(TAG, "Album clicked: " + album.name + " (" + album.id + ")");
+        Log.d(TAG,"Album clicked: "+album.name+" ("+album.id+")");
     }
-
-    private AlbumsContentView.OnAlbumActionListener onAlbumAction(){
-        return new AlbumsContentView.OnAlbumActionListener(){
-            @Override
-            public void onAlbumOverflowClicked(AlbumInfo album){
-                Log.d(TAG,"Overflow clicked: "+album.name+" ("+album.id+")");
-                Toast.makeText(context,"Overflow clicked: "+album.name,Toast.LENGTH_SHORT).show();
-            }
-            @Override
-            public void onAlbumLongPressed(AlbumInfo album){
-                Log.d(TAG,"Long-pressed: "+album.name+" ("+album.id+")");
-                Toast.makeText(context,"Long-pressed: "+album.name,Toast.LENGTH_SHORT).show();
-            }
-        };
-    }
-    /* ---------------- Initial load ---------------- */
 
     @Override
-    public void show() {
-        if (released || state != UiState.UNINITIALIZED) return;
-
+    public void show(){
+        if(released||state!=UiState.UNINITIALIZED) return;
         moveToState(UiState.LOADING);
-
-        drive.fetchAlbums(executor, new AlbumsDriveHelper.FetchCallback() {
-            @Override
-            public void onResult(List<AlbumInfo> albums) {
-                if (released) return;
-
-                if (albums.isEmpty()) {
-                    moveToState(UiState.EMPTY);
-                } else {
+        drive.fetchAlbums(executor,new AlbumsDriveHelper.FetchCallback(){
+            @Override public void onResult(List<AlbumInfo> albums){
+                if(released) return;
+                if(albums.isEmpty()) moveToState(UiState.EMPTY);
+                else{
                     albumsContentView.setAlbums(albums);
                     moveToState(UiState.CONTENT);
                 }
             }
-
-            @Override
-            public void onError(Exception e) {
-                if (released) return;
-                Log.e(TAG, "Initial album fetch failed", e);
+            @Override public void onError(Exception e){
+                if(released) return;
+                Log.e(TAG,"Initial album fetch failed",e);
+                Toast.makeText(context,e.getMessage(),Toast.LENGTH_SHORT).show();
                 moveToState(UiState.ERROR);
             }
         });
     }
 
-    /* ---------------- Create Album ---------------- */
-
-    private void onCreateAlbum() {
-        if (released) return;
-
-        showFolderActionPopup(
-                "Create Album",
-                "Album name",
-                "Create",
+    private void onAlbumAction(AlbumInfo album){
+        showItemActionPopup(
+                album.name.toUpperCase(),
+                new String[]{"Rename","Delete"},
                 TAG,
-                new FolderActionView.Callback() {
-                    @Override
-                    public void onCreate(String name) {
-                        createAlbum(name);
+                new ItemActionView.Callback(){
+                    @Override public void onActionSelected(int index,String label){
+                        hideItemActionPopup();
+                        if(index==0) showRenameAlbum(album);
+                        else Log.d(TAG,"Delete selected for "+album.name);
                     }
+                    @Override public void onCancel(){
+                        Log.d(TAG,"Album action cancelled");
+                    }
+                }
+        );
+    }
 
-                    @Override
-                    public void onCancel() {
+    private void showRenameAlbum(AlbumInfo album){
+        showFolderActionPopup(
+                "Rename Album",
+                album.name,
+                "Rename",
+                TAG,
+                new FolderActionView.Callback(){
+                    @Override public void onCreate(String name){
+                        renameAlbum(album,name);
+                    }
+                    @Override public void onCancel(){
                         hideFolderActionPopup();
                     }
                 }
         );
     }
 
-    private void createAlbum(String name) {
+    private void renameAlbum(AlbumInfo album,String newName){
+        hideFolderActionPopup();
+        String trimmed=newName==null?"":newName.trim();
+        if(trimmed.isEmpty()||trimmed.equals(album.name)){
+            Toast.makeText(context,"Name is unchanged",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        moveToState(UiState.LOADING);
+        drive.renameAlbum(executor,album.id,newName,new AlbumsDriveHelper.RenameAlbumCallback(){
+            @Override public void onSuccess(){
+                if(released) return;
+                albumsContentView.updateAlbumName(album.id,newName);
+                moveToState(UiState.CONTENT);
+            }
+            @Override public void onError(Exception e){
+                if(released) return;
+                Log.e(TAG,"renameAlbum failed",e);
+                Toast.makeText(context,e.getMessage(),Toast.LENGTH_SHORT).show();
+                moveToState(UiState.CONTENT);
+            }
+        });
+    }
+
+    private void onCreateAlbum(){
+        if(released) return;
+        showFolderActionPopup(
+                "Create Album",
+                "Album name",
+                "Create",
+                TAG,
+                new FolderActionView.Callback(){
+                    @Override public void onCreate(String name){
+                        createAlbum(name);
+                    }
+                    @Override public void onCancel(){
+                        hideFolderActionPopup();
+                    }
+                }
+        );
+    }
+
+    private void createAlbum(String name){
         hideFolderActionPopup();
         moveToState(UiState.LOADING);
-
-        drive.createAlbum(executor, name,
-                new AlbumsDriveHelper.CreateAlbumCallback() {
-
-                    @Override
-                    public void onSuccess(AlbumInfo album) {
-                        if (released) return;
-
-                        albumsContentView.addAlbum(album);
-                        moveToState(UiState.CONTENT);
-                    }
-
-                    @Override
-                    public void onError(Exception e) {
-                        if (released) return;
-
-                        Log.e(TAG, "createAlbum failed", e);
-                        Toast.makeText(
-                                context,
-                                "Failed to create album",
-                                Toast.LENGTH_SHORT
-                        ).show();
-
-                        // Restore correct UI state
-                        if (albumsContentView.isEmpty()) {
-                            moveToState(UiState.EMPTY);
-                        } else {
-                            moveToState(UiState.CONTENT);
-                        }
-                    }
-                });
+        drive.createAlbum(executor,name,new AlbumsDriveHelper.CreateAlbumCallback(){
+            @Override public void onSuccess(AlbumInfo album){
+                if(released) return;
+                albumsContentView.addAlbum(album);
+                moveToState(UiState.CONTENT);
+            }
+            @Override public void onError(Exception e){
+                if(released) return;
+                Log.e(TAG,"createAlbum failed",e);
+                Toast.makeText(context,e.getMessage(),Toast.LENGTH_SHORT).show();
+                moveToState(albumsContentView.isEmpty()?UiState.EMPTY:UiState.CONTENT);
+            }
+        });
     }
 
-    /* ---------------- Drive update hooks ---------------- */
-
-    public void onAlbumCoverUpdated(String albumId, String coverPath) {
-        if (released || albumsContentView == null) return;
-        albumsContentView.updateAlbumCover(albumId, coverPath);
+    public void onAlbumCoverUpdated(String albumId,String coverPath){
+        if(released||albumsContentView==null) return;
+        albumsContentView.updateAlbumCover(albumId,coverPath);
     }
 
-    public void onAlbumRenamed(String albumId, String newName) {
-        if (released || albumsContentView == null) return;
-        albumsContentView.updateAlbumName(albumId, newName);
+    public void onAlbumRenamed(String albumId,String newName){
+        if(released||albumsContentView==null) return;
+        albumsContentView.updateAlbumName(albumId,newName);
     }
 
-    public void onAlbumDeleted(String albumId) {
-        if (released || albumsContentView == null) return;
-
+    public void onAlbumDeleted(String albumId){
+        if(released||albumsContentView==null) return;
         albumsContentView.deleteAlbum(albumId);
-
-        if (state == UiState.CONTENT && albumsContentView.isEmpty()) {
-            moveToState(UiState.EMPTY);
-        }
+        if(state==UiState.CONTENT&&albumsContentView.isEmpty()) moveToState(UiState.EMPTY);
     }
 
-    /* ---------------- State machine ---------------- */
-
-    private void moveToState(UiState newState) {
-        if (state == newState) return;
-
-        Log.d(TAG, "UI state: " + state + " → " + newState);
-        state = newState;
-
-        switch (newState) {
-            case LOADING:
-                showLoading();
-                break;
-            case EMPTY:
-                showEmpty();
-                break;
-            case CONTENT:
-                showContent();
-                break;
-            case ERROR:
-                showEmpty(); // fallback
-                break;
+    private void moveToState(UiState newState){
+        if(state==newState) return;
+        Log.d(TAG,"UI state: "+state+" → "+newState);
+        state=newState;
+        switch(newState){
+            case LOADING: showLoading(); break;
+            case EMPTY: showEmpty(); break;
+            case CONTENT: showContent(); break;
+            case ERROR: showEmpty(); break;
         }
     }
-
-    /* ---------------- Back / Lifecycle ---------------- */
 
     @Override
-    public boolean onBackPressed() {
-        if (folderActionView != null && folderActionView.isVisible()) {
+    public boolean onBackPressed(){
+        if(itemActionView!=null&&itemActionView.isVisible()){
+            hideItemActionPopup();
+            return true;
+        }
+        if(folderActionView!=null&&folderActionView.isVisible()){
             hideFolderActionPopup();
             return true;
         }
@@ -227,8 +213,8 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     }
 
     @Override
-    public void release() {
-        released = true;
+    public void release(){
+        released=true;
         executor.shutdownNow();
     }
 }
