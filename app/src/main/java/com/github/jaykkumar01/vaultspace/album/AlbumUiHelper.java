@@ -7,7 +7,6 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
@@ -18,41 +17,31 @@ public class AlbumUiHelper {
 
     private static final String TAG = "VaultSpace:AlbumUI";
 
-    /* ---------------- State ---------------- */
-
-    private enum UiState {
-        UNINITIALIZED,
-        LOADING,
-        EMPTY,
-        CONTENT,
-        ERROR
+    public interface AlbumSnapshotListener {
+        void onAlbumSnapshot(AlbumSnapshot snapshot);
     }
+
+    private enum UiState { UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR }
 
     private UiState state = UiState.UNINITIALIZED;
     private boolean released;
 
-    /* ---------------- Core ---------------- */
-
     private final Context context;
     private final FrameLayout container;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-
-    /* ---------------- Views ---------------- */
+    private final AlbumSnapshotListener snapshotListener;
+    private final String albumId;
 
     private final LoadingStateView loadingView;
     private final EmptyStateView emptyView;
     private final AlbumContentView contentView;
 
-    /* ---------------- Album ---------------- */
-
-    private final String albumId;
-
-    public AlbumUiHelper(Context context, FrameLayout container, String albumId) {
+    public AlbumUiHelper(Context context, FrameLayout container, String albumId, AlbumSnapshotListener snapshotListener) {
         this.context = context;
         this.container = container;
         this.albumId = albumId;
+        this.snapshotListener = snapshotListener;
 
-        /* Init views (code-only) */
         loadingView = new LoadingStateView(context);
         emptyView = new EmptyStateView(context);
         contentView = new AlbumContentView(context);
@@ -63,48 +52,54 @@ public class AlbumUiHelper {
 
         configureEmptyState();
         loadingView.setText("Loading media…");
-        showLoading();
 
         Log.d(TAG, "init for album: " + albumId);
     }
-
-    /* ---------------- Public API ---------------- */
 
     public void show() {
         if (released || state != UiState.UNINITIALIZED) return;
 
         moveToState(UiState.LOADING);
 
-        // TEMP: stub media fetch
         executor.execute(() -> {
             try {
-                Thread.sleep(5000);
-
+                Thread.sleep(1500);
                 if (released) return;
 
-                // TODO replace with real media fetch
-                boolean hasMedia = false;
+                AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
+                snapshot.photoCount = 8;
+                snapshot.videoCount = 4;
+                snapshot.isError = false;
 
                 container.post(() -> {
-                    if (hasMedia) {
-                        moveToState(UiState.CONTENT);
-                    } else {
-                        moveToState(UiState.EMPTY);
-                    }
+                    if (released) return;
+
+                    emitSnapshot(snapshot);
+                    moveToState(snapshot.getTotalCount() > 0 ? UiState.CONTENT : UiState.EMPTY);
                 });
 
             } catch (Exception e) {
                 if (released) return;
+
                 Log.e(TAG, "Media load failed", e);
                 container.post(() -> {
+                    if (released) return;
+
                     Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+
+                    AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
+                    snapshot.isError = true;
+                    emitSnapshot(snapshot);
+
                     moveToState(UiState.ERROR);
                 });
             }
         });
     }
 
-    /* ---------------- State ---------------- */
+    private void emitSnapshot(AlbumSnapshot snapshot) {
+        snapshotListener.onAlbumSnapshot(snapshot);
+    }
 
     private void moveToState(UiState newState) {
         if (state == newState) return;
@@ -120,40 +115,31 @@ public class AlbumUiHelper {
         }
     }
 
-
-    /* ---------------- States ---------------- */
-
-    protected void showLoading() {
+    private void showLoading() {
         loadingView.setVisibility(View.VISIBLE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.GONE);
     }
 
-    protected void showEmpty() {
+    private void showEmpty() {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.VISIBLE);
         contentView.setVisibility(View.GONE);
     }
 
-    protected void showContent() {
+    private void showContent() {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.VISIBLE);
     }
 
-    /* ---------------- Empty ---------------- */
-
     private void configureEmptyState() {
         emptyView.setIcon(R.drawable.ic_album_empty);
         emptyView.setTitle("No memories here yet");
         emptyView.setSubtitle("Add photos or videos to start capturing moments");
-        emptyView.setPrimaryAction("Add Media", v ->
-                Log.d(TAG, "Add Media clicked (stub)")
-        );
+        emptyView.setPrimaryAction("Add Media", v -> Log.d(TAG, "Add Media clicked (stub)"));
         emptyView.hideSecondaryAction();
     }
-
-    /* ---------------- Lifecycle ---------------- */
 
     public void release() {
         released = true;

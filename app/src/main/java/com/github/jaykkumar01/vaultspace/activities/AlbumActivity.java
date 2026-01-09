@@ -14,6 +14,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.album.AlbumSnapshot;
 import com.github.jaykkumar01.vaultspace.album.AlbumUiHelper;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 
@@ -24,19 +25,13 @@ public class AlbumActivity extends AppCompatActivity {
     public static final String EXTRA_ALBUM_ID = "album_id";
     public static final String EXTRA_ALBUM_NAME = "album_name";
 
-    /* ---------------- State ---------------- */
-
     private String albumId;
     private String albumName;
-
-    /* ---------------- Views ---------------- */
 
     private TextView tvAlbumName;
     private ImageView btnBack;
     private FrameLayout contentContainer;
     private AlbumMetaInfoView albumMetaInfo;
-
-    /* ---------------- UI Helper ---------------- */
 
     private AlbumUiHelper albumUi;
 
@@ -58,15 +53,49 @@ public class AlbumActivity extends AppCompatActivity {
         initAlbumUi();
         setupBackHandling();
 
-        // ✅ AlbumMetaInfoView runtime usage
-        albumMetaInfo.showLoading();
-
-        // TEMP: stub until real counts are wired
-        albumMetaInfo.postDelayed(() ->
-                albumMetaInfo.setCounts(8, 4), 400
-        );
-
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
+    }
+
+    /* ---------------- Album snapshot utilities ---------------- */
+
+    private void updateAlbumCounts(AlbumSnapshot snapshot) {
+        if (snapshot.isError) return;
+        albumMetaInfo.setCounts(snapshot.photoCount, snapshot.videoCount);
+    }
+
+    private void updateAlbumName(AlbumSnapshot snapshot) {
+        if (snapshot.albumName == null) return;
+        if (snapshot.albumName.equals(albumName)) return;
+
+        albumName = snapshot.albumName;
+        tvAlbumName.setText(albumName);
+    }
+
+    /* ---------------- Album snapshot listener ---------------- */
+
+    private AlbumUiHelper.AlbumSnapshotListener albumSnapshotCallback() {
+        return snapshot -> {
+            if (!isValidSnapshot(snapshot)) return;
+            updateAlbumName(snapshot);
+            updateAlbumCounts(snapshot);
+        };
+    }
+
+    private boolean isValidSnapshot(AlbumSnapshot snapshot) {
+        if (!albumId.equals(snapshot.albumId)) return false;
+        return !isFinishing() && !isDestroyed();
+    }
+
+    /* ---------------- Album UI ---------------- */
+
+    private void initAlbumUi() {
+        albumUi = new AlbumUiHelper(
+                this,
+                contentContainer,
+                albumId,
+                albumSnapshotCallback()
+        );
+        albumUi.show();
     }
 
     /* ---------------- Intent ---------------- */
@@ -91,22 +120,11 @@ public class AlbumActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
     }
 
-    /* ---------------- Album UI ---------------- */
-
-    private void initAlbumUi() {
-        albumUi = new AlbumUiHelper(this, contentContainer, albumId);
-        albumUi.show();
-    }
-
     /* ---------------- Back handling ---------------- */
 
     private void setupBackHandling() {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                // AlbumUiHelper currently has no popups → default
-                finish();
-            }
+            @Override public void handleOnBackPressed() { finish(); }
         });
     }
 
