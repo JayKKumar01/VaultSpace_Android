@@ -10,6 +10,7 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -27,7 +28,6 @@ public class AlbumUiHelper {
     private boolean released;
 
     private final Context context;
-    private final FrameLayout container;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final AlbumSnapshotListener snapshotListener;
     private final String albumId;
@@ -36,11 +36,13 @@ public class AlbumUiHelper {
     private final EmptyStateView emptyView;
     private final AlbumContentView contentView;
 
+    private final AlbumDriveHelper driveHelper;
+
     public AlbumUiHelper(Context context, FrameLayout container, String albumId, AlbumSnapshotListener snapshotListener) {
         this.context = context;
-        this.container = container;
         this.albumId = albumId;
         this.snapshotListener = snapshotListener;
+        this.driveHelper = new AlbumDriveHelper(context, albumId);
 
         loadingView = new LoadingStateView(context);
         emptyView = new EmptyStateView(context);
@@ -53,58 +55,58 @@ public class AlbumUiHelper {
         configureEmptyState();
         loadingView.setText("Loading media…");
 
-        Log.d(TAG, "init for album: " + albumId);
+        loadingView.setVisibility(View.GONE);
+        emptyView.setVisibility(View.GONE);
+        contentView.setVisibility(View.GONE);
+
+        Log.d(TAG, "init album=" + albumId);
+
     }
 
     public void show() {
         if (released || state != UiState.UNINITIALIZED) return;
-
         moveToState(UiState.LOADING);
 
-        executor.execute(() -> {
-            try {
-                Thread.sleep(1500);
+        driveHelper.fetchAlbumItems(executor, new AlbumDriveHelper.FetchCallback() {
+            @Override
+            public void onResult(List<AlbumItem> items) {
                 if (released) return;
+
+                int photoCount = 0, videoCount = 0;
+                for (AlbumItem item : items) {
+                    if (item.isVideo) videoCount++;
+                    else photoCount++;
+                }
 
                 AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
-                snapshot.photoCount = 8;
-                snapshot.videoCount = 4;
+                snapshot.photoCount = photoCount;
+                snapshot.videoCount = videoCount;
                 snapshot.isError = false;
 
-                container.post(() -> {
-                    if (released) return;
+                snapshotListener.onAlbumSnapshot(snapshot);
+                moveToState(snapshot.getTotalCount() > 0 ? UiState.CONTENT : UiState.EMPTY);
+            }
 
-                    emitSnapshot(snapshot);
-                    moveToState(snapshot.getTotalCount() > 0 ? UiState.CONTENT : UiState.EMPTY);
-                });
-
-            } catch (Exception e) {
+            @Override
+            public void onError(Exception e) {
                 if (released) return;
 
-                Log.e(TAG, "Media load failed", e);
-                container.post(() -> {
-                    if (released) return;
+                Log.e(TAG, "Album load failed: " + albumId, e);
+                Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
 
-                    Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
+                snapshot.isError = true;
 
-                    AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
-                    snapshot.isError = true;
-                    emitSnapshot(snapshot);
-
-                    moveToState(UiState.ERROR);
-                });
+                snapshotListener.onAlbumSnapshot(snapshot);
+                moveToState(UiState.ERROR);
             }
         });
-    }
-
-    private void emitSnapshot(AlbumSnapshot snapshot) {
-        snapshotListener.onAlbumSnapshot(snapshot);
     }
 
     private void moveToState(UiState newState) {
         if (state == newState) return;
 
-        Log.d(TAG, "UI state: " + state + " → " + newState);
+        Log.d(TAG, "state " + state + " → " + newState);
         state = newState;
 
         switch (newState) {
@@ -137,12 +139,13 @@ public class AlbumUiHelper {
         emptyView.setIcon(R.drawable.ic_album_empty);
         emptyView.setTitle("No memories here yet");
         emptyView.setSubtitle("Add photos or videos to start capturing moments");
-        emptyView.setPrimaryAction("Add Media", v -> Log.d(TAG, "Add Media clicked (stub)"));
+        emptyView.setPrimaryAction("Add Media", v -> {});
         emptyView.hideSecondaryAction();
     }
 
     public void release() {
         released = true;
         executor.shutdownNow();
+        Log.d(TAG, "release album=" + albumId);
     }
 }

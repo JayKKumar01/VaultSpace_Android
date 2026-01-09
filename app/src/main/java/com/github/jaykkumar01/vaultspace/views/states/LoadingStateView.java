@@ -37,13 +37,11 @@ public class LoadingStateView extends FrameLayout {
 
     private void init(Context context) {
 
-        // Root fills parent
         setLayoutParams(new LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT
         ));
 
-        // Centered vertical group
         LinearLayout contentGroup = new LinearLayout(context);
         contentGroup.setOrientation(LinearLayout.VERTICAL);
         contentGroup.setGravity(Gravity.CENTER);
@@ -56,13 +54,11 @@ public class LoadingStateView extends FrameLayout {
         );
         contentGroup.setLayoutParams(contentParams);
 
-        // Pulse wrapper (breathing room)
         FrameLayout pulseWrapper = new FrameLayout(context);
         LinearLayout.LayoutParams pulseWrapperParams =
                 new LinearLayout.LayoutParams(dp(48), dp(48));
         pulseWrapper.setLayoutParams(pulseWrapperParams);
 
-        // Pulse dot
         pulseView = new View(context);
         FrameLayout.LayoutParams pulseParams =
                 new FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER);
@@ -72,7 +68,6 @@ public class LoadingStateView extends FrameLayout {
 
         pulseWrapper.addView(pulseView);
 
-        // Loading text
         loadingText = new TextView(context);
         LinearLayout.LayoutParams textParams =
                 new LinearLayout.LayoutParams(
@@ -82,19 +77,18 @@ public class LoadingStateView extends FrameLayout {
         textParams.topMargin = dp(14);
         loadingText.setLayoutParams(textParams);
         loadingText.setTextSize(13);
-        loadingText.setTextColor(
-                context.getColor(R.color.vs_text_content)
-        );
+        loadingText.setTextColor(context.getColor(R.color.vs_text_content));
         loadingText.setAlpha(0.75f);
         loadingText.setText("Loading…");
 
-        // Assemble
         contentGroup.addView(pulseWrapper);
         contentGroup.addView(loadingText);
         addView(contentGroup);
 
-        // Animation
         pulseAnimation = AnimationUtils.loadAnimation(context, R.anim.pulse);
+
+        // IMPORTANT: start hidden
+        setVisibility(GONE);
     }
 
     /* ---------------- Public API ---------------- */
@@ -103,31 +97,20 @@ public class LoadingStateView extends FrameLayout {
         loadingText.setText(text);
     }
 
-    public void start() {
-        pulseView.startAnimation(pulseAnimation);
-        setVisibility(VISIBLE);
-    }
+    @Override
+    public void setVisibility(int visibility) {
+        super.setVisibility(visibility);
 
-    public void stop() {
-        pulseView.clearAnimation();
-        setVisibility(GONE);
+        if (visibility == VISIBLE) {
+            pulseView.startAnimation(pulseAnimation);
+        } else {
+            pulseView.clearAnimation();
+        }
     }
 
     /* ---------------- Utils ---------------- */
 
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density);
-    }
-
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        start();
-    }
-
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        stop();
     }
 }

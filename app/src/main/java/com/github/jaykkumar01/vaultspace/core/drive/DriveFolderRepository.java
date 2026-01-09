@@ -37,6 +37,7 @@ public final class DriveFolderRepository {
         return getOrCreateFolder(drive, ALBUMS_FOLDER_NAME, rootId);
     }
 
+
     /* ---------------- Files ---------------- */
 
     public static String findFilesRootId(Drive drive) throws Exception {

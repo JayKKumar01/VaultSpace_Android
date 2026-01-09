@@ -45,6 +45,11 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         emptyView.setPrimaryAction("Create Album", v -> onCreateAlbum());
         emptyView.hideSecondaryAction();
 
+        // ✅ Correct: visibility only, no state mutation
+        loadingView.setVisibility(View.GONE);
+        emptyView.setVisibility(View.GONE);
+        contentView.setVisibility(View.GONE);
+
         Log.d(TAG, "init");
     }
 

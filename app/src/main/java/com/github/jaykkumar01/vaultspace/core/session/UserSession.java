@@ -16,7 +16,7 @@ public class UserSession {
     private final Context appContext;
 
     // Session-scoped cache holder
-    private VaultSessionCache vaultCache;
+    private static VaultSessionCache vaultCache;
 
     public UserSession(Context context) {
         this.appContext = context.getApplicationContext();
