@@ -2,6 +2,8 @@ package com.github.jaykkumar01.vaultspace.activities;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,6 +27,11 @@ public class AlbumActivity extends AppCompatActivity {
     private String albumId;
     private String albumName;
 
+    /* ---------------- Views ---------------- */
+
+    private TextView tvAlbumName;
+    private ImageView btnBack;
+
     /* ---------------- Lifecycle ---------------- */
 
     @Override
@@ -41,6 +48,9 @@ public class AlbumActivity extends AppCompatActivity {
         setContentView(R.layout.activity_album);
         applyWindowInsets();
 
+        bindViews();
+        bindHeader();
+
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
     }
 
@@ -49,8 +59,19 @@ public class AlbumActivity extends AppCompatActivity {
     private boolean readIntent() {
         albumId = getIntent().getStringExtra(EXTRA_ALBUM_ID);
         albumName = getIntent().getStringExtra(EXTRA_ALBUM_NAME);
-
         return albumId != null && !albumId.isEmpty();
+    }
+
+    /* ---------------- View Binding ---------------- */
+
+    private void bindViews() {
+        tvAlbumName = findViewById(R.id.tvAlbumName);
+        btnBack = findViewById(R.id.btnBack);
+    }
+
+    private void bindHeader() {
+        tvAlbumName.setText(albumName);
+        btnBack.setOnClickListener(v -> finish());
     }
 
     /* ---------------- Insets ---------------- */

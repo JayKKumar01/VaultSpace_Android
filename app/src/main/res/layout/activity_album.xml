@@ -9,7 +9,7 @@
     android:background="@color/vs_content_bg"
     tools:context=".activities.AlbumActivity">
 
-    <!-- ================= Header Card (Branding Only) ================= -->
+    <!-- ================= Header Card ================= -->
     <androidx.cardview.widget.CardView
         android:id="@+id/albumHeaderCard"
         android:layout_width="0dp"
@@ -31,7 +31,8 @@
             android:paddingTop="14dp"
             android:paddingBottom="16dp">
 
-            <!-- App Name -->
+            <!-- ================= Branding ================= -->
+
             <TextView
                 android:id="@+id/tvAppName"
                 android:layout_width="wrap_content"
@@ -44,7 +45,6 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
 
-            <!-- Dot -->
             <TextView
                 android:id="@+id/tvDot"
                 android:layout_width="wrap_content"
@@ -57,7 +57,6 @@
                 app:layout_constraintBaseline_toBaselineOf="@id/tvAppName"
                 app:layout_constraintStart_toEndOf="@id/tvAppName" />
 
-            <!-- Subtitle -->
             <TextView
                 android:id="@+id/tvSubtitle"
                 android:layout_width="wrap_content"
@@ -70,7 +69,6 @@
                 app:layout_constraintBaseline_toBaselineOf="@id/tvAppName"
                 app:layout_constraintStart_toEndOf="@id/tvDot" />
 
-            <!-- Accent Divider -->
             <View
                 android:id="@+id/brandDivider"
                 android:layout_width="32dp"
@@ -81,9 +79,94 @@
                 app:layout_constraintTop_toBottomOf="@id/tvAppName"
                 app:layout_constraintStart_toStartOf="parent" />
 
+            <!-- ================= Album Context ================= -->
+
+            <!-- Album Details Container -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/albumDetailsContainer"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:layout_constraintTop_toBottomOf="@id/brandDivider"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <!-- Back Button -->
+                <ImageView
+                    android:id="@+id/btnBack"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    app:layout_constraintDimensionRatio="1"
+                    android:src="@drawable/ic_arrow_back"
+                    android:contentDescription="Back"
+                    android:alpha="0.85"
+                    android:padding="8dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <!-- Album Title -->
+                <TextView
+                    android:id="@+id/tvAlbumName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:text="Album Name"
+                    android:textColor="@color/vs_text_console"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    app:layout_constraintStart_toEndOf="@id/btnBack"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Album Meta Row -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/albumMetaRow"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textAlignment="center"
+                    app:layout_constraintTop_toBottomOf="@id/tvAlbumName"
+                    app:layout_constraintStart_toStartOf="@id/tvAlbumName"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <!-- Left: Image / Video count -->
+                    <TextView
+                        android:id="@+id/tvAlbumMeta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="0dp"
+                        android:text="8 captured · 4 recorded"
+                        android:textAlignment="center"
+                        android:textColor="@color/vs_brand_text"
+                        android:textSize="11sp"
+                        android:alpha="0.75"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <!-- Right: Philosophy -->
+                    <TextView
+                        android:id="@+id/tvAlbumSize"
+                        android:layout_width="wrap_content"
+                        android:layout_height="0dp"
+                        android:textAlignment="center"
+                        android:text="No limits · Just memories"
+                        android:textColor="@color/vs_brand_text"
+                        android:textSize="11sp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+
         </androidx.constraintlayout.widget.ConstraintLayout>
 
     </androidx.cardview.widget.CardView>
+
 
     <!-- ================= Album Content Container ================= -->
     <FrameLayout
