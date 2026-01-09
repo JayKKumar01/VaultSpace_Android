@@ -5,6 +5,7 @@ import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import com.github.jaykkumar01.vaultspace.views.ConfirmActionView;
 import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.ItemActionView;
@@ -31,6 +32,9 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
 
     protected FolderActionView folderActionView;
     protected ItemActionView itemActionView;
+
+    // ✅ NEW: Confirm abstraction
+    protected ConfirmActionView confirmActionView;
 
     protected BaseVaultSectionUiHelper(Context context, FrameLayout container) {
         this.context = context;
@@ -79,7 +83,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
         contentView.setVisibility(View.VISIBLE);
     }
 
-    /* ---------------- Overlay ---------------- */
+    /* ---------------- Folder Action ---------------- */
 
     protected void showFolderActionPopup(
             String title,
@@ -105,20 +109,62 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
         }
     }
 
-    protected void showItemActionPopup(String title, String[] actions, String debugOwner, ItemActionView.Callback callback){
-        Activity activity=(Activity)context;
-        FrameLayout root=activity.findViewById(android.R.id.content);
-        if(itemActionView==null){
-            itemActionView=new ItemActionView(context);
+    /* ---------------- Item Action ---------------- */
+
+    protected void showItemActionPopup(
+            String title,
+            String[] actions,
+            String debugOwner,
+            ItemActionView.Callback callback
+    ) {
+        Activity activity = (Activity) context;
+        FrameLayout root = activity.findViewById(android.R.id.content);
+
+        if (itemActionView == null) {
+            itemActionView = new ItemActionView(context);
             root.addView(itemActionView);
         }
-        itemActionView.show(title,actions,debugOwner,callback);
+
+        itemActionView.show(title, actions, debugOwner, callback);
     }
 
-    protected void hideItemActionPopup(){
-        if(itemActionView!=null&&itemActionView.isVisible()){
+    protected void hideItemActionPopup() {
+        if (itemActionView != null && itemActionView.isVisible()) {
             itemActionView.hide();
         }
     }
 
+    /* ---------------- Confirm Action (NEW) ---------------- */
+
+    protected void showConfirmActionPopup(
+            String title,
+            String message,
+            String positiveText,
+            int risk,
+            String debugOwner,
+            ConfirmActionView.Callback callback
+    ) {
+        Activity activity = (Activity) context;
+        FrameLayout root = activity.findViewById(android.R.id.content);
+
+        if (confirmActionView == null) {
+            confirmActionView = new ConfirmActionView(context);
+            root.addView(confirmActionView);
+        }
+
+        confirmActionView.show(
+                title,
+                message,
+                positiveText,
+                risk,
+                debugOwner,
+                callback
+        );
+    }
+
+    protected void hideConfirmActionPopup() {
+        if (confirmActionView != null && confirmActionView.isVisible()) {
+            confirmActionView.hide();
+        }
+    }
 }

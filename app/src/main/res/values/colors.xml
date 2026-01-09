@@ -55,5 +55,19 @@
     <color name="vs_media_frame">#2A3441</color>
     <color name="vs_icon_on_media">#E6FFFFFF</color>
 
+    <!-- ===== Risk / Confirmation Actions ===== -->
+
+    <!-- Warning (caution, non-destructive) -->
+    <color name="vs_warning">#F6A04D</color>          <!-- reuse username highlight tone -->
+    <color name="vs_warning_ripple">#33F6A04D</color>
+
+    <!-- Destructive (delete album, folder) -->
+    <color name="vs_danger">#FF6B6B</color>           <!-- softened red (not harsh) -->
+    <color name="vs_danger_ripple">#33FF6B6B</color>
+
+    <!-- Critical (delete account, revoke access) -->
+    <color name="vs_danger_strong">#FF3B30</color>    <!-- matches vs_error -->
+
+
 
 </resources>

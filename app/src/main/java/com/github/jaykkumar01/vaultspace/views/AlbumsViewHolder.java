@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
+import com.github.jaykkumar01.vaultspace.views.util.AlbumUiUtils;
 
 class AlbumsViewHolder extends RecyclerView.ViewHolder {
 
@@ -19,7 +20,6 @@ class AlbumsViewHolder extends RecyclerView.ViewHolder {
     private final ImageView albumPlaceholder;
     private final ImageButton albumOverflow;
     private final AlbumItemCallbacks callbacks;
-
 
     AlbumsViewHolder(
             @NonNull View itemView,
@@ -37,18 +37,32 @@ class AlbumsViewHolder extends RecyclerView.ViewHolder {
     void bind(AlbumInfo album) {
         albumName.setText(album.name);
 
+        final boolean isTemp = AlbumUiUtils.isTempAlbum(album);
+
+        /* ---------------- Reset recycled state ---------------- */
+
+        stopLoadingAnimation(albumPlaceholder);
+
+        itemView.setAlpha(1f);
+        itemView.setOnLongClickListener(null);
+        albumOverflow.setOnClickListener(null);
+        albumOverflow.setVisibility(View.VISIBLE);
+
+        albumPlaceholder.setImageResource(R.drawable.ic_album_placeholder);
+
+        /* ---------------- Cover / Placeholder ---------------- */
+
         if (album.coverPath != null) {
             albumPlaceholder.setVisibility(View.GONE);
             albumCover.setVisibility(View.VISIBLE);
 
             Glide.with(albumCover)
-                    .load(album.coverPath)   // file path / uri / url
-                    .centerInside()           // matches your fitCenter intent
-                    .dontAnimate()            // avoids flicker on rebinding
+                    .load(album.coverPath)
+                    .centerInside()
+                    .dontAnimate()
                     .into(albumCover);
 
         } else {
-            // Clear recycled image
             Glide.with(albumCover).clear(albumCover);
 
             albumCover.setImageDrawable(null);
@@ -56,19 +70,59 @@ class AlbumsViewHolder extends RecyclerView.ViewHolder {
             albumPlaceholder.setVisibility(View.VISIBLE);
         }
 
-        // Overflow menu click
+        /* ---------------- Temp Album UI ---------------- */
+
+        if (isTemp) {
+            itemView.setAlpha(0.6f);
+            albumOverflow.setVisibility(View.GONE);
+
+            startLoadingAnimation(albumPlaceholder);
+            return; // 🚫 no interactions
+        }
+
+        /* ---------------- Normal Album Actions ---------------- */
+
         albumOverflow.setOnClickListener(v ->
                 callbacks.onOverflowClicked(album)
         );
 
-        // Long press on entire card
-        itemView.setOnLongClickListener(v->{
-            v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).withEndAction(()->{
-                v.animate().scaleX(1f).scaleY(1f).setDuration(80).start();
-                callbacks.onLongPressed(album);
-            }).start();
+        itemView.setOnLongClickListener(v -> {
+            v.animate()
+                    .scaleX(0.96f)
+                    .scaleY(0.96f)
+                    .setDuration(80)
+                    .withEndAction(() ->
+                            v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
+                    )
+                    .start();
+
+            callbacks.onLongPressed(album);
             return true;
         });
+    }
 
+    /* ---------------- Loading Animation ---------------- */
+
+    private void startLoadingAnimation(View v) {
+        v.animate()
+                .alpha(0.4f)
+                .setDuration(900)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .withEndAction(() -> {
+                    if (v.getAlpha() < 0.5f) {
+                        v.animate()
+                                .alpha(0.9f)
+                                .setDuration(900)
+                                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                                .withEndAction(() -> startLoadingAnimation(v))
+                                .start();
+                    }
+                })
+                .start();
+    }
+
+    private void stopLoadingAnimation(View v) {
+        v.animate().cancel();
+        v.setAlpha(1f);
     }
 }
