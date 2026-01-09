@@ -88,16 +88,11 @@ public class AlbumsContentView extends FrameLayout
         scrollToTop();
     }
 
-    /** Async thumbnail update */
-    public void updateAlbumCover(String albumId, String coverPath) {
-        adapter.updateAlbumCover(albumId, coverPath);
-    }
-
-    /** Rename may affect ordering */
-    public void updateAlbumName(String albumId, String newName) {
-        adapter.updateAlbumName(albumId, newName);
+    public void updateAlbum(String albumId, AlbumInfo updated) {
+        adapter.updateAlbum(albumId, updated);
         scrollToTop();
     }
+
 
     public void deleteAlbum(String albumId) {
         adapter.deleteAlbum(albumId);

@@ -56,9 +56,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         return albumsContentView;
     }
 
-    private void onAlbumClick(AlbumInfo album) {
-        Log.d(TAG, "Album clicked: " + album.name + " (" + album.id + ")");
-    }
+    /* ---------------- Lifecycle ---------------- */
 
     @Override
     public void show() {
@@ -69,8 +67,10 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             @Override
             public void onResult(List<AlbumInfo> albums) {
                 if (released) return;
-                if (albums.isEmpty()) moveToState(UiState.EMPTY);
-                else {
+
+                if (albums.isEmpty()) {
+                    moveToState(UiState.EMPTY);
+                } else {
                     albumsContentView.setAlbums(albums);
                     moveToState(UiState.CONTENT);
                 }
@@ -79,6 +79,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             @Override
             public void onError(Exception e) {
                 if (released) return;
+
                 Log.e(TAG, "Initial album fetch failed", e);
                 Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
                 moveToState(UiState.ERROR);
@@ -86,7 +87,11 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         });
     }
 
-    /* ---------------- Album Actions ---------------- */
+    /* ---------------- Album Clicks ---------------- */
+
+    private void onAlbumClick(AlbumInfo album) {
+        Log.d(TAG, "Album clicked: " + album.name + " (" + album.id + ")");
+    }
 
     private void onAlbumAction(AlbumInfo album) {
         showItemActionPopup(
@@ -109,7 +114,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         );
     }
 
-    /* ---------------- Rename ---------------- */
+    /* ---------------- Rename (cache-first) ---------------- */
 
     private void showRenameAlbum(AlbumInfo album) {
         showFolderActionPopup(
@@ -140,26 +145,37 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             return;
         }
 
-        moveToState(UiState.LOADING);
-        drive.renameAlbum(executor, album.id, newName, new AlbumsDriveHelper.RenameAlbumCallback() {
-            @Override
-            public void onSuccess() {
-                if (released) return;
-                onAlbumRenamed(album.id, newName);
-                moveToState(UiState.CONTENT);
-            }
+        final AlbumInfo oldAlbum = album;
 
-            @Override
-            public void onError(Exception e) {
-                if (released) return;
-                Log.e(TAG, "renameAlbum failed", e);
-                Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
-                moveToState(UiState.CONTENT);
-            }
-        });
+        AlbumInfo updated = new AlbumInfo(
+                album.id,
+                trimmed,
+                album.createdTime,
+                System.currentTimeMillis(),
+                album.coverPath
+        );
+
+        onAlbumUpdated(album.id, updated);
+
+        drive.renameAlbum(executor, album.id, trimmed,
+                new AlbumsDriveHelper.RenameAlbumCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.d(TAG, "Album renamed: " + oldAlbum.name + " → " + trimmed);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (released) return;
+
+                        Log.e(TAG, "renameAlbum failed", e);
+                        Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                        onAlbumUpdated(oldAlbum.id, oldAlbum);
+                    }
+                });
     }
 
-    /* ---------------- Create ---------------- */
+    /* ---------------- Create (cache-first) ---------------- */
 
     private void onCreateAlbum() {
         if (released) return;
@@ -186,14 +202,13 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     private void createAlbum(String name) {
         hideFolderActionPopup();
 
-        final String trimmed = name == null ? "" : name.trim();
+        String trimmed = name == null ? "" : name.trim();
         if (trimmed.isEmpty()) {
             Toast.makeText(context, "Album name required", Toast.LENGTH_SHORT).show();
             return;
         }
 
         long time = System.currentTimeMillis();
-        // 1️⃣ Create temp album (client-side)
         AlbumInfo tempAlbum = new AlbumInfo(
                 "temp_" + time,
                 trimmed,
@@ -205,34 +220,28 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         albumsContentView.addAlbum(tempAlbum);
         moveToState(UiState.CONTENT);
 
-        // 2️⃣ Drive create
-        drive.createAlbum(executor, trimmed, new AlbumsDriveHelper.CreateAlbumCallback() {
-            @Override
-            public void onSuccess(AlbumInfo realAlbum) {
-                if (released) return;
+        drive.createAlbum(executor, trimmed,
+                new AlbumsDriveHelper.CreateAlbumCallback() {
+                    @Override
+                    public void onSuccess(AlbumInfo realAlbum) {
+                        if (released) return;
+                        albumsContentView.deleteAlbum(tempAlbum.id);
+                        albumsContentView.addAlbum(realAlbum);
+                    }
 
-                // Replace temp album with real one
-                albumsContentView.deleteAlbum(tempAlbum.id);
-                albumsContentView.addAlbum(realAlbum);
-            }
+                    @Override
+                    public void onError(Exception e) {
+                        if (released) return;
 
-            @Override
-            public void onError(Exception e) {
-                if (released) return;
-
-                Log.e(TAG, "createAlbum failed", e);
-                Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
-
-                // Rollback UI
-                albumsContentView.deleteAlbum(tempAlbum.id);
-                if (albumsContentView.isEmpty()) {
-                    moveToState(UiState.EMPTY);
-                }
-            }
-        });
+                        Log.e(TAG, "createAlbum failed", e);
+                        Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                        albumsContentView.deleteAlbum(tempAlbum.id);
+                        if (albumsContentView.isEmpty()) moveToState(UiState.EMPTY);
+                    }
+                });
     }
 
-    /* ---------------- Delete ---------------- */
+    /* ---------------- Delete (cache-first) ---------------- */
 
     private void showDeleteAlbumConfirm(AlbumInfo album) {
         showConfirmActionPopup(
@@ -261,56 +270,54 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         albumsContentView.deleteAlbum(album.id);
         if (albumsContentView.isEmpty()) moveToState(UiState.EMPTY);
 
-        drive.deleteAlbum(executor, album.id, new AlbumsDriveHelper.DeleteAlbumCallback() {
-            @Override
-            public void onSuccess(String albumId) {
-                if (released) return;
-                Log.d(TAG, "Album deleted: " + album.name);
-                onAlbumDeleted(albumId);
-            }
+        drive.deleteAlbum(executor, album.id,
+                new AlbumsDriveHelper.DeleteAlbumCallback() {
+                    @Override
+                    public void onSuccess(String albumId) {
+                        if (released) return;
+                        Log.d(TAG, "Album deleted: " + album.name);
+                        onAlbumDeleted(albumId);
+                    }
 
-            @Override
-            public void onError(Exception e) {
-                if (released) return;
-                Log.e(TAG, "deleteAlbum failed", e);
-                Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                    @Override
+                    public void onError(Exception e) {
+                        if (released) return;
 
-                albumsContentView.addAlbum(album);
-                moveToState(UiState.CONTENT);
-            }
-        });
+                        Log.e(TAG, "deleteAlbum failed", e);
+                        Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
+                        albumsContentView.addAlbum(album);
+                        moveToState(UiState.CONTENT);
+                    }
+                });
     }
 
-    /* ---------------- External Hooks ---------------- */
+    /* ---------------- External hooks ---------------- */
 
-    public void onAlbumCoverUpdated(String albumId, String coverPath) {
+    public void onAlbumUpdated(String albumId, AlbumInfo album) {
         if (released || albumsContentView == null) return;
-        albumsContentView.updateAlbumCover(albumId, coverPath);
-    }
-
-    public void onAlbumRenamed(String albumId, String newName) {
-        if (released || albumsContentView == null) return;
-        albumsContentView.updateAlbumName(albumId, newName);
+        albumsContentView.updateAlbum(albumId, album);
     }
 
     public void onAlbumDeleted(String albumId) {
         if (released || albumsContentView == null) return;
         albumsContentView.deleteAlbum(albumId);
-        if (state == UiState.CONTENT && albumsContentView.isEmpty()) moveToState(UiState.EMPTY);
+        if (state == UiState.CONTENT && albumsContentView.isEmpty()) {
+            moveToState(UiState.EMPTY);
+        }
     }
 
     /* ---------------- State ---------------- */
 
     private void moveToState(UiState newState) {
         if (state == newState) return;
+
         Log.d(TAG, "UI state: " + state + " → " + newState);
         state = newState;
 
         switch (newState) {
             case LOADING: showLoading(); break;
             case EMPTY:
-            case ERROR:
-                showEmpty(); break;
+            case ERROR: showEmpty(); break;
             case CONTENT: showContent(); break;
         }
     }

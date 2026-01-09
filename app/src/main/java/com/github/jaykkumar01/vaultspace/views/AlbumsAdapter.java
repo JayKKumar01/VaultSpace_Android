@@ -76,40 +76,22 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder>
 
     /* ---------------- Targeted updates ---------------- */
 
-    void updateAlbumCover(String albumId, String coverPath) {
+    void updateAlbum(String albumId, AlbumInfo updated) {
         int index = findIndexById(albumId);
         if (index == -1) return;
 
-        AlbumInfo old = items.get(index);
+        List<AlbumInfo> newItems = new ArrayList<>(items);
+        newItems.set(index, updated);
 
-        AlbumInfo updated = new AlbumInfo(
-                old.id,
-                old.name,
-                old.createdTime,
-                old.modifiedTime,
-                coverPath
-        );
+        DiffUtil.DiffResult diffResult =
+                DiffUtil.calculateDiff(
+                        new AlbumsDiffCallback(items, newItems)
+                );
 
-        replaceItem(index, updated);
+        items = List.copyOf(newItems);
+        diffResult.dispatchUpdatesTo(this);
     }
 
-    void updateAlbumName(String albumId, String newName) {
-        int index = findIndexById(albumId);
-        if (index == -1) return;
-
-        AlbumInfo old = items.get(index);
-        if (old.name.equals(newName)) return;
-
-        AlbumInfo updated = new AlbumInfo(
-                old.id,
-                newName,
-                old.createdTime,
-                System.currentTimeMillis(),
-                old.coverPath
-        );
-
-        replaceItem(index, updated);
-    }
 
     void deleteAlbum(String albumId) {
         int index = findIndexById(albumId);
@@ -128,19 +110,6 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder>
     }
 
     /* ---------------- Internal helpers ---------------- */
-
-    private void replaceItem(int index, AlbumInfo updated) {
-        List<AlbumInfo> newItems = new ArrayList<>(items);
-        newItems.set(index, updated);
-
-        DiffUtil.DiffResult diffResult =
-                DiffUtil.calculateDiff(
-                        new AlbumsDiffCallback(items, newItems)
-                );
-
-        items = List.copyOf(newItems);
-        diffResult.dispatchUpdatesTo(this);
-    }
 
     private boolean containsAlbum(String albumId) {
         for (AlbumInfo item : items) {
