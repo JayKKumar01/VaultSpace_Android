@@ -15,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.AlbumUiHelper;
+import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 
 public class AlbumActivity extends AppCompatActivity {
 
@@ -33,6 +34,7 @@ public class AlbumActivity extends AppCompatActivity {
     private TextView tvAlbumName;
     private ImageView btnBack;
     private FrameLayout contentContainer;
+    private AlbumMetaInfoView albumMetaInfo;
 
     /* ---------------- UI Helper ---------------- */
 
@@ -56,6 +58,14 @@ public class AlbumActivity extends AppCompatActivity {
         initAlbumUi();
         setupBackHandling();
 
+        // ✅ AlbumMetaInfoView runtime usage
+        albumMetaInfo.showLoading();
+
+        // TEMP: stub until real counts are wired
+        albumMetaInfo.postDelayed(() ->
+                albumMetaInfo.setCounts(8, 4), 400
+        );
+
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
     }
 
@@ -73,6 +83,7 @@ public class AlbumActivity extends AppCompatActivity {
         tvAlbumName = findViewById(R.id.tvAlbumName);
         btnBack = findViewById(R.id.btnBack);
         contentContainer = findViewById(R.id.stateContainer);
+        albumMetaInfo = findViewById(R.id.albumMetaInfo);
     }
 
     private void bindHeader() {

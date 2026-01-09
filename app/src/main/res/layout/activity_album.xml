@@ -132,18 +132,15 @@
                     app:layout_constraintStart_toStartOf="@id/tvAlbumName"
                     app:layout_constraintEnd_toEndOf="parent">
 
-                    <!-- Left: Image / Video count -->
-                    <TextView
-                        android:id="@+id/tvAlbumMeta"
-                        android:layout_width="wrap_content"
-                        android:layout_height="0dp"
-                        android:text="8 captured · 4 recorded"
-                        android:textAlignment="center"
-                        android:textColor="@color/vs_brand_text"
-                        android:textSize="11sp"
-                        android:alpha="0.75"
+                    <com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView
+                        android:id="@+id/albumMetaInfo"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toTopOf="parent" />
+
+
+
 
                     <!-- Right: Philosophy -->
                     <TextView

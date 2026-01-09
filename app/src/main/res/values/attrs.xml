@@ -12,5 +12,11 @@
         <attr name="profileEmail" format="string" />
         <attr name="profileImage" format="reference" />
     </declare-styleable>
+    <declare-styleable name="AlbumMetaInfoView">
+        <attr name="capturedCount" format="integer" />
+        <attr name="recordedCount" format="integer" />
+        <attr name="loading" format="boolean" />
+    </declare-styleable>
+
 </resources>
 
