@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.views.creative;
 
 import android.content.Context;
 import android.content.res.TypedArray;

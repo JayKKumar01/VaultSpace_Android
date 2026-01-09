@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.dashboard.albums;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 
 import java.util.ArrayList;
@@ -162,9 +163,12 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder>
         holder.bind(album);
 
         holder.itemView.setOnClickListener(v -> {
-            if (clickListener != null) {
-                clickListener.onAlbumClick(album);
-            }
+            if (clickListener == null) return;
+
+            // Ignore temp albums
+            if (album.id != null && album.id.startsWith("temp_")) return;
+
+            clickListener.onAlbumClick(album);
         });
     }
 

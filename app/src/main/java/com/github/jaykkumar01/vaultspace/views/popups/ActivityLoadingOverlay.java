@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.views.popups;
 
 import android.app.Activity;
 import android.graphics.Color;

@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views.util;
+package com.github.jaykkumar01.vaultspace.utils;
 
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 

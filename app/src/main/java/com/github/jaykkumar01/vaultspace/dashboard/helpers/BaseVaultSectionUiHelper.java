@@ -1,23 +1,20 @@
-package com.github.jaykkumar01.vaultspace.dashboard;
+package com.github.jaykkumar01.vaultspace.dashboard.helpers;
 
 import android.app.Activity;
 import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.github.jaykkumar01.vaultspace.views.ConfirmActionView;
-import com.github.jaykkumar01.vaultspace.views.EmptyStateView;
-import com.github.jaykkumar01.vaultspace.views.FolderActionView;
-import com.github.jaykkumar01.vaultspace.views.ItemActionView;
-import com.github.jaykkumar01.vaultspace.views.LoadingStateView;
+import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
+import com.github.jaykkumar01.vaultspace.views.popups.ConfirmActionView;
+import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
+import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
+import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;
+import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
 /* ---------------- Contract ---------------- */
 
-interface VaultSectionUi {
-    void show();
-    boolean onBackPressed();
-    default void release() {}
-}
+
 
 /* ---------------- Base Helper ---------------- */
 

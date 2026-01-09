@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.dashboard.albums;
 
 import android.view.View;
 import android.widget.ImageButton;
@@ -10,8 +10,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.views.util.AlbumUiUtils;
+import com.github.jaykkumar01.vaultspace.utils.AlbumUiUtils;
 
 class AlbumsViewHolder extends RecyclerView.ViewHolder {
 

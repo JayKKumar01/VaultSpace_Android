@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.views.popups;
 
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;

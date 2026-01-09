@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.dashboard.albums;
 
 import android.content.Context;
 import android.widget.FrameLayout;
@@ -7,8 +7,9 @@ import android.widget.ImageButton;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.views.util.VaultFabUtil;
+import com.github.jaykkumar01.vaultspace.utils.VaultFabUtil;
 
 import java.util.List;
 

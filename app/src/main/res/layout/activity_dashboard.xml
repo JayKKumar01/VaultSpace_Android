@@ -8,7 +8,7 @@
     android:layout_height="match_parent"
     android:background="@color/vs_content_bg"
     android:keepScreenOn="true"
-    tools:context=".dashboard.DashboardActivity">
+    tools:context=".activities.DashboardActivity">
 
     <!-- ================= Dashboard Header Card ================= -->
     <androidx.cardview.widget.CardView
@@ -82,7 +82,7 @@
 
             <!-- ================= Profile + Storage Row ================= -->
 
-            <com.github.jaykkumar01.vaultspace.views.ProfileInfoView
+            <com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView
                 android:id="@+id/profileInfo"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -95,7 +95,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/storageBar" />
 
-            <com.github.jaykkumar01.vaultspace.views.StorageBarView
+            <com.github.jaykkumar01.vaultspace.views.creative.StorageBarView
                 android:id="@+id/storageBar"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

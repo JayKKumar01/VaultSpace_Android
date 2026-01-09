@@ -5,7 +5,7 @@ import android.graphics.Bitmap;
 import android.text.TextUtils;
 
 import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
-import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
+import com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView;
 
 /**
  * Handles profile header binding logic for Dashboard.

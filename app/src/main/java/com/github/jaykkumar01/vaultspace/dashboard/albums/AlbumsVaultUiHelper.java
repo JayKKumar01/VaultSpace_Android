@@ -1,18 +1,19 @@
 package com.github.jaykkumar01.vaultspace.dashboard.albums;
 
 import android.content.Context;
+import android.content.Intent;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
+import com.github.jaykkumar01.vaultspace.activities.AlbumActivity;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.views.AlbumsContentView;
-import com.github.jaykkumar01.vaultspace.views.ConfirmActionView;
-import com.github.jaykkumar01.vaultspace.views.FolderActionView;
-import com.github.jaykkumar01.vaultspace.views.ItemActionView;
+import com.github.jaykkumar01.vaultspace.views.popups.ConfirmActionView;
+import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
+import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -90,8 +91,24 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     /* ---------------- Album Clicks ---------------- */
 
     private void onAlbumClick(AlbumInfo album) {
-        Log.d(TAG, "Album clicked: " + album.name + " (" + album.id + ")");
+        if (released) return;
+
+        Log.d(TAG, "Launching AlbumActivity for: " + album.name + " (" + album.id + ")");
+
+        try {
+            Context ctx = context;
+            Intent intent = new Intent(ctx, AlbumActivity.class);
+            intent.putExtra("album_id", album.id);
+            intent.putExtra("album_name", album.name);
+
+            ctx.startActivity(intent);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to launch AlbumActivity", e);
+            Toast.makeText(context, "Unable to open album", Toast.LENGTH_SHORT).show();
+        }
     }
+
 
     private void onAlbumAction(AlbumInfo album) {
         showItemActionPopup(

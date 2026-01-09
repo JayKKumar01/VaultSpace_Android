@@ -6,9 +6,9 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.dashboard.BaseVaultSectionUiHelper;
-import com.github.jaykkumar01.vaultspace.views.FilesContentView;
-import com.github.jaykkumar01.vaultspace.views.FolderActionView;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
+import com.github.jaykkumar01.vaultspace.views.states.FilesContentView;
+import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
 
 public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
 

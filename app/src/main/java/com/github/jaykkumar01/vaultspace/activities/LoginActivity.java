@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.login;
+package com.github.jaykkumar01.vaultspace.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -11,9 +11,8 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.dashboard.DashboardActivity;
 import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
-import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
+import com.github.jaykkumar01.vaultspace.views.popups.ActivityLoadingOverlay;
 
 public class LoginActivity extends AppCompatActivity {
 

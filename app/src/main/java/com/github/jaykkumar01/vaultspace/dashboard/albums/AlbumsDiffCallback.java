@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.dashboard.albums;
 
 import androidx.recyclerview.widget.DiffUtil;
 

@@ -1,8 +1,8 @@
-package com.github.jaykkumar01.vaultspace.views;
+package com.github.jaykkumar01.vaultspace.interfaces;
 
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 
-interface AlbumItemCallbacks {
+public interface AlbumItemCallbacks {
         void onOverflowClicked(AlbumInfo album);
         void onLongPressed(AlbumInfo album);
     }

@@ -4,7 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
-import com.github.jaykkumar01.vaultspace.views.StorageBarView;
+import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

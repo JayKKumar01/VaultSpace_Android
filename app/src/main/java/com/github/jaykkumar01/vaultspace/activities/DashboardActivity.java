@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.dashboard;
+package com.github.jaykkumar01.vaultspace.activities;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -21,10 +21,10 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardStorageBarHe
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
-import com.github.jaykkumar01.vaultspace.login.LoginActivity;
-import com.github.jaykkumar01.vaultspace.views.ActivityLoadingOverlay;
-import com.github.jaykkumar01.vaultspace.views.ProfileInfoView;
-import com.github.jaykkumar01.vaultspace.views.StorageBarView;
+import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
+import com.github.jaykkumar01.vaultspace.views.popups.ActivityLoadingOverlay;
+import com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView;
+import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {

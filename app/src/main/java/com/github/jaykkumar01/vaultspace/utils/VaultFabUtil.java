@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views.util;
+package com.github.jaykkumar01.vaultspace.utils;
 
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
