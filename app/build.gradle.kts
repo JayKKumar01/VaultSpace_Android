@@ -60,6 +60,9 @@ dependencies {
     implementation("com.google.api-client:google-api-client-android:2.6.0")
 // Google Drive API v3
     implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

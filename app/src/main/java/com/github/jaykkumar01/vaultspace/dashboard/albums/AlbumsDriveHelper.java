@@ -5,6 +5,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
@@ -26,9 +28,8 @@ public final class AlbumsDriveHelper {
     private final VaultSessionCache cache;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    public interface Callback {
-        void onSuccess(List<AlbumInfo> albums);
-        void onEmpty();
+    public interface FetchCallback {
+        void onResult(List<AlbumInfo> albums);
         void onError(Exception e);
     }
 
@@ -39,13 +40,13 @@ public final class AlbumsDriveHelper {
 
     public AlbumsDriveHelper(Context context) {
         UserSession session = new UserSession(context);
-        this.cache = session.getVaultCache();
+        cache = session.getVaultCache();
         String email = session.getPrimaryAccountEmail();
-        this.primaryDrive = DriveClientProvider.forAccount(context, email);
+        primaryDrive = DriveClientProvider.forAccount(context, email);
         Log.d(TAG, "Initialized primaryDrive for " + email);
     }
 
-    public void fetchAlbums(ExecutorService executor, Callback callback) {
+    public void fetchAlbums(ExecutorService executor, FetchCallback callback) {
         executor.execute(() -> {
             try {
                 if (cache.hasAlbumListCached()) {
@@ -53,38 +54,27 @@ public final class AlbumsDriveHelper {
                     return;
                 }
 
-                String albumsRootId = DriveFolderRepository.findAlbumsRootId(primaryDrive);
+                String albumsRootId =
+                        DriveFolderRepository.findAlbumsRootId(primaryDrive);
+
                 if (albumsRootId == null) {
                     cache.setAlbums(List.of());
-                    postEmpty(callback);
+                    postResult(callback, List.of());
                     return;
                 }
 
-                String q = "'" + albumsRootId + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+                String q =
+                        "'" + albumsRootId + "' in parents " +
+                                "and mimeType='application/vnd.google-apps.folder' " +
+                                "and trashed=false";
 
-                FileList list = primaryDrive.files()
-                        .list()
+                FileList list = primaryDrive.files().list()
                         .setQ(q)
                         .setFields("files(id,name,createdTime,modifiedTime)")
                         .setOrderBy("modifiedTime desc")
                         .execute();
 
-                List<File> files = list.getFiles();
-                if (files == null || files.isEmpty()) {
-                    cache.setAlbums(List.of());
-                    postEmpty(callback);
-                    return;
-                }
-
-                List<AlbumInfo> albums = new ArrayList<>(files.size());
-                for (File f : files) {
-                    albums.add(new AlbumInfo(
-                            f.getId(),
-                            f.getName(),
-                            f.getCreatedTime().getValue(),
-                            f.getModifiedTime().getValue()
-                    ));
-                }
+                List<AlbumInfo> albums = getAlbums(list);
 
                 cache.setAlbums(albums);
                 postResult(callback, albums);
@@ -96,17 +86,46 @@ public final class AlbumsDriveHelper {
         });
     }
 
-    public void createAlbum(ExecutorService executor, String albumName, CreateAlbumCallback callback) {
+    @NonNull
+    private static List<AlbumInfo> getAlbums(FileList list) {
+        List<AlbumInfo> albums = new ArrayList<>();
+        List<File> files = list.getFiles();
+
+        if (files != null) {
+            for (File f : files) {
+                albums.add(new AlbumInfo(
+                        f.getId(),
+                        f.getName(),
+                        f.getCreatedTime().getValue(),
+                        f.getModifiedTime().getValue(),
+                        null
+                ));
+            }
+        }
+        return albums;
+    }
+
+    public void createAlbum(
+            ExecutorService executor,
+            String albumName,
+            CreateAlbumCallback callback
+    ) {
         executor.execute(() -> {
             try {
-                String albumsRootId = DriveFolderRepository.getOrCreateAlbumsRootId(primaryDrive);
-                File created = DriveFolderRepository.createFolder(primaryDrive, albumName, albumsRootId);
+                String albumsRootId =
+                        DriveFolderRepository.getOrCreateAlbumsRootId(primaryDrive);
+
+                File created =
+                        DriveFolderRepository.createFolder(
+                                primaryDrive, albumName, albumsRootId
+                        );
 
                 AlbumInfo album = new AlbumInfo(
                         created.getId(),
                         created.getName(),
                         created.getCreatedTime().getValue(),
-                        created.getModifiedTime().getValue()
+                        created.getModifiedTime().getValue(),
+                        null
                 );
 
                 cache.addAlbum(album);
@@ -123,18 +142,11 @@ public final class AlbumsDriveHelper {
         cache.invalidateAlbums();
     }
 
-    private void postResult(Callback cb, List<AlbumInfo> albums) {
-        mainHandler.post(() -> {
-            if (albums.isEmpty()) cb.onEmpty();
-            else cb.onSuccess(albums);
-        });
+    private void postResult(FetchCallback cb, List<AlbumInfo> albums) {
+        mainHandler.post(() -> cb.onResult(albums));
     }
 
-    private void postEmpty(Callback cb) {
-        mainHandler.post(cb::onEmpty);
-    }
-
-    private void postError(Callback cb, Exception e) {
+    private void postError(FetchCallback cb, Exception e) {
         mainHandler.post(() -> cb.onError(e));
     }
 }

@@ -79,7 +79,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
 
     /* ---------------- Overlay ---------------- */
 
-    protected void showCreatePopup(
+    protected void showFolderActionPopup(
             String title,
             String hint,
             String positiveText,

@@ -55,7 +55,7 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
     /* ---------------- Popup (stub) ---------------- */
 
     private void showCreateFolderPopup() {
-        showCreatePopup(
+        showFolderActionPopup(
                 "Create Folder",
                 "Folder name",
                 "Create",
