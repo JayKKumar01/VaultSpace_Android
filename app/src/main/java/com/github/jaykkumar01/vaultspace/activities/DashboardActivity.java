@@ -29,49 +29,28 @@ public class DashboardActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
 
-    /* ==========================================================
-     * Auth State
-     * ========================================================== */
-
     private enum AuthState {
-        UNINITIALIZED,
-        INIT,
-        CHECKING,
-        GRANTED,
-        EXIT
+        UNINITIALIZED, INIT, CHECKING, GRANTED, EXIT
     }
 
     private AuthState authState = AuthState.UNINITIALIZED;
 
-    /* ==========================================================
-     * Core
-     * ========================================================== */
-
+    /* Core */
     private UserSession userSession;
     private String primaryEmail;
     private PrimaryAccountConsentHelper consentHelper;
-
     private boolean isFromLogin;
 
-    /* ==========================================================
-     * Helpers
-     * ========================================================== */
-
+    /* Helpers */
     private DashboardBlockingHelper blocking;
     private DashboardProfileHelper profileHelper;
     private ExpandVaultHelper expandVaultHelper;
 
-    /* ==========================================================
-     * UI
-     * ========================================================== */
-
+    /* UI */
     private StorageBarView storageBar;
-    private TextView segmentAlbums;
-    private TextView segmentFiles;
-    private FrameLayout albumsContainer;
-    private FrameLayout filesContainer;
-    private View btnExpandVault;
-    private View btnLogout;
+    private TextView segmentAlbums, segmentFiles;
+    private FrameLayout albumsContainer, filesContainer;
+    private View btnExpandVault, btnLogout;
 
     /* ==========================================================
      * Lifecycle
@@ -83,28 +62,28 @@ public class DashboardActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_dashboard);
 
-        isFromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
+        initIntent();
+        initCore();
+        initViews();
+        initHelpers();
+        initEarlyListeners();
+        initBackHandling();
 
-        blocking = new DashboardBlockingHelper(
-                this,
-                () -> exitToLogin("You have been logged out")
-        );
-
-        setupBackHandling();
-
-        expandVaultHelper = new ExpandVaultHelper(this);
         Log.d(TAG, "onCreate()");
         moveToState(AuthState.INIT);
     }
 
     /* ==========================================================
-     * State: GRANTED
+     * Initialization only
      * ========================================================== */
 
-    private void handleGranted() {
-        blocking.resetAll();
-        initViews();
-        initUiShell();
+    private void initIntent() {
+        isFromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
+    }
+
+    private void initCore() {
+        userSession = new UserSession(this);
+        consentHelper = new PrimaryAccountConsentHelper(this);
     }
 
     private void initViews() {
@@ -115,59 +94,22 @@ public class DashboardActivity extends AppCompatActivity {
         filesContainer = findViewById(R.id.filesContainer);
         btnExpandVault = findViewById(R.id.btnExpandVault);
         btnLogout = findViewById(R.id.btnLogout);
+    }
 
+    private void initHelpers() {
+        blocking = new DashboardBlockingHelper(
+                this,
+                () -> exitToLogin("You have been logged out")
+        );
         profileHelper = new DashboardProfileHelper(this);
+        expandVaultHelper = new ExpandVaultHelper(this);
     }
 
-    private void initUiShell() {
-        segmentAlbums.setSelected(true);
-        albumsContainer.setVisibility(View.VISIBLE);
-        filesContainer.setVisibility(View.GONE);
-
+    private void initEarlyListeners() {
         btnLogout.setOnClickListener(v -> blocking.confirmLogout());
-
-        profileHelper.attach(isFromLogin);
-
-        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
-
-        btnExpandVault.setOnClickListener(v -> {
-            blocking.showLoading();
-            expandVaultHelper.launchExpandVault(expandActionListener);
-        });
     }
 
-    /* ==========================================================
-     * Callbacks
-     * ========================================================== */
-
-    private void onVaultStorageState(VaultStorageState state) {
-        storageBar.setUsage(state.used, state.total, state.unit);
-    }
-
-    private final ExpandVaultHelper.ExpandActionListener expandActionListener =
-            new ExpandVaultHelper.ExpandActionListener() {
-
-                @Override
-                public void onSuccess() {
-                    blocking.clearLoading();
-                }
-
-                @Override
-                public void onError(@NonNull String message) {
-                    blocking.clearLoading();
-                    Toast.makeText(
-                            DashboardActivity.this,
-                            message,
-                            Toast.LENGTH_SHORT
-                    ).show();
-                }
-            };
-
-    /* ==========================================================
-     * Back Handling
-     * ========================================================== */
-
-    private void setupBackHandling() {
+    private void initBackHandling() {
         getOnBackPressedDispatcher().addCallback(this,
                 new OnBackPressedCallback(true) {
                     @Override
@@ -186,7 +128,27 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     /* ==========================================================
-     * State Machine
+     * GRANTED activation
+     * ========================================================== */
+
+    private void activateGrantedState() {
+        blocking.resetAll();
+
+        segmentAlbums.setSelected(true);
+        albumsContainer.setVisibility(View.VISIBLE);
+        filesContainer.setVisibility(View.GONE);
+
+        profileHelper.attach(isFromLogin);
+        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
+
+        btnExpandVault.setOnClickListener(v -> {
+            blocking.showLoading();
+            expandVaultHelper.launchExpandVault(expandActionListener);
+        });
+    }
+
+    /* ==========================================================
+     * State Machine (execution)
      * ========================================================== */
 
     private void moveToState(AuthState newState) {
@@ -203,7 +165,7 @@ public class DashboardActivity extends AppCompatActivity {
                 handleChecking();
                 break;
             case GRANTED:
-                handleGranted();
+                activateGrantedState();
                 break;
         }
     }
@@ -211,35 +173,55 @@ public class DashboardActivity extends AppCompatActivity {
     private void handleInit() {
         blocking.showLoading();
 
-        userSession = new UserSession(this);
         primaryEmail = userSession.getPrimaryAccountEmail();
-
         if (primaryEmail == null) {
             exitToLogin("Session expired. Please login again.");
             return;
         }
 
-        consentHelper = new PrimaryAccountConsentHelper(this);
         moveToState(isFromLogin ? AuthState.GRANTED : AuthState.CHECKING);
     }
 
     private void handleChecking() {
         blocking.showLoading();
-        consentHelper.checkConsentsSilently(
-                primaryEmail,
-                result -> {
-                    switch (result) {
-                        case GRANTED:
-                            moveToState(AuthState.GRANTED);
-                            break;
-                        case RECOVERABLE:
-                        case FAILED:
-                            exitToLogin("Permissions were revoked. Please login again.");
-                            break;
-                    }
-                }
-        );
+        consentHelper.checkConsentsSilently(primaryEmail, result -> {
+            switch (result) {
+                case GRANTED:
+                    moveToState(AuthState.GRANTED);
+                    break;
+                case RECOVERABLE:
+                case FAILED:
+                    exitToLogin("Permissions were revoked. Please login again.");
+                    break;
+            }
+        });
     }
+
+    /* ==========================================================
+     * Callbacks
+     * ========================================================== */
+
+    private void onVaultStorageState(VaultStorageState state) {
+        storageBar.setUsage(state.used, state.total, state.unit);
+    }
+
+    private final ExpandVaultHelper.ExpandActionListener expandActionListener =
+            new ExpandVaultHelper.ExpandActionListener() {
+                @Override
+                public void onSuccess() {
+                    blocking.clearLoading();
+                }
+
+                @Override
+                public void onError(@NonNull String message) {
+                    blocking.clearLoading();
+                    Toast.makeText(
+                            DashboardActivity.this,
+                            message,
+                            Toast.LENGTH_SHORT
+                    ).show();
+                }
+            };
 
     /* ==========================================================
      * Exit
@@ -252,7 +234,7 @@ public class DashboardActivity extends AppCompatActivity {
         blocking.resetAll();
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 
-        if (userSession != null) userSession.clearSession();
+        userSession.clearSession();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }
