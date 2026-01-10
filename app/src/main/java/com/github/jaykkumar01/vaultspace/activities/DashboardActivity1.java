@@ -20,7 +20,7 @@ import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileInfoHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardStorageBarHelper;
-import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelperOld;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 import com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
@@ -55,7 +55,7 @@ public class DashboardActivity1 extends AppCompatActivity {
     private DashboardProfileInfoHelper profileInfoHelper;
     private DashboardStorageBarHelper storageBarHelper;
     private PrimaryAccountConsentHelper primaryAccountConsentHelper;
-    private ExpandVaultHelper expandVaultHelper;
+    private ExpandVaultHelperOld expandVaultHelperOld;
 
     /* ---------------- Vault Section UI ---------------- */
 
@@ -132,7 +132,7 @@ public class DashboardActivity1 extends AppCompatActivity {
         profileInfoHelper = new DashboardProfileInfoHelper(this, profileInfoView, primaryEmail);
         storageBarHelper = new DashboardStorageBarHelper(this, storageBar, primaryEmail);
         primaryAccountConsentHelper = new PrimaryAccountConsentHelper(this);
-        expandVaultHelper = new ExpandVaultHelper(this, primaryEmail);
+        expandVaultHelperOld = new ExpandVaultHelperOld(this, primaryEmail);
     }
 
     /* ---------------- Init: Vault Sections ---------------- */
@@ -176,7 +176,7 @@ public class DashboardActivity1 extends AppCompatActivity {
     /* ---------------- Expand Vault ---------------- */
 
     private void onExpandVaultClicked() {
-        expandVaultHelper.launch(new ExpandVaultHelper.Callback() {
+        expandVaultHelperOld.launch(new ExpandVaultHelperOld.Callback() {
             @Override public void onStart() { loading.show(); }
 
             @Override

@@ -1,84 +1,142 @@
 package com.github.jaykkumar01.vaultspace.dashboard.helpers;
 
-import android.widget.Toast;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.core.consent.DriveConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
+import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 
-public class ExpandVaultHelper {
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-    public interface Callback {
-        void onStart();                 // 🔄 show loader
-        void onTrustedAccountAdded();   // ✅ success
-        void onError(String message);   // ❌ error
-        void onEnd();                   // 🔚 hide loader / cleanup
+public final class ExpandVaultHelper {
+
+    private static final String TAG = "VaultSpace:ExpandVault";
+    private static final String UNIT_GB = "GB";
+    private static final double BYTES_IN_GB = 1024d * 1024d * 1024d;
+
+    /* ==========================================================
+     * Listeners
+     * ========================================================== */
+
+    public interface StorageStateListener {
+        void onVaultStorageState(@NonNull VaultStorageState state);
     }
+
+    public interface ExpandActionListener {
+        void onSuccess();
+        void onError(@NonNull String message);
+    }
+
+    /* ==========================================================
+     * Core
+     * ========================================================== */
 
     private final AppCompatActivity activity;
     private final String primaryEmail;
+
     private final TrustedAccountsDriveHelper driveHelper;
+    private final AccountPickerHelper accountPicker;
+    private final DriveConsentHelper consentHelper;
 
-    private final AccountPickerHelper accountPickerHelper;
-    private final DriveConsentHelper driveConsentHelper;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    private Callback callback;
+    private StorageStateListener storageListener;
+    private ExpandActionListener actionListener;
 
-    /* ---------------- Constructor ---------------- */
+    /* ==========================================================
+     * Constructor
+     * ========================================================== */
 
-    public ExpandVaultHelper(AppCompatActivity activity, String primaryEmail) {
+    public ExpandVaultHelper(@NonNull AppCompatActivity activity) {
         this.activity = activity;
-        this.primaryEmail = primaryEmail;
 
-        driveHelper = new TrustedAccountsDriveHelper(activity.getApplicationContext(), primaryEmail);
-        accountPickerHelper = new AccountPickerHelper(activity);
-        driveConsentHelper = new DriveConsentHelper(activity);
+        UserSession session = new UserSession(activity);
+        this.primaryEmail = session.getPrimaryAccountEmail();
+
+        if (primaryEmail == null) {
+            throw new IllegalStateException("Primary email is null");
+        }
+
+        this.driveHelper =
+                new TrustedAccountsDriveHelper(activity.getApplicationContext());
+        this.accountPicker = new AccountPickerHelper(activity);
+        this.consentHelper = new DriveConsentHelper(activity);
     }
 
-    /* ---------------- Public API ---------------- */
+    /* ==========================================================
+     * Storage observation
+     * ========================================================== */
 
-    public void launch(Callback callback) {
-        this.callback = callback;
-        callback.onStart(); // user initiated action
+    public void observeVaultStorage(@NonNull StorageStateListener listener) {
+        this.storageListener = listener;
+        refreshVaultStorage();
+    }
 
-        accountPickerHelper.launch(new AccountPickerHelper.Callback() {
+    private void refreshVaultStorage() {
+        driveHelper.fetchTrustedAccounts(
+                executor,
+                new TrustedAccountsDriveHelper.FetchCallback() {
+                    @Override
+                    public void onResult(List<TrustedAccount> accounts) {
+                        emitStorageState(accounts);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Storage fetch failed", e);
+                    }
+                }
+        );
+    }
+
+    /* ==========================================================
+     * Expand vault action
+     * ========================================================== */
+
+    public void launchExpandVault(@NonNull ExpandActionListener listener) {
+        this.actionListener = listener;
+
+        accountPicker.launch(new AccountPickerHelper.Callback() {
             @Override
             public void onAccountSelected(String email) {
-                onAccountPicked(email);
+                handleAccountPicked(email);
             }
 
             @Override
             public void onCancelled() {
-                end(); // picker dismissed → stop loader
+                failAction("Account selection cancelled");
             }
         });
     }
 
-    /* ---------------- Flow ---------------- */
-
-    private void onAccountPicked(String email) {
-
+    private void handleAccountPicked(String email) {
         if (email == null) {
-            end();
+            failAction("No account selected");
             return;
         }
 
         if (email.equalsIgnoreCase(primaryEmail)) {
-            toast("Primary account cannot be added as trusted");
-            end();
+            failAction("Primary account cannot be added");
             return;
         }
 
         requestConsent(email);
     }
 
-    private void requestConsent(String trustedEmail) {
-
-        driveConsentHelper.launch(
-                trustedEmail,
+    private void requestConsent(String email) {
+        consentHelper.launch(
+                email,
                 new DriveConsentHelper.Callback() {
-
                     @Override
                     public void onConsentGranted(String email) {
                         addTrustedAccount(email);
@@ -86,69 +144,103 @@ public class ExpandVaultHelper {
 
                     @Override
                     public void onConsentDenied(String email) {
-                        callback.onError(
+                        failAction(
                                 "Drive permission is required to add trusted account"
                         );
-                        end();
                     }
 
                     @Override
                     public void onFailure(String email, Exception e) {
-                        callback.onError(
+                        failAction(
                                 "Failed to verify Drive permissions"
                         );
-                        end();
                     }
                 }
         );
     }
 
-    private void addTrustedAccount(String trustedEmail) {
-
-        driveHelper.addTrustedAccountAsync(
-                trustedEmail,
-                new TrustedAccountsDriveHelper.AddResultCallback() {
-
+    private void addTrustedAccount(String email) {
+        driveHelper.addTrustedAccount(
+                executor,
+                email,
+                new TrustedAccountsDriveHelper.AddCallback() {
                     @Override
                     public void onAdded() {
-                        activity.runOnUiThread(() -> {
-                            toast("Trusted account added");
-                            callback.onTrustedAccountAdded();
-                            end();
-                        });
+                        refreshVaultStorage();
+                        succeedAction();
                     }
 
                     @Override
                     public void onAlreadyExists() {
-                        activity.runOnUiThread(() -> {
-                            toast("Account already has access");
-                            end();
-                        });
+                        failAction("Account already has access");
                     }
 
                     @Override
-                    public void onFailure(Exception e) {
-                        activity.runOnUiThread(() -> {
-                            callback.onError("Failed to grant access");
-                            end();
-                        });
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Add trusted account failed", e);
+                        failAction("Failed to grant access");
                     }
                 }
         );
     }
 
-    /* ---------------- End handling ---------------- */
+    /* ==========================================================
+     * Storage aggregation
+     * ========================================================== */
 
-    private void end() {
-        if (callback != null) {
-            callback.onEnd();
-            callback = null; // 🔒 prevent leaks / double calls
+    private void emitStorageState(List<TrustedAccount> accounts) {
+        if (storageListener == null) return;
+
+        long total = 0L;
+        long used = 0L;
+
+        for (TrustedAccount account : accounts) {
+            total += account.totalQuota;
+            used += account.usedQuota;
         }
+
+        VaultStorageState state = new VaultStorageState(
+                (float) (used / BYTES_IN_GB),
+                (float) (total / BYTES_IN_GB),
+                UNIT_GB
+        );
+
+        runOnUi(() -> storageListener.onVaultStorageState(state));
     }
 
-    /* ---------------- UI ---------------- */
+    /* ==========================================================
+     * Action helpers (ALWAYS callback)
+     * ========================================================== */
 
-    private void toast(String msg) {
-        Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show();
+    private void succeedAction() {
+        if (actionListener == null) return;
+
+        runOnUi(() -> {
+            actionListener.onSuccess();
+            actionListener = null;
+        });
+    }
+
+    private void failAction(String message) {
+        if (actionListener == null) return;
+
+        runOnUi(() -> {
+            actionListener.onError(message);
+            actionListener = null;
+        });
+    }
+
+    /* ==========================================================
+     * Utils / cleanup
+     * ========================================================== */
+
+    private void runOnUi(Runnable r) {
+        mainHandler.post(r);
+    }
+
+    public void release() {
+        executor.shutdown();
+        storageListener = null;
+        actionListener = null;
     }
 }

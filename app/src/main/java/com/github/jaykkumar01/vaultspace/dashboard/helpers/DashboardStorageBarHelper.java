@@ -49,8 +49,8 @@ public class DashboardStorageBarHelper {
 
         executor.execute(() -> {
             try {
-                TrustedAccountsDriveHelper helper =
-                        new TrustedAccountsDriveHelper(appContext, primaryEmail);
+                TrustedAccountsDriveHelperOld helper =
+                        new TrustedAccountsDriveHelperOld(appContext, primaryEmail);
 
                 List<TrustedAccount> accounts = helper.getTrustedAccounts();
 

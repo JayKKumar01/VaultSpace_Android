@@ -11,6 +11,7 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
@@ -18,6 +19,8 @@ import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelpe
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardBlockingHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
+import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 
 @SuppressLint("SetTextI18n")
@@ -48,17 +51,15 @@ public class DashboardActivity extends AppCompatActivity {
     private String primaryEmail;
     private PrimaryAccountConsentHelper consentHelper;
 
-    /* ==========================================================
-     * Flags
-     * ========================================================== */
-
     private boolean isFromLogin;
 
     /* ==========================================================
-     * Blocking
+     * Helpers
      * ========================================================== */
 
     private DashboardBlockingHelper blocking;
+    private DashboardProfileHelper profileHelper;
+    private ExpandVaultHelper expandVaultHelper;
 
     /* ==========================================================
      * UI
@@ -73,12 +74,6 @@ public class DashboardActivity extends AppCompatActivity {
     private View btnLogout;
 
     /* ==========================================================
-     * Helpers
-     * ========================================================== */
-
-    private DashboardProfileHelper profileHelper;
-
-    /* ==========================================================
      * Lifecycle
      * ========================================================== */
 
@@ -88,7 +83,6 @@ public class DashboardActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_dashboard);
 
-        // Single source of truth
         isFromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
 
         blocking = new DashboardBlockingHelper(
@@ -98,12 +92,13 @@ public class DashboardActivity extends AppCompatActivity {
 
         setupBackHandling();
 
+        expandVaultHelper = new ExpandVaultHelper(this);
         Log.d(TAG, "onCreate()");
         moveToState(AuthState.INIT);
     }
 
     /* ==========================================================
-     * Post-granted
+     * State: GRANTED
      * ========================================================== */
 
     private void handleGranted() {
@@ -129,15 +124,47 @@ public class DashboardActivity extends AppCompatActivity {
         albumsContainer.setVisibility(View.VISIBLE);
         filesContainer.setVisibility(View.GONE);
 
-        btnExpandVault.setEnabled(false);
         btnLogout.setOnClickListener(v -> blocking.confirmLogout());
 
-        // Attach helpers with shared state
         profileHelper.attach(isFromLogin);
+
+        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
+
+        btnExpandVault.setOnClickListener(v -> {
+            blocking.showLoading();
+            expandVaultHelper.launchExpandVault(expandActionListener);
+        });
     }
 
     /* ==========================================================
-     * Back handling
+     * Callbacks
+     * ========================================================== */
+
+    private void onVaultStorageState(VaultStorageState state) {
+        storageBar.setUsage(state.used, state.total, state.unit);
+    }
+
+    private final ExpandVaultHelper.ExpandActionListener expandActionListener =
+            new ExpandVaultHelper.ExpandActionListener() {
+
+                @Override
+                public void onSuccess() {
+                    blocking.clearLoading();
+                }
+
+                @Override
+                public void onError(@NonNull String message) {
+                    blocking.clearLoading();
+                    Toast.makeText(
+                            DashboardActivity.this,
+                            message,
+                            Toast.LENGTH_SHORT
+                    ).show();
+                }
+            };
+
+    /* ==========================================================
+     * Back Handling
      * ========================================================== */
 
     private void setupBackHandling() {
@@ -145,17 +172,13 @@ public class DashboardActivity extends AppCompatActivity {
                 new OnBackPressedCallback(true) {
                     @Override
                     public void handleOnBackPressed() {
-
                         if (authState == AuthState.EXIT) return;
                         if (blocking.handleBackPress()) return;
 
                         if (authState == AuthState.INIT ||
                                 authState == AuthState.CHECKING) {
                             blocking.confirmCancelSetup();
-                            return;
-                        }
-
-                        if (authState == AuthState.GRANTED) {
+                        } else if (authState == AuthState.GRANTED) {
                             blocking.confirmExit(DashboardActivity.this::finish);
                         }
                     }
@@ -163,7 +186,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     /* ==========================================================
-     * State machine
+     * State Machine
      * ========================================================== */
 
     private void moveToState(AuthState newState) {
@@ -181,8 +204,6 @@ public class DashboardActivity extends AppCompatActivity {
                 break;
             case GRANTED:
                 handleGranted();
-                break;
-            case EXIT:
                 break;
         }
     }
@@ -213,9 +234,7 @@ public class DashboardActivity extends AppCompatActivity {
                             break;
                         case RECOVERABLE:
                         case FAILED:
-                            exitToLogin(
-                                    "Permissions were revoked. Please login again."
-                            );
+                            exitToLogin("Permissions were revoked. Please login again.");
                             break;
                     }
                 }
