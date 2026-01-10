@@ -17,11 +17,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardBlockingHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
+import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
+import com.github.jaykkumar01.vaultspace.views.popups.BlockingOverlayView;
 
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
@@ -40,9 +44,10 @@ public class DashboardActivity extends AppCompatActivity {
     private String primaryEmail;
     private PrimaryAccountConsentHelper consentHelper;
     private boolean isFromLogin;
+    private BlockingOverlayView blockingOverlay;
 
     /* Helpers */
-    private DashboardBlockingHelper blocking;
+    private DashboardBlockingHelper blockingHelper;
     private DashboardProfileHelper profileHelper;
     private ExpandVaultHelper expandVaultHelper;
 
@@ -51,6 +56,20 @@ public class DashboardActivity extends AppCompatActivity {
     private TextView segmentAlbums, segmentFiles;
     private FrameLayout albumsContainer, filesContainer;
     private View btnExpandVault, btnLogout;
+
+    /* ---------------- Vault Section UI ---------------- */
+
+    private VaultSectionUi albumsUi;
+    private VaultSectionUi filesUi;
+
+    /* ---------------- State ---------------- */
+
+    private VaultViewMode currentViewMode;
+
+    public enum VaultViewMode {
+        ALBUMS,
+        FILES
+    }
 
     /* ==========================================================
      * Lifecycle
@@ -67,6 +86,7 @@ public class DashboardActivity extends AppCompatActivity {
         initViews();
         initHelpers();
         initEarlyListeners();
+        initVaultSections();
         initBackHandling();
 
         Log.d(TAG, "onCreate()");
@@ -82,6 +102,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initCore() {
+        blockingOverlay = BlockingOverlayView.attach(this);
         userSession = new UserSession(this);
         consentHelper = new PrimaryAccountConsentHelper(this);
     }
@@ -97,8 +118,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initHelpers() {
-        blocking = new DashboardBlockingHelper(
-                this,
+        blockingHelper = new DashboardBlockingHelper(
+                blockingOverlay,
                 () -> exitToLogin("You have been logged out")
         );
         profileHelper = new DashboardProfileHelper(this);
@@ -106,7 +127,14 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initEarlyListeners() {
-        btnLogout.setOnClickListener(v -> blocking.confirmLogout());
+        btnLogout.setOnClickListener(v -> blockingHelper.confirmLogout());
+    }
+
+    /* ---------------- Init: Vault Sections ---------------- */
+
+    private void initVaultSections() {
+        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer, blockingOverlay);
+        filesUi = new FilesVaultUiHelper(this, filesContainer, blockingOverlay);
     }
 
     private void initBackHandling() {
@@ -115,13 +143,27 @@ public class DashboardActivity extends AppCompatActivity {
                     @Override
                     public void handleOnBackPressed() {
                         if (authState == AuthState.EXIT) return;
-                        if (blocking.handleBackPress()) return;
+
+                        boolean consumedByVaultUi = false;
+
+                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi != null) {
+                            consumedByVaultUi = albumsUi.onBackPressed();
+                        } else if (currentViewMode == VaultViewMode.FILES && filesUi != null) {
+                            consumedByVaultUi = filesUi.onBackPressed();
+                        }
+
+                        if (consumedByVaultUi) return;
+
+                        if (blockingOverlay.isConfirmVisible()){
+                            blockingOverlay.dismissConfirm();
+                            return;
+                        }
 
                         if (authState == AuthState.INIT ||
                                 authState == AuthState.CHECKING) {
-                            blocking.confirmCancelSetup();
+                            blockingHelper.confirmCancelSetup();
                         } else if (authState == AuthState.GRANTED) {
-                            blocking.confirmExit(DashboardActivity.this::finish);
+                            blockingHelper.confirmExit(DashboardActivity.this::finish);
                         }
                     }
                 });
@@ -132,19 +174,39 @@ public class DashboardActivity extends AppCompatActivity {
      * ========================================================== */
 
     private void activateGrantedState() {
-        blocking.resetAll();
+        blockingHelper.resetAll();
 
-        segmentAlbums.setSelected(true);
-        albumsContainer.setVisibility(View.VISIBLE);
-        filesContainer.setVisibility(View.GONE);
+        applyViewMode(VaultViewMode.ALBUMS);
+        segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
+        segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
 
         profileHelper.attach(isFromLogin);
         expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
 
         btnExpandVault.setOnClickListener(v -> {
-            blocking.showLoading();
+            blockingHelper.showLoading();
             expandVaultHelper.launchExpandVault(expandActionListener);
         });
+    }
+    /* ---------------- View Mode ---------------- */
+
+    private void applyViewMode(VaultViewMode mode) {
+        if (currentViewMode == mode) return;
+
+        currentViewMode = mode;
+        boolean showAlbums = mode == VaultViewMode.ALBUMS;
+
+        segmentAlbums.setSelected(showAlbums);
+        segmentFiles.setSelected(!showAlbums);
+
+        albumsContainer.setVisibility(showAlbums ? View.VISIBLE : View.GONE);
+        filesContainer.setVisibility(showAlbums ? View.GONE : View.VISIBLE);
+
+        if (showAlbums) {
+            albumsUi.show();
+        } else {
+            filesUi.show();
+        }
     }
 
     /* ==========================================================
@@ -171,7 +233,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void handleInit() {
-        blocking.showLoading();
+        blockingHelper.showLoading();
 
         primaryEmail = userSession.getPrimaryAccountEmail();
         if (primaryEmail == null) {
@@ -183,7 +245,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void handleChecking() {
-        blocking.showLoading();
+        blockingHelper.showLoading();
         consentHelper.checkConsentsSilently(primaryEmail, result -> {
             switch (result) {
                 case GRANTED:
@@ -209,12 +271,12 @@ public class DashboardActivity extends AppCompatActivity {
             new ExpandVaultHelper.ExpandActionListener() {
                 @Override
                 public void onSuccess() {
-                    blocking.clearLoading();
+                    blockingHelper.clearLoading();
                 }
 
                 @Override
                 public void onError(@NonNull String message) {
-                    blocking.clearLoading();
+                    blockingHelper.clearLoading();
                     Toast.makeText(
                             DashboardActivity.this,
                             message,
@@ -231,11 +293,19 @@ public class DashboardActivity extends AppCompatActivity {
         if (authState == AuthState.EXIT) return;
         authState = AuthState.EXIT;
 
-        blocking.resetAll();
+        blockingHelper.resetAll();
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 
         userSession.clearSession();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (albumsUi != null) albumsUi.onRelease();
+        if (filesUi != null) filesUi.onRelease();
     }
 }

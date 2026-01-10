@@ -11,11 +11,9 @@ public final class DashboardBlockingHelper {
     private final BlockingOverlayView overlay;
     private final Runnable exitToLoginAction;
 
-    public DashboardBlockingHelper(
-            @NonNull Activity activity,
-            @NonNull Runnable exitToLoginAction
+    public DashboardBlockingHelper(BlockingOverlayView overlay, @NonNull Runnable exitToLoginAction
     ) {
-        this.overlay = BlockingOverlayView.attach(activity);
+        this.overlay = overlay;
         this.exitToLoginAction = exitToLoginAction;
     }
 
@@ -32,9 +30,7 @@ public final class DashboardBlockingHelper {
     }
 
     public void dismissConfirm(){
-        if (overlay.isConfirmVisible()) {
-            overlay.dismissConfirm();
-        }
+        overlay.dismissConfirm();
     }
 
     /* ==========================================================
@@ -43,11 +39,8 @@ public final class DashboardBlockingHelper {
 
     /** @return true if back press was consumed */
     public boolean handleBackPress() {
-        if (overlay.isConfirmVisible()) {
-            overlay.dismissConfirm();
-            return true;
-        }
-        return false;
+        overlay.dismissConfirm();
+        return true;
     }
 
     /* ==========================================================

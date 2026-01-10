@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
+import com.github.jaykkumar01.vaultspace.views.popups.BlockingOverlayView;
 import com.github.jaykkumar01.vaultspace.views.popups.ConfirmActionView;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
@@ -31,11 +32,12 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected ItemActionView itemActionView;
 
     // ✅ NEW: Confirm abstraction
-    protected ConfirmActionView confirmActionView;
+    protected BlockingOverlayView blockingOverlay;
 
-    protected BaseVaultSectionUiHelper(Context context, FrameLayout container) {
+    protected BaseVaultSectionUiHelper(Context context, FrameLayout container, BlockingOverlayView blockingOverlay) {
         this.context = context;
         this.container = container;
+        this.blockingOverlay = blockingOverlay;
         initBaseUi();
     }
 
@@ -128,40 +130,6 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected void hideItemActionPopup() {
         if (itemActionView != null && itemActionView.isVisible()) {
             itemActionView.hide();
-        }
-    }
-
-    /* ---------------- Confirm Action (NEW) ---------------- */
-
-    protected void showConfirmActionPopup(
-            String title,
-            String message,
-            String positiveText,
-            int risk,
-            String debugOwner,
-            ConfirmActionView.Callback callback
-    ) {
-        Activity activity = (Activity) context;
-        FrameLayout root = activity.findViewById(android.R.id.content);
-
-        if (confirmActionView == null) {
-            confirmActionView = new ConfirmActionView(context);
-            root.addView(confirmActionView);
-        }
-
-        confirmActionView.show(
-                title,
-                message,
-                positiveText,
-                risk,
-                debugOwner,
-                callback
-        );
-    }
-
-    protected void hideConfirmActionPopup() {
-        if (confirmActionView != null && confirmActionView.isVisible()) {
-            confirmActionView.hide();
         }
     }
 }

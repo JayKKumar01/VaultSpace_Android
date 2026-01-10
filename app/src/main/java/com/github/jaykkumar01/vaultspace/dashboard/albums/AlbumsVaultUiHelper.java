@@ -11,6 +11,7 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.activities.AlbumActivity;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
+import com.github.jaykkumar01.vaultspace.views.popups.BlockingOverlayView;
 import com.github.jaykkumar01.vaultspace.views.popups.ConfirmActionView;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;
@@ -33,8 +34,8 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     private AlbumsContentView albumsContentView;
 
-    public AlbumsVaultUiHelper(Context context, FrameLayout container) {
-        super(context, container);
+    public AlbumsVaultUiHelper(Context context, FrameLayout container, BlockingOverlayView blockingOverlay) {
+        super(context, container, blockingOverlay);
         drive = new AlbumsDriveHelper(context);
 
         loadingView.setText("Loading albums…");
@@ -266,28 +267,26 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     /* ---------------- Delete (cache-first) ---------------- */
 
     private void showDeleteAlbumConfirm(AlbumInfo album) {
-        showConfirmActionPopup(
+        blockingOverlay.showConfirm(
                 "Delete album?",
                 "This will permanently delete \"" + album.name + "\" and all its contents.",
                 "Delete",
-                ConfirmActionView.RISK_DESTRUCTIVE,
+                BlockingOverlayView.RISK_DESTRUCTIVE,
                 TAG,
-                new ConfirmActionView.Callback() {
+                new BlockingOverlayView.ConfirmCallback() {
                     @Override
                     public void onConfirm() {
                         deleteAlbum(album);
                     }
 
                     @Override
-                    public void onCancel() {
-                        hideConfirmActionPopup();
-                    }
+                    public void onCancel() {}
                 }
+
         );
     }
 
     private void deleteAlbum(AlbumInfo album) {
-        hideConfirmActionPopup();
 
         albumsContentView.deleteAlbum(album.id);
         if (albumsContentView.isEmpty()) moveToState(UiState.EMPTY);
@@ -346,10 +345,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     @Override
     public boolean onBackPressed() {
-        if (confirmActionView != null && confirmActionView.isVisible()) {
-            hideConfirmActionPopup();
-            return true;
-        }
         if (itemActionView != null && itemActionView.isVisible()) {
             hideItemActionPopup();
             return true;
@@ -362,7 +357,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     }
 
     @Override
-    public void release() {
+    public void onRelease() {
         released = true;
         executor.shutdownNow();
     }
