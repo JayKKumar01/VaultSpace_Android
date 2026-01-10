@@ -1,6 +1,6 @@
 package com.github.jaykkumar01.vaultspace.album;
 
-public class AlbumItem {
+public class AlbumMedia {
 
     public final String fileId;
 
@@ -11,11 +11,11 @@ public class AlbumItem {
     public String thumbnailLink;
     public boolean isVideo;
 
-    public AlbumItem(String fileId) {
+    public AlbumMedia(String fileId) {
         this.fileId = fileId;
     }
 
-    public AlbumItem(
+    public AlbumMedia(
             String fileId,
             String name,
             String mimeType,

@@ -69,11 +69,11 @@ public class AlbumUiHelper {
 
         driveHelper.fetchAlbumItems(executor, new AlbumDriveHelper.FetchCallback() {
             @Override
-            public void onResult(List<AlbumItem> items) {
+            public void onResult(List<AlbumMedia> items) {
                 if (released) return;
 
                 int photoCount = 0, videoCount = 0;
-                for (AlbumItem item : items) {
+                for (AlbumMedia item : items) {
                     if (item.isVideo) videoCount++;
                     else photoCount++;
                 }

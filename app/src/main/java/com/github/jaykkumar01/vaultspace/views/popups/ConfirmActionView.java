@@ -44,6 +44,16 @@ public class ConfirmActionView extends FrameLayout {
     private int riskLevel = RISK_NEUTRAL;
 
     /* ---------------- Constructor ---------------- */
+    public static ConfirmActionView attach(@NonNull Context context) {
+        View root = ((android.app.Activity) context).findViewById(android.R.id.content);
+
+        ConfirmActionView view = new ConfirmActionView(context);
+        ((ViewGroup) root).addView(view);
+
+        Log.d(TAG, "Attached to activity root");
+        return view;
+    }
+
 
     public ConfirmActionView(@NonNull Context context) {
         super(context);

@@ -1,7 +1,6 @@
 package com.github.jaykkumar01.vaultspace.album;
 
 import android.content.Context;
-import android.nfc.Tag;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -27,7 +26,7 @@ public final class AlbumDriveHelper {
     private final String albumId;
 
     public interface FetchCallback {
-        void onResult(List<AlbumItem> items);
+        void onResult(List<AlbumMedia> items);
         void onError(Exception e);
     }
 
@@ -43,56 +42,13 @@ public final class AlbumDriveHelper {
         Log.d(TAG, "Initialized for album: " + albumId);
     }
 
-
-    /* ---------------- TEMP: Test Upload ---------------- */
-
-    public void createAndUploadTestImage(ExecutorService executor, Runnable onDone) {
-        executor.execute(() -> {
-            try {
-                // Dummy binary data
-                byte[] data = "VaultSpace test image".getBytes();
-
-                com.google.api.client.http.ByteArrayContent content =
-                        new com.google.api.client.http.ByteArrayContent(
-                                "image/png",
-                                data
-                        );
-
-                // 🔴 Explicitly attach to THIS albumId
-                File metadata = new File();
-                metadata.setName("vs_test_" + System.currentTimeMillis() + ".png");
-                metadata.setMimeType("image/png");
-                metadata.setParents(java.util.Collections.singletonList(albumId));
-
-                File uploaded = primaryDrive.files()
-                        .create(metadata, content)
-                        .setFields("id,name,parents")
-                        .execute();
-
-                Log.d(TAG,
-                        "Test image uploaded: " + uploaded.getName()
-                                + " id=" + uploaded.getId()
-                                + " parents=" + uploaded.getParents()
-                );
-
-                // Important: force next fetch to hit Drive
-                cache.invalidateAlbumItems(albumId);
-
-                mainHandler.post(onDone);
-
-            } catch (Exception e) {
-                Log.e(TAG, "Test upload failed", e);
-            }
-        });
-    }
-
     /* ---------------- Fetch ---------------- */
 
     public void fetchAlbumItems(ExecutorService executor, FetchCallback callback) {
         executor.execute(() -> {
             try {
-                if (cache.hasAlbumItemsCached(albumId)) {
-                    List<AlbumItem> cached = cache.getAlbumItems(albumId);
+                if (cache.hasAlbumMediaCached(albumId)) {
+                    List<AlbumMedia> cached = cache.getAlbumMedia(albumId);
                     Log.d(TAG, "Cache HIT for album: " + albumId + " (" + cached.size() + ")");
                     postResult(callback, cached);
                     return;
@@ -109,8 +65,8 @@ public final class AlbumDriveHelper {
                         .setOrderBy("modifiedTime desc")
                         .execute();
 
-                List<AlbumItem> items = mapItems(list);
-                cache.setAlbumItems(albumId, items);
+                List<AlbumMedia> items = mapItems(list);
+                cache.setAlbumMedia(albumId, items);
 
                 Log.d(TAG, "Fetched & cached " + items.size() + " items for album: " + albumId);
                 postResult(callback, items);
@@ -125,12 +81,12 @@ public final class AlbumDriveHelper {
 
     /* ---------------- Mapping ---------------- */
 
-    private static List<AlbumItem> mapItems(FileList list) {
-        List<AlbumItem> items = new ArrayList<>();
+    private static List<AlbumMedia> mapItems(FileList list) {
+        List<AlbumMedia> items = new ArrayList<>();
         if (list.getFiles() == null) return items;
 
         for (File f : list.getFiles()) {
-            AlbumItem item = new AlbumItem(
+            AlbumMedia item = new AlbumMedia(
                     f.getId(),
                     f.getName(),
                     f.getMimeType(),
@@ -145,7 +101,7 @@ public final class AlbumDriveHelper {
 
     /* ---------------- Utils ---------------- */
 
-    private void postResult(FetchCallback cb, List<AlbumItem> items) {
+    private void postResult(FetchCallback cb, List<AlbumMedia> items) {
         mainHandler.post(() -> cb.onResult(items));
     }
 
@@ -156,7 +112,7 @@ public final class AlbumDriveHelper {
     /* ---------------- Cache ---------------- */
 
     public void invalidateCache() {
-        cache.invalidateAlbumItems(albumId);
+        cache.invalidateAlbumMedia(albumId);
         Log.d(TAG, "Album items cache invalidated: " + albumId);
     }
 }

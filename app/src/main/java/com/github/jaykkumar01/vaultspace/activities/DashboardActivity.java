@@ -16,13 +16,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileInfoHelper;
-import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardStorageBarHelper;
-import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
-import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
-import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
-import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
-import com.github.jaykkumar01.vaultspace.views.popups.ActivityLoadingOverlay;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardBlockingHelper;
 import com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 
@@ -32,46 +26,50 @@ public class DashboardActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
 
-    /* ---------------- Session ---------------- */
+    /* ==========================================================
+     * Auth State
+     * ========================================================== */
+
+    private enum AuthState {
+        UNINITIALIZED,
+        INIT,
+        CHECKING,
+        GRANTED,
+        EXIT
+    }
+
+    private AuthState authState = AuthState.UNINITIALIZED;
+
+    /* ==========================================================
+     * Core
+     * ========================================================== */
 
     private UserSession userSession;
     private String primaryEmail;
-    private String profileName;
+    private PrimaryAccountConsentHelper consentHelper;
 
-    /* ---------------- Views ---------------- */
+    /* ==========================================================
+     * Blocking
+     * ========================================================== */
+
+    private DashboardBlockingHelper blocking;
+
+    /* ==========================================================
+     * UI (post-granted shell)
+     * ========================================================== */
 
     private ProfileInfoView profileInfoView;
     private StorageBarView storageBar;
-    private ActivityLoadingOverlay loading;
-
     private TextView segmentAlbums;
     private TextView segmentFiles;
-
     private FrameLayout albumsContainer;
     private FrameLayout filesContainer;
+    private View btnExpandVault;
+    private View btnLogout;
 
-    /* ---------------- Helpers ---------------- */
-
-    private DashboardProfileInfoHelper profileInfoHelper;
-    private DashboardStorageBarHelper storageBarHelper;
-    private PrimaryAccountConsentHelper primaryAccountConsentHelper;
-    private ExpandVaultHelper expandVaultHelper;
-
-    /* ---------------- Vault Section UI ---------------- */
-
-    private VaultSectionUi albumsUi;
-    private VaultSectionUi filesUi;
-
-    /* ---------------- State ---------------- */
-
-    private VaultViewMode currentViewMode;
-
-    public enum VaultViewMode {
-        ALBUMS,
-        FILES
-    }
-
-    /* ---------------- Lifecycle ---------------- */
+    /* ==========================================================
+     * Lifecycle
+     * ========================================================== */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,194 +77,151 @@ public class DashboardActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_dashboard);
 
-        Log.d(TAG, "onCreate()");
+        blocking = new DashboardBlockingHelper(
+                this,
+                () -> exitToLogin("You have been logged out")
+        );
 
-        loading = new ActivityLoadingOverlay(this);
-
-        initSession();
-        initViews();
-        initHelpers();
-        initVaultSections();
         setupBackHandling();
-        initClickListeners();
 
-        boolean fromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
-        handleConsent(fromLogin);
-
-        applyViewMode(VaultViewMode.ALBUMS);
+        Log.d(TAG, "onCreate()");
+        moveToState(AuthState.INIT);
     }
 
-    /* ---------------- Init: Session ---------------- */
+    /* ==========================================================
+     * Post-granted
+     * ========================================================== */
 
-    private void initSession() {
-        userSession = new UserSession(this);
-
-        primaryEmail = userSession.getPrimaryAccountEmail();
-        profileName = userSession.getProfileName();
-
-        if (primaryEmail == null) {
-            forceLogout("Session expired. Please login again.");
-            return;
-        }
-
-        Log.d(TAG, "Primary email = " + primaryEmail);
-        Log.d(TAG, "Profile name = " + profileName);
+    private void handleGranted() {
+        blocking.resetAll();
+        initViews();
+        initUiShell();
     }
-
-    /* ---------------- Init: Views ---------------- */
 
     private void initViews() {
         profileInfoView = findViewById(R.id.profileInfo);
         storageBar = findViewById(R.id.storageBar);
-
         segmentAlbums = findViewById(R.id.segmentAlbums);
         segmentFiles = findViewById(R.id.segmentFiles);
-
         albumsContainer = findViewById(R.id.albumsContainer);
         filesContainer = findViewById(R.id.filesContainer);
+        btnExpandVault = findViewById(R.id.btnExpandVault);
+        btnLogout = findViewById(R.id.btnLogout);
     }
 
-    /* ---------------- Init: Helpers ---------------- */
+    private void initUiShell() {
+        segmentAlbums.setSelected(true);
+        albumsContainer.setVisibility(View.VISIBLE);
+        filesContainer.setVisibility(View.GONE);
 
-    private void initHelpers() {
-        profileInfoHelper = new DashboardProfileInfoHelper(this, profileInfoView, primaryEmail);
-        storageBarHelper = new DashboardStorageBarHelper(this, storageBar, primaryEmail);
-        primaryAccountConsentHelper = new PrimaryAccountConsentHelper(this);
-        expandVaultHelper = new ExpandVaultHelper(this, primaryEmail);
+        btnExpandVault.setEnabled(false);
+        btnLogout.setOnClickListener(v -> blocking.confirmLogout());
     }
 
-    /* ---------------- Init: Vault Sections ---------------- */
+    /* ==========================================================
+     * Back handling
+     * ========================================================== */
 
-    private void initVaultSections() {
-        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer);
-        filesUi = new FilesVaultUiHelper(this, filesContainer);
+    private void setupBackHandling() {
+        getOnBackPressedDispatcher().addCallback(this,
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+
+                        if (authState == AuthState.EXIT) {
+                            return;
+                        }
+
+                        if (blocking.handleBackPress()) {
+                            return;
+                        }
+
+                        if (authState == AuthState.INIT || authState == AuthState.CHECKING) {
+                            blocking.confirmCancelSetup();
+                            return;
+                        }
+
+                        if (authState == AuthState.GRANTED) {
+                            blocking.confirmExit(DashboardActivity.this::finish);
+                        }
+                    }
+                });
     }
 
-    /* ---------------- Init: Click Listeners ---------------- */
+    /* ==========================================================
+     * State machine
+     * ========================================================== */
 
-    private void initClickListeners() {
-        segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
-        segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
+    private void moveToState(AuthState newState) {
+        if (authState == newState) return;
 
-        findViewById(R.id.btnExpandVault).setOnClickListener(v -> onExpandVaultClicked());
-        findViewById(R.id.btnLogout).setOnClickListener(v -> logout());
-    }
+        Log.d(TAG, "AuthState transition: " + authState + " → " + newState);
+        authState = newState;
 
-    /* ---------------- View Mode ---------------- */
+        switch (newState) {
+            case INIT:
+                handleInit();
+                break;
 
-    private void applyViewMode(VaultViewMode mode) {
-        if (currentViewMode == mode) return;
+            case CHECKING:
+                handleChecking();
+                break;
 
-        currentViewMode = mode;
-        boolean showAlbums = mode == VaultViewMode.ALBUMS;
+            case GRANTED:
+                handleGranted();
+                break;
 
-        segmentAlbums.setSelected(showAlbums);
-        segmentFiles.setSelected(!showAlbums);
-
-        albumsContainer.setVisibility(showAlbums ? View.VISIBLE : View.GONE);
-        filesContainer.setVisibility(showAlbums ? View.GONE : View.VISIBLE);
-
-        if (showAlbums) {
-            albumsUi.show();
-        } else {
-            filesUi.show();
+            case EXIT:
+                break;
         }
     }
 
-    /* ---------------- Expand Vault ---------------- */
+    private void handleInit() {
+        blocking.showLoading();
 
-    private void onExpandVaultClicked() {
-        expandVaultHelper.launch(new ExpandVaultHelper.Callback() {
-            @Override public void onStart() { loading.show(); }
+        userSession = new UserSession(this);
+        primaryEmail = userSession.getPrimaryAccountEmail();
 
-            @Override
-            public void onTrustedAccountAdded() {
-                loading.hide();
-                storageBarHelper.loadAndBindStorage();
-            }
-
-            @Override
-            public void onError(String message) {
-                loading.hide();
-                showToast(message);
-            }
-
-            @Override public void onEnd() { loading.hide(); }
-        });
-    }
-
-    /* ---------------- Consent ---------------- */
-
-    private void handleConsent(boolean fromLogin) {
-        profileInfoHelper.bindProfile(profileName);
-
-        if (fromLogin) {
-            storageBarHelper.loadAndBindStorage();
+        if (primaryEmail == null) {
+            exitToLogin("Session expired. Please login again.");
             return;
         }
 
-        primaryAccountConsentHelper.checkConsentsSilently(primaryEmail, result -> {
+        consentHelper = new PrimaryAccountConsentHelper(this);
+        boolean fromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
+        moveToState(fromLogin ? AuthState.GRANTED : AuthState.CHECKING);
+    }
+
+    private void handleChecking() {
+        blocking.showLoading();
+        consentHelper.checkConsentsSilently(primaryEmail, result -> {
             switch (result) {
                 case GRANTED:
-                    profileInfoHelper.bindProfileLatest(updatedName -> profileName = updatedName);
-                    storageBarHelper.loadAndBindStorage();
+                    moveToState(AuthState.GRANTED);
                     break;
 
                 case RECOVERABLE:
                 case FAILED:
-                    forceLogout("Permissions were revoked. Please login again.");
+                    exitToLogin("Permissions were revoked. Please login again.");
                     break;
             }
         });
     }
 
-    /* ---------------- Logout ---------------- */
+    /* ==========================================================
+     * Exit
+     * ========================================================== */
 
-    private void forceLogout(String reason) {
-        showToast(reason);
-        logout();
-    }
+    private void exitToLogin(String message) {
+        if (authState == AuthState.EXIT) return;
+        authState = AuthState.EXIT;
 
-    private void logout() {
-        userSession.clearSession();
+        blocking.resetAll();
+
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+
+        if (userSession != null) userSession.clearSession();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }
-
-    /* ---------------- Utils ---------------- */
-
-    private void showToast(String msg) {
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
-    }
-
-
-    private void setupBackHandling() {
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                boolean consumed = false;
-
-                if (currentViewMode == VaultViewMode.ALBUMS && albumsUi != null) {
-                    consumed = albumsUi.onBackPressed();
-                } else if (currentViewMode == VaultViewMode.FILES && filesUi != null) {
-                    consumed = filesUi.onBackPressed();
-                }
-
-                if (!consumed) {
-                    // No UI layer wants it → default behavior
-                    finish();
-                }
-            }
-        });
-    }
-
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        if (albumsUi != null) albumsUi.release();
-        if (filesUi != null) filesUi.release();
-    }
-
 }

@@ -2,7 +2,7 @@ package com.github.jaykkumar01.vaultspace.core.session;
 
 import android.util.Log;
 
-import com.github.jaykkumar01.vaultspace.album.AlbumItem;
+import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 
 import java.util.ArrayList;
@@ -24,9 +24,9 @@ public final class VaultSessionCache {
     private final Map<String, AlbumInfo> albumsById = new HashMap<>();
     private final Set<String> albumNames = new HashSet<>();
 
-    /* ---------------- Album items cache ---------------- */
+    /* ---------------- Album media cache ---------------- */
 
-    private final Map<String, List<AlbumItem>> albumItemsByAlbumId = new HashMap<>();
+    private final Map<String, List<AlbumMedia>> albumMediaByAlbumId = new HashMap<>();
 
     public boolean hasAlbumListCached() {
         return albumsCached;
@@ -83,7 +83,7 @@ public final class VaultSessionCache {
 
         albumNames.remove(removed.name);
         albums.removeIf(a -> albumId.equals(a.id));
-        albumItemsByAlbumId.remove(albumId);
+        albumMediaByAlbumId.remove(albumId);
 
         Log.d(TAG, "Album removed from cache: " + albumId);
     }
@@ -109,37 +109,37 @@ public final class VaultSessionCache {
         Log.d(TAG, "Album replaced in cache: " + updated.id);
     }
 
-    /* ---------------- Album items cache ---------------- */
+    /* ---------------- Album media cache ---------------- */
 
-    public boolean hasAlbumItemsCached(String albumId) {
-        return albumId != null && albumItemsByAlbumId.containsKey(albumId);
+    public boolean hasAlbumMediaCached(String albumId) {
+        return albumId != null && albumMediaByAlbumId.containsKey(albumId);
     }
 
-    public List<AlbumItem> getAlbumItems(String albumId) {
-        List<AlbumItem> items = albumItemsByAlbumId.get(albumId);
-        return items != null ? items : Collections.emptyList();
+    public List<AlbumMedia> getAlbumMedia(String albumId) {
+        List<AlbumMedia> media = albumMediaByAlbumId.get(albumId);
+        return media != null ? media : Collections.emptyList();
     }
 
-    public void setAlbumItems(String albumId, List<AlbumItem> items) {
+    public void setAlbumMedia(String albumId, List<AlbumMedia> media) {
         if (albumId == null) return;
-        albumItemsByAlbumId.put(albumId, items != null ? new ArrayList<>(items) : new ArrayList<>());
-        Log.d(TAG, "Album items cached: " + albumId + " (" + getAlbumItems(albumId).size() + ")");
+        albumMediaByAlbumId.put(albumId, media != null ? new ArrayList<>(media) : new ArrayList<>());
+        Log.d(TAG, "Album media cached: " + albumId + " (" + getAlbumMedia(albumId).size() + ")");
     }
 
-    public void addAlbumItem(String albumId, AlbumItem item) {
-        if (albumId == null || item == null) return;
-        List<AlbumItem> items = albumItemsByAlbumId.computeIfAbsent(albumId, k -> new ArrayList<>());
-        items.add(0, item);
-        Log.d(TAG, "Album item added: " + item.fileId);
+    public void addAlbumMedia(String albumId, AlbumMedia media) {
+        if (albumId == null || media == null) return;
+        List<AlbumMedia> list = albumMediaByAlbumId.computeIfAbsent(albumId, k -> new ArrayList<>());
+        list.add(0, media);
+        Log.d(TAG, "Album media added: " + media.fileId);
     }
 
-    public void removeAlbumItem(String albumId, String fileId) {
+    public void removeAlbumMedia(String albumId, String fileId) {
         if (albumId == null || fileId == null) return;
-        List<AlbumItem> items = albumItemsByAlbumId.get(albumId);
-        if (items == null) return;
+        List<AlbumMedia> media = albumMediaByAlbumId.get(albumId);
+        if (media == null) return;
 
-        items.removeIf(i -> fileId.equals(i.fileId));
-        Log.d(TAG, "Album item removed: " + fileId);
+        media.removeIf(m -> fileId.equals(m.fileId));
+        Log.d(TAG, "Album media removed: " + fileId);
     }
 
     /* ---------------- Lifecycle ---------------- */
@@ -149,14 +149,14 @@ public final class VaultSessionCache {
         albums = Collections.emptyList();
         albumsById.clear();
         albumNames.clear();
-        albumItemsByAlbumId.clear();
+        albumMediaByAlbumId.clear();
         Log.d(TAG, "Albums cache invalidated");
     }
 
-    public void invalidateAlbumItems(String albumId) {
+    public void invalidateAlbumMedia(String albumId) {
         if (albumId == null) return;
-        albumItemsByAlbumId.remove(albumId);
-        Log.d(TAG, "Album items invalidated: " + albumId);
+        albumMediaByAlbumId.remove(albumId);
+        Log.d(TAG, "Album media invalidated: " + albumId);
     }
 
     public void clear() {
