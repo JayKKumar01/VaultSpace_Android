@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
 import com.github.jaykkumar01.vaultspace.views.popups.ActivityLoadingOverlay;
@@ -17,8 +18,6 @@ import com.github.jaykkumar01.vaultspace.views.popups.ActivityLoadingOverlay;
 public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Login";
-
-    private UserSession userSession;
 
     private AccountPickerHelper accountPickerHelper;
     private PrimaryAccountConsentHelper primaryConsentHelper;
@@ -33,7 +32,6 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        userSession = new UserSession(this);
         loading = new ActivityLoadingOverlay(this);
 
         initHelpers();
@@ -102,24 +100,33 @@ public class LoginActivity extends AppCompatActivity {
         if (pendingEmail == null) {
             Log.w(TAG, "finalizeLogin() called with null email");
             loading.hide();
+            toast("Something went wrong. Please try again.");
             return;
         }
 
         Log.d(TAG, "Finalizing login for: " + pendingEmail);
 
-        userSession.savePrimaryAccountEmail(pendingEmail);
-
-        GoogleUserProfileFetcher.fetch(
+        PrimaryUserCoordinator.prepare(
                 getApplicationContext(),
                 pendingEmail,
-                profileName -> {
-                    if (profileName != null) {
-                        userSession.saveProfileName(profileName);
+                new PrimaryUserCoordinator.Callback() {
+
+                    @Override
+                    public void onSuccess() {
+                        loading.hide();
+                        navigateToDashboard();
                     }
-                    navigateToDashboard();
+
+                    @Override
+                    public void onError() {
+                        loading.hide();
+                        toast("Failed to set up your account. Please try again.");
+                        // stay on Login screen
+                    }
                 }
         );
     }
+
 
     private void navigateToDashboard() {
         loading.hide();

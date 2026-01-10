@@ -88,9 +88,6 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:layout_marginEnd="12dp"
-                app:profileName="User Name"
-                app:profileEmail="user@email.com"
-                app:profileImage="@drawable/ic_profile_placeholder"
                 app:layout_constraintTop_toBottomOf="@id/brandDivider"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/storageBar" />

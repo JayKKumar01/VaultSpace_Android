@@ -74,10 +74,10 @@ public class DashboardProfileInfoHelper {
         Bitmap profileBitmap =
                 GoogleUserProfileFetcher.loadSavedProfilePhoto(context);
 
-        profileInfoView.setProfile(
-                profileBitmap,
-                displayName,
-                displayEmail
-        );
+//        profileInfoView.setProfile(
+//                profileBitmap,
+//                displayName,
+//                displayEmail
+//        );
     }
 }

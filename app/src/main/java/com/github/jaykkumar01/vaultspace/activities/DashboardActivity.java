@@ -17,6 +17,7 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardBlockingHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
 import com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 
@@ -55,10 +56,8 @@ public class DashboardActivity extends AppCompatActivity {
     private DashboardBlockingHelper blocking;
 
     /* ==========================================================
-     * UI (post-granted shell)
+     * UI
      * ========================================================== */
-
-    private ProfileInfoView profileInfoView;
     private StorageBarView storageBar;
     private TextView segmentAlbums;
     private TextView segmentFiles;
@@ -66,6 +65,12 @@ public class DashboardActivity extends AppCompatActivity {
     private FrameLayout filesContainer;
     private View btnExpandVault;
     private View btnLogout;
+
+    /* ==========================================================
+     * Helpers (post-granted shell)
+     * ========================================================== */
+
+    private DashboardProfileHelper profileHelper;
 
     /* ==========================================================
      * Lifecycle
@@ -99,7 +104,6 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        profileInfoView = findViewById(R.id.profileInfo);
         storageBar = findViewById(R.id.storageBar);
         segmentAlbums = findViewById(R.id.segmentAlbums);
         segmentFiles = findViewById(R.id.segmentFiles);
@@ -107,6 +111,7 @@ public class DashboardActivity extends AppCompatActivity {
         filesContainer = findViewById(R.id.filesContainer);
         btnExpandVault = findViewById(R.id.btnExpandVault);
         btnLogout = findViewById(R.id.btnLogout);
+        profileHelper = new DashboardProfileHelper(this);
     }
 
     private void initUiShell() {
@@ -116,6 +121,9 @@ public class DashboardActivity extends AppCompatActivity {
 
         btnExpandVault.setEnabled(false);
         btnLogout.setOnClickListener(v -> blocking.confirmLogout());
+
+        // Attach helpers that affect visible UI
+        profileHelper.attach();
     }
 
     /* ==========================================================
@@ -128,15 +136,11 @@ public class DashboardActivity extends AppCompatActivity {
                     @Override
                     public void handleOnBackPressed() {
 
-                        if (authState == AuthState.EXIT) {
-                            return;
-                        }
+                        if (authState == AuthState.EXIT) return;
+                        if (blocking.handleBackPress()) return;
 
-                        if (blocking.handleBackPress()) {
-                            return;
-                        }
-
-                        if (authState == AuthState.INIT || authState == AuthState.CHECKING) {
+                        if (authState == AuthState.INIT ||
+                                authState == AuthState.CHECKING) {
                             blocking.confirmCancelSetup();
                             return;
                         }
@@ -162,15 +166,12 @@ public class DashboardActivity extends AppCompatActivity {
             case INIT:
                 handleInit();
                 break;
-
             case CHECKING:
                 handleChecking();
                 break;
-
             case GRANTED:
                 handleGranted();
                 break;
-
             case EXIT:
                 break;
         }
@@ -188,24 +189,30 @@ public class DashboardActivity extends AppCompatActivity {
         }
 
         consentHelper = new PrimaryAccountConsentHelper(this);
-        boolean fromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
+        boolean fromLogin =
+                getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
+
         moveToState(fromLogin ? AuthState.GRANTED : AuthState.CHECKING);
     }
 
     private void handleChecking() {
         blocking.showLoading();
-        consentHelper.checkConsentsSilently(primaryEmail, result -> {
-            switch (result) {
-                case GRANTED:
-                    moveToState(AuthState.GRANTED);
-                    break;
-
-                case RECOVERABLE:
-                case FAILED:
-                    exitToLogin("Permissions were revoked. Please login again.");
-                    break;
-            }
-        });
+        consentHelper.checkConsentsSilently(
+                primaryEmail,
+                result -> {
+                    switch (result) {
+                        case GRANTED:
+                            moveToState(AuthState.GRANTED);
+                            break;
+                        case RECOVERABLE:
+                        case FAILED:
+                            exitToLogin(
+                                    "Permissions were revoked. Please login again."
+                            );
+                            break;
+                    }
+                }
+        );
     }
 
     /* ==========================================================
@@ -217,7 +224,6 @@ public class DashboardActivity extends AppCompatActivity {
         authState = AuthState.EXIT;
 
         blocking.resetAll();
-
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 
         if (userSession != null) userSession.clearSession();

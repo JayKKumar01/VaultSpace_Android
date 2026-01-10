@@ -1,7 +1,6 @@
 package com.github.jaykkumar01.vaultspace.views.creative;
 
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -23,26 +22,30 @@ public class ProfileInfoView extends ConstraintLayout {
     private TextView tvName;
     private TextView tvEmail;
 
+    private String currentEmail;
+    private String currentName;
+
     public ProfileInfoView(@NonNull Context context) {
         super(context);
-        init(context, null);
+        init(context);
     }
 
     public ProfileInfoView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        init(context, attrs);
+        init(context);
     }
 
     public ProfileInfoView(@NonNull Context context,
                            @Nullable AttributeSet attrs,
                            int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init(context, attrs);
+        init(context);
     }
 
-    private void init(Context context, @Nullable AttributeSet attrs) {
+    private void init(Context context) {
 
-        // ---------------- Profile Image ----------------
+        /* ---------------- Profile Image ---------------- */
+
         ivProfile = new ImageView(context);
         ivProfile.setId(generateViewId());
         ivProfile.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -52,7 +55,8 @@ public class ProfileInfoView extends ConstraintLayout {
 
         addView(ivProfile, new LayoutParams(dpToPx(40), dpToPx(40)));
 
-        // ---------------- Name ----------------
+        /* ---------------- Name ---------------- */
+
         tvName = new TextView(context);
         tvName.setId(generateViewId());
         tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -61,7 +65,8 @@ public class ProfileInfoView extends ConstraintLayout {
 
         addView(tvName, new LayoutParams(0, LayoutParams.WRAP_CONTENT));
 
-        // ---------------- Email ----------------
+        /* ---------------- Email ---------------- */
+
         tvEmail = new TextView(context);
         tvEmail.setId(generateViewId());
         tvEmail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -69,7 +74,8 @@ public class ProfileInfoView extends ConstraintLayout {
 
         addView(tvEmail, new LayoutParams(0, LayoutParams.WRAP_CONTENT));
 
-        // ---------------- Constraints ----------------
+        /* ---------------- Constraints ---------------- */
+
         ConstraintSet set = new ConstraintSet();
         set.clone(this);
 
@@ -86,69 +92,47 @@ public class ProfileInfoView extends ConstraintLayout {
 
         set.applyTo(this);
 
-        // ---------------- XML attrs (preview + defaults) ----------------
-        if (attrs != null) {
-            TypedArray a =
-                    context.obtainStyledAttributes(attrs, R.styleable.ProfileInfoView);
+        /* ---------------- Defaults ---------------- */
 
-            String name = a.getString(R.styleable.ProfileInfoView_profileName);
-            String email = a.getString(R.styleable.ProfileInfoView_profileEmail);
-            Drawable image = a.getDrawable(R.styleable.ProfileInfoView_profileImage);
-
-            if (name != null) {
-                tvName.setText(name);
-            }
-
-            if (email != null) {
-                tvEmail.setText(email);
-            }
-
-            if (image != null) {
-                ivProfile.setImageDrawable(image);
-            } else if (isInEditMode()) {
-                // Preview fallback only
-                ivProfile.setImageResource(R.drawable.ic_profile_placeholder);
-            }
-
-            a.recycle();
-        }
+        ivProfile.setImageResource(R.drawable.ic_profile_placeholder);
     }
 
-    /* ================= Public API ================= */
+    /* ==========================================================
+     * Public API (Dashboard-only)
+     * ========================================================== */
 
-    public void setProfile(@Nullable Bitmap bitmap,
-                           @NonNull String name,
-                           @NonNull String email) {
-
-        tvName.setText(name);
-        tvEmail.setText(email);
-
-        if (bitmap != null) {
-            ivProfile.setImageDrawable(
-                    new BitmapDrawable(getResources(), bitmap)
-            );
-        } else {
-            ivProfile.setImageResource(R.drawable.ic_profile_placeholder);
-        }
-    }
-
-    public void setName(@NonNull String name) {
-        tvName.setText(name);
-    }
-
+    /** Write-once */
     public void setEmail(@NonNull String email) {
+        if (email.equals(currentEmail)) return;
+        currentEmail = email;
         tvEmail.setText(email);
     }
 
-    public void setProfileImage(@Nullable Bitmap bitmap) {
-        if (bitmap != null) {
-            ivProfile.setImageDrawable(
-                    new BitmapDrawable(getResources(), bitmap)
-            );
-        }
+    /** Patchable */
+    public void setName(@NonNull String name) {
+        if (name.equals(currentName)) return;
+        currentName = name;
+        tvName.setText(name);
     }
 
-    /* ================= Utils ================= */
+    /** Patchable */
+    public void setProfileImage(@Nullable Bitmap bitmap) {
+        if (bitmap == null) return;
+
+        Drawable current = ivProfile.getDrawable();
+        if (current instanceof BitmapDrawable) {
+            Bitmap currentBitmap = ((BitmapDrawable) current).getBitmap();
+            if (currentBitmap == bitmap) return;
+        }
+
+        ivProfile.setImageDrawable(
+                new BitmapDrawable(getResources(), bitmap)
+        );
+    }
+
+    /* ==========================================================
+     * Utils
+     * ========================================================== */
 
     private int dpToPx(float dp) {
         return (int) (dp * getResources().getDisplayMetrics().density);
