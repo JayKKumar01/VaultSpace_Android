@@ -62,15 +62,16 @@ public final class AlbumsDriveHelper {
     public void fetchAlbums(ExecutorService executor,FetchCallback callback){
         executor.execute(()->{
             try{
-                if(cache.hasAlbumListCached()){
-                    postResult(callback,cache.getAlbums());
+                if (cache.albums.isCached()) {
+                    postResult(callback, cache.albums.get());
                     return;
                 }
 
+
                 String rootId=DriveFolderRepository.findAlbumsRootId(primaryDrive);
                 if(rootId==null){
-                    cache.setAlbums(List.of());
-                    postResult(callback,List.of());
+                    cache.albums.set(List.of());
+                    postResult(callback, List.of());
                     return;
                 }
 
@@ -83,8 +84,9 @@ public final class AlbumsDriveHelper {
                         .execute();
 
                 List<AlbumInfo> albums=getAlbums(list);
-                cache.setAlbums(albums);
-                postResult(callback,albums);
+                cache.albums.set(albums);
+                postResult(callback, albums);
+
 
             }catch(Exception e){
                 Log.e(TAG,"Failed to fetch albums",e);
@@ -100,10 +102,11 @@ public final class AlbumsDriveHelper {
             return;
         }
 
-        if(cache.hasAlbumWithName(trimmed)){
+        if (cache.albums.hasAlbumWithName(trimmed)) {
             callback.onError(new IllegalStateException("Album already exists"));
             return;
         }
+
         AtomicBoolean completed=new AtomicBoolean(false);
         Runnable timeout=()->{
             if(completed.compareAndSet(false,true)){
@@ -128,7 +131,7 @@ public final class AlbumsDriveHelper {
 
                 if(completed.compareAndSet(false,true)){
                     mainHandler.removeCallbacks(timeout);
-                    cache.addAlbum(album);
+                    cache.albums.addAlbum(album);
                     mainHandler.post(()->callback.onSuccess(album));
                 }
             }catch(Exception e){
@@ -173,7 +176,7 @@ public final class AlbumsDriveHelper {
 
                 if(completed.compareAndSet(false,true)){
                     mainHandler.removeCallbacks(timeout);
-                    cache.replaceAlbum(replaced);
+                    cache.albums.replaceAlbum(replaced);
                     mainHandler.post(callback::onSuccess);
                 }
 
@@ -202,7 +205,7 @@ public final class AlbumsDriveHelper {
                 primaryDrive.files().delete(albumId).execute();
                 if(completed.compareAndSet(false,true)){
                     mainHandler.removeCallbacks(timeout);
-                    cache.removeAlbum(albumId);
+                    cache.albums.removeAlbum(albumId);
                     Log.d(TAG,"Deleted album "+albumId);
                     mainHandler.post(()->callback.onSuccess(albumId));
                 }
@@ -216,9 +219,10 @@ public final class AlbumsDriveHelper {
         });
     }
 
-    public void invalidateCache(){
-        cache.invalidateAlbums();
+    public void invalidateCache() {
+        cache.albums.clear();
     }
+
 
     private static List<AlbumInfo> getAlbums(FileList list){
         List<AlbumInfo> albums=new ArrayList<>();

@@ -6,16 +6,43 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 
 import java.util.*;
 
-public final class AlbumMediaCache {
+public final class AlbumMediaCache
+        extends VaultCache<Map<String, List<AlbumMedia>>> {
 
     private static final String TAG = "VaultSpace:AlbumMediaCache";
 
     private final Map<String, List<AlbumMedia>> mediaByAlbumId = new HashMap<>();
 
-    /* ---------------- Queries ---------------- */
+    /* ================= VaultCache hooks ================= */
+
+    @Override
+    protected Map<String, List<AlbumMedia>> getInternal() {
+        return mediaByAlbumId;
+    }
+
+    @Override
+    protected Map<String, List<AlbumMedia>> getEmpty() {
+        return Collections.emptyMap();
+    }
+
+    @Override
+    protected void setInternal(Map<String, List<AlbumMedia>> data) {
+        mediaByAlbumId.clear();
+        if (data != null) {
+            mediaByAlbumId.putAll(data);
+        }
+    }
+
+    @Override
+    protected void clearInternal() {
+        mediaByAlbumId.clear();
+        Log.d(TAG, "Album media cache cleared");
+    }
+
+    /* ================= Domain API ================= */
 
     public boolean hasAlbumMediaCached(String albumId) {
-        return albumId != null && mediaByAlbumId.containsKey(albumId);
+        return isCached() && albumId != null && mediaByAlbumId.containsKey(albumId);
     }
 
     public List<AlbumMedia> getAlbumMedia(String albumId) {
@@ -23,10 +50,8 @@ public final class AlbumMediaCache {
         return media != null ? media : Collections.emptyList();
     }
 
-    /* ---------------- Set ---------------- */
-
     public void setAlbumMedia(String albumId, List<AlbumMedia> media) {
-        if (albumId == null) return;
+        if (!isCached() || albumId == null) return;
         mediaByAlbumId.put(
                 albumId,
                 media != null ? new ArrayList<>(media) : new ArrayList<>()
@@ -34,18 +59,19 @@ public final class AlbumMediaCache {
         Log.d(TAG, "Album media cached: " + albumId);
     }
 
-    /* ---------------- Mutations ---------------- */
-
     public void addAlbumMedia(String albumId, AlbumMedia media) {
-        if (albumId == null || media == null) return;
+        if (!isCached() || albumId == null || media == null) return;
+
         List<AlbumMedia> list =
                 mediaByAlbumId.computeIfAbsent(albumId, k -> new ArrayList<>());
         list.add(0, media);
+
         Log.d(TAG, "Album media added: " + media.fileId);
     }
 
     public void removeAlbumMedia(String albumId, String fileId) {
-        if (albumId == null || fileId == null) return;
+        if (!isCached() || albumId == null || fileId == null) return;
+
         List<AlbumMedia> media = mediaByAlbumId.get(albumId);
         if (media == null) return;
 
@@ -53,16 +79,9 @@ public final class AlbumMediaCache {
         Log.d(TAG, "Album media removed: " + fileId);
     }
 
-    /* ---------------- Lifecycle ---------------- */
-
     public void invalidateAlbumMedia(String albumId) {
         if (albumId == null) return;
         mediaByAlbumId.remove(albumId);
         Log.d(TAG, "Album media invalidated: " + albumId);
-    }
-
-    public void clear() {
-        mediaByAlbumId.clear();
-        Log.d(TAG, "Album media cache cleared");
     }
 }

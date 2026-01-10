@@ -7,6 +7,8 @@ import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.DrivePermissionRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveStorageRepository;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.session.VaultSessionCache;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.Permission;
@@ -30,6 +32,7 @@ public class TrustedAccountsDriveHelper {
     private final Context appContext;
     private final Drive primaryDrive;
     private final String primaryEmail;
+    private final VaultSessionCache cache;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -37,6 +40,7 @@ public class TrustedAccountsDriveHelper {
         this.appContext = context.getApplicationContext();
         this.primaryEmail = primaryEmail;
         this.primaryDrive = DriveClientProvider.forAccount(appContext, primaryEmail);
+        this.cache = new UserSession(context).getVaultCache();
     }
 
     /* ---------------- Write Path ---------------- */
@@ -66,6 +70,13 @@ public class TrustedAccountsDriveHelper {
                         .setSendNotificationEmail(true)
                         .execute();
 
+                // Incremental cache update (optimistic)
+                Drive drive =
+                        DriveClientProvider.forAccount(appContext, trustedEmail);
+                cache.trustedAccounts.addAccount(
+                        DriveStorageRepository.fetchStorageInfo(drive, trustedEmail)
+                );
+
                 callback.onAdded();
 
             } catch (Exception e) {
@@ -79,11 +90,19 @@ public class TrustedAccountsDriveHelper {
 
     public List<TrustedAccount> getTrustedAccounts() throws Exception {
 
+        if (cache.trustedAccounts.isCached()) {
+            Log.d(TAG, "Trusted accounts cache HIT");
+            return cache.trustedAccounts.get();
+        }
+
+        Log.d(TAG, "Trusted accounts cache MISS");
+
         String rootFolderId =
                 DriveFolderRepository.findRootFolderId(primaryDrive);
 
         if (rootFolderId == null) {
-            return new ArrayList<>(); // no mutation
+            cache.trustedAccounts.set(new ArrayList<>());
+            return cache.trustedAccounts.get();
         }
 
         PermissionList permissions =
@@ -115,6 +134,7 @@ public class TrustedAccountsDriveHelper {
             }
         }
 
+        cache.trustedAccounts.set(result);
         return result;
     }
 }

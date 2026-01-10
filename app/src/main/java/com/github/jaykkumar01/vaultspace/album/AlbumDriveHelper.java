@@ -47,12 +47,13 @@ public final class AlbumDriveHelper {
     public void fetchAlbumItems(ExecutorService executor, FetchCallback callback) {
         executor.execute(() -> {
             try {
-                if (cache.hasAlbumMediaCached(albumId)) {
-                    List<AlbumMedia> cached = cache.getAlbumMedia(albumId);
+                if (cache.albumMedia.hasAlbumMediaCached(albumId)) {
+                    List<AlbumMedia> cached = cache.albumMedia.getAlbumMedia(albumId);
                     Log.d(TAG, "Cache HIT for album: " + albumId + " (" + cached.size() + ")");
                     postResult(callback, cached);
                     return;
                 }
+
 
                 Log.d(TAG, "Cache MISS for album: " + albumId);
 
@@ -66,7 +67,7 @@ public final class AlbumDriveHelper {
                         .execute();
 
                 List<AlbumMedia> items = mapItems(list);
-                cache.setAlbumMedia(albumId, items);
+                cache.albumMedia.setAlbumMedia(albumId, items);
 
                 Log.d(TAG, "Fetched & cached " + items.size() + " items for album: " + albumId);
                 postResult(callback, items);
@@ -112,7 +113,8 @@ public final class AlbumDriveHelper {
     /* ---------------- Cache ---------------- */
 
     public void invalidateCache() {
-        cache.invalidateAlbumMedia(albumId);
+        cache.albumMedia.invalidateAlbumMedia(albumId);
         Log.d(TAG, "Album items cache invalidated: " + albumId);
     }
+
 }
