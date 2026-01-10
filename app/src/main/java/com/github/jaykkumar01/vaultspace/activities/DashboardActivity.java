@@ -18,7 +18,6 @@ import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelpe
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardBlockingHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
-import com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 
 @SuppressLint("SetTextI18n")
@@ -50,6 +49,12 @@ public class DashboardActivity extends AppCompatActivity {
     private PrimaryAccountConsentHelper consentHelper;
 
     /* ==========================================================
+     * Flags
+     * ========================================================== */
+
+    private boolean isFromLogin;
+
+    /* ==========================================================
      * Blocking
      * ========================================================== */
 
@@ -58,6 +63,7 @@ public class DashboardActivity extends AppCompatActivity {
     /* ==========================================================
      * UI
      * ========================================================== */
+
     private StorageBarView storageBar;
     private TextView segmentAlbums;
     private TextView segmentFiles;
@@ -67,7 +73,7 @@ public class DashboardActivity extends AppCompatActivity {
     private View btnLogout;
 
     /* ==========================================================
-     * Helpers (post-granted shell)
+     * Helpers
      * ========================================================== */
 
     private DashboardProfileHelper profileHelper;
@@ -81,6 +87,9 @@ public class DashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_dashboard);
+
+        // Single source of truth
+        isFromLogin = getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
 
         blocking = new DashboardBlockingHelper(
                 this,
@@ -111,6 +120,7 @@ public class DashboardActivity extends AppCompatActivity {
         filesContainer = findViewById(R.id.filesContainer);
         btnExpandVault = findViewById(R.id.btnExpandVault);
         btnLogout = findViewById(R.id.btnLogout);
+
         profileHelper = new DashboardProfileHelper(this);
     }
 
@@ -122,8 +132,8 @@ public class DashboardActivity extends AppCompatActivity {
         btnExpandVault.setEnabled(false);
         btnLogout.setOnClickListener(v -> blocking.confirmLogout());
 
-        // Attach helpers that affect visible UI
-        profileHelper.attach();
+        // Attach helpers with shared state
+        profileHelper.attach(isFromLogin);
     }
 
     /* ==========================================================
@@ -189,10 +199,7 @@ public class DashboardActivity extends AppCompatActivity {
         }
 
         consentHelper = new PrimaryAccountConsentHelper(this);
-        boolean fromLogin =
-                getIntent().getBooleanExtra(EXTRA_FROM_LOGIN, false);
-
-        moveToState(fromLogin ? AuthState.GRANTED : AuthState.CHECKING);
+        moveToState(isFromLogin ? AuthState.GRANTED : AuthState.CHECKING);
     }
 
     private void handleChecking() {

@@ -7,8 +7,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
 import com.github.jaykkumar01.vaultspace.views.creative.ProfileInfoView;
 
 public final class DashboardProfileHelper {
@@ -25,9 +25,7 @@ public final class DashboardProfileHelper {
         this.activity = activity;
         this.session = new UserSession(activity);
 
-        this.profileView =
-                activity.findViewById(R.id.profileInfo);
-
+        this.profileView = activity.findViewById(R.id.profileInfo);
         if (profileView == null) {
             throw new IllegalStateException(
                     "ProfileInfoView (R.id.profileInfo) not found in Dashboard layout"
@@ -39,13 +37,18 @@ public final class DashboardProfileHelper {
      * Entry
      * ========================================================== */
 
-    public void attach() {
+    public void attach(boolean fromLogin) {
         bindCachedProfile();
-        refreshProfileSilently();
+
+        if (!fromLogin) {
+            refreshProfileSilently();
+        } else {
+            Log.d(TAG, "Skip profile refresh (from login)");
+        }
     }
 
     /* ==========================================================
-     * Phase 1 — Instant bind (sync)
+     * Instant bind
      * ========================================================== */
 
     private void bindCachedProfile() {
@@ -56,19 +59,13 @@ public final class DashboardProfileHelper {
 
         lastKnownName = name;
 
-        if (email != null) {
-            profileView.setEmail(email);
-        }
-
-        if (name != null) {
-            profileView.setName(name);
-        }
-
+        if (email != null) profileView.setEmail(email);
+        if (name != null) profileView.setName(name);
         profileView.setProfileImage(photo);
     }
 
     /* ==========================================================
-     * Phase 2 — Silent refresh (async)
+     * Silent refresh
      * ========================================================== */
 
     private void refreshProfileSilently() {
@@ -82,7 +79,7 @@ public final class DashboardProfileHelper {
 
                     @Override
                     public void onError() {
-                        Log.d(TAG, "Profile refresh skipped (non-fatal)");
+                        Log.d(TAG, "Profile refresh skipped");
                     }
                 }
         );
@@ -94,6 +91,7 @@ public final class DashboardProfileHelper {
         if (newName != null && !newName.equals(lastKnownName)) {
             lastKnownName = newName;
             profileView.setName(newName);
+            Log.d(TAG, "Name updated");
         }
 
         Bitmap newPhoto =
@@ -101,6 +99,7 @@ public final class DashboardProfileHelper {
 
         if (newPhoto != null) {
             profileView.setProfileImage(newPhoto);
+            Log.d(TAG, "Photo updated");
         }
     }
 }
