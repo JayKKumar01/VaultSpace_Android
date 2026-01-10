@@ -12,7 +12,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
-import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
@@ -39,6 +38,8 @@ public final class PrimaryUserCoordinator {
     private static final Gson GSON = new Gson();
 
     private PrimaryUserCoordinator() {}
+
+
 
     /* ==========================================================
      * Callback
@@ -135,6 +136,16 @@ public final class PrimaryUserCoordinator {
         return file.exists()
                 ? BitmapFactory.decodeFile(file.getAbsolutePath())
                 : null;
+    }
+
+    public static void clearSavedProfilePhoto(@NonNull Context context) {
+        File file = new File(
+                context.getApplicationContext().getFilesDir(),
+                PHOTO_FILE
+        );
+        if (file.exists()){
+            boolean ignored = file.delete();
+        }
     }
 
     /* ==========================================================

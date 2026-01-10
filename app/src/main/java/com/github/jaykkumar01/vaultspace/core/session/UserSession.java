@@ -69,6 +69,6 @@ public class UserSession {
             vaultCache = null;
         }
 
-        GoogleUserProfileFetcher.clearSavedProfilePhoto(appContext);
+        PrimaryUserCoordinator.clearSavedProfilePhoto(appContext);
     }
 }
