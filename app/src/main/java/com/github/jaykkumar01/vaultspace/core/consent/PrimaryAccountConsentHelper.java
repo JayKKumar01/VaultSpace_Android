@@ -13,10 +13,12 @@ import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,8 +39,11 @@ public final class PrimaryAccountConsentHelper {
     public enum ConsentResult {
         GRANTED,
         RECOVERABLE,
-        FAILED
+        FAILED,
+        PERMISSION_REVOKED,
+        TEMPORARY_UNAVAILABLE
     }
+
 
     /* ---------------- Core ---------------- */
 
@@ -156,24 +161,18 @@ public final class PrimaryAccountConsentHelper {
 
     private ConsentResult checkConsentsInternal(String email) {
         try {
-            GoogleAccountCredential credential = GoogleCredentialFactory.forPrimaryAccount(activity, email);
+            GoogleAccountCredential credential =
+                    GoogleCredentialFactory.forPrimaryAccount(activity, email);
 
-            // Drive probe
-            Drive drive =
-                    new Drive.Builder(
-                            new NetHttpTransport(),
-                            GsonFactory.getDefaultInstance(),
-                            credential
-                    )
-                            .setApplicationName("VaultSpace")
-                            .build();
+            Drive drive = new Drive.Builder(
+                    new NetHttpTransport(),
+                    GsonFactory.getDefaultInstance(),
+                    credential
+            ).setApplicationName("VaultSpace").build();
 
             drive.about().get().setFields("user").execute();
-
-            // Profile probe
             credential.getToken();
 
-            Log.d(TAG, "All consents verified");
             return ConsentResult.GRANTED;
 
         } catch (UserRecoverableAuthException e) {
@@ -184,9 +183,21 @@ public final class PrimaryAccountConsentHelper {
             lastRecoverableIntent = e.getIntent();
             return ConsentResult.RECOVERABLE;
 
+        } catch (GoogleJsonResponseException g) {
+            int status = g.getStatusCode();
+            if (status == 401 || status == 403) {
+                // Permission revoked or insufficient permission
+                return ConsentResult.PERMISSION_REVOKED;
+            }
+            // Treat other HTTP errors as temporary
+            return ConsentResult.TEMPORARY_UNAVAILABLE;
+
+        } catch (IOException e) {
+            // Network or transient server errors
+            return ConsentResult.TEMPORARY_UNAVAILABLE;
+
         } catch (Exception e) {
-            Log.e(TAG, "Consent validation failed", e);
-            return ConsentResult.FAILED;
+            return ConsentResult.PERMISSION_REVOKED;
         }
     }
 }

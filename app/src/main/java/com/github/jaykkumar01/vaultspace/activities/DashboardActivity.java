@@ -258,18 +258,31 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void handleChecking() {
         blockingHelper.showLoading();
+
         consentHelper.checkConsentsSilently(primaryEmail, result -> {
             switch (result) {
+
                 case GRANTED:
                     moveToState(AuthState.GRANTED);
                     break;
+
+                case TEMPORARY_UNAVAILABLE:
+                    // 🔑 Network / transient issue
+                    // Do NOT clear session
+                    // Stay in current screen; retry logic will be added later
+                    blockingHelper.clearLoading();
+                    break;
+
                 case RECOVERABLE:
+                case PERMISSION_REVOKED:
                 case FAILED:
+                    // 🔴 Only these are real session-ending cases
                     exitToLogin("Permissions were revoked. Please login again.");
                     break;
             }
         });
     }
+
 
     /* ==========================================================
      * Callbacks
@@ -307,10 +320,7 @@ public class DashboardActivity extends AppCompatActivity {
         blockingHelper.resetAll();
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 
-        boolean internetWorking = true;
-        if (internetWorking) {
-            userSession.clearSession();
-        }
+        userSession.clearSession();
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }
