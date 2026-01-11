@@ -7,7 +7,6 @@ import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 import com.github.jaykkumar01.vaultspace.views.popups.BlockingOverlayView;
-import com.github.jaykkumar01.vaultspace.views.popups.ConfirmActionView;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;

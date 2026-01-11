@@ -10,6 +10,8 @@ import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.R;
 
+import java.util.List;
+
 public class AlbumContentView extends FrameLayout {
 
     public AlbumContentView(Context context) {
@@ -50,5 +52,9 @@ public class AlbumContentView extends FrameLayout {
         placeholder.setAlpha(0.6f);
 
         addView(placeholder);
+    }
+
+    public void setMedia(List<AlbumMedia> snapshotList) {
+
     }
 }

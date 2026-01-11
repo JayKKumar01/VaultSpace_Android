@@ -1,87 +1,76 @@
 package com.github.jaykkumar01.vaultspace.core.session.cache;
 
-import android.util.Log;
-
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
-public final class AlbumMediaCache
-        extends VaultCache<Map<String, List<AlbumMedia>>> {
+/**
+ * AlbumMediaCache
+ *
+ * Session-scoped cache for album media.
+ * Routes media access by albumId.
+ *
+ * Responsibilities:
+ * - Manage per-album media entries
+ * - Enforce session lifecycle
+ *
+ * Does NOT:
+ * - Talk to Drive
+ * - Decide fetch timing
+ * - Expose collections
+ */
+public final class AlbumMediaCache extends VaultCache {
 
-    private static final String TAG = "VaultSpace:AlbumMediaCache";
+    /* ==========================================================
+     * Storage
+     * ========================================================== */
 
-    private final Map<String, List<AlbumMedia>> mediaByAlbumId = new HashMap<>();
+    private final Map<String, AlbumMediaEntry> entriesByAlbumId =
+            new HashMap<>();
 
-    /* ================= VaultCache hooks ================= */
+    /* ==========================================================
+     * Album routing
+     * ========================================================== */
 
-    @Override
-    protected Map<String, List<AlbumMedia>> getInternal() {
-        return mediaByAlbumId;
+    /**
+     * Returns the media entry for an album.
+     * Creates a new empty entry if none exists yet.
+     *
+     * Safe to call anytime.
+     */
+    public AlbumMediaEntry getOrCreateEntry(String albumId) {
+        if (albumId == null) {
+            throw new IllegalArgumentException("albumId == null");
+        }
+
+        AlbumMediaEntry entry = entriesByAlbumId.get(albumId);
+        if (entry == null) {
+            entry = new AlbumMediaEntry();
+            entriesByAlbumId.put(albumId, entry);
+        }
+        return entry;
     }
 
-    @Override
-    protected Map<String, List<AlbumMedia>> getEmpty() {
-        return Collections.emptyMap();
-    }
+    /**
+     * Invalidates media cache for a single album.
+     * UI will refetch if needed.
+     */
+    public void invalidateAlbum(String albumId) {
+        if (albumId == null) return;
 
-    @Override
-    protected void setInternal(Map<String, List<AlbumMedia>> data) {
-        mediaByAlbumId.clear();
-        if (data != null) {
-            mediaByAlbumId.putAll(data);
+        AlbumMediaEntry entry = entriesByAlbumId.get(albumId);
+        if (entry != null) {
+            entry.clear();
         }
     }
 
+    /* ==========================================================
+     * VaultCache hook
+     * ========================================================== */
+
     @Override
-    protected void clearInternal() {
-        mediaByAlbumId.clear();
-        Log.d(TAG, "Album media cache cleared");
-    }
-
-    /* ================= Domain API ================= */
-
-    public boolean hasAlbumMediaCached(String albumId) {
-        return isCached() && albumId != null && mediaByAlbumId.containsKey(albumId);
-    }
-
-    public List<AlbumMedia> getAlbumMedia(String albumId) {
-        List<AlbumMedia> media = mediaByAlbumId.get(albumId);
-        return media != null ? media : Collections.emptyList();
-    }
-
-    public void setAlbumMedia(String albumId, List<AlbumMedia> media) {
-        if (!isCached() || albumId == null) return;
-        mediaByAlbumId.put(
-                albumId,
-                media != null ? new ArrayList<>(media) : new ArrayList<>()
-        );
-        Log.d(TAG, "Album media cached: " + albumId);
-    }
-
-    public void addAlbumMedia(String albumId, AlbumMedia media) {
-        if (!isCached() || albumId == null || media == null) return;
-
-        List<AlbumMedia> list =
-                mediaByAlbumId.computeIfAbsent(albumId, k -> new ArrayList<>());
-        list.add(0, media);
-
-        Log.d(TAG, "Album media added: " + media.fileId);
-    }
-
-    public void removeAlbumMedia(String albumId, String fileId) {
-        if (!isCached() || albumId == null || fileId == null) return;
-
-        List<AlbumMedia> media = mediaByAlbumId.get(albumId);
-        if (media == null) return;
-
-        media.removeIf(m -> fileId.equals(m.fileId));
-        Log.d(TAG, "Album media removed: " + fileId);
-    }
-
-    public void invalidateAlbumMedia(String albumId) {
-        if (albumId == null) return;
-        mediaByAlbumId.remove(albumId);
-        Log.d(TAG, "Album media invalidated: " + albumId);
+    protected void onClear() {
+        entriesByAlbumId.clear();
     }
 }

@@ -10,7 +10,6 @@ import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.DrivePermissionRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveStorageRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.VaultSessionCache;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.Permission;
@@ -20,15 +19,26 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * TrustedAccountsDriveHelper
+ *
+ * Responsibilities:
+ * - Fetch trusted accounts from Drive
+ * - Add trusted account permissions
+ *
+ * Non-responsibilities:
+ * - Caching
+ * - UI state
+ * - Session lifecycle
+ */
 public final class TrustedAccountsDriveHelper {
 
     private static final String TAG = "VaultSpace:TrustedAccountsDrive";
 
     private final Drive primaryDrive;
     private final String primaryEmail;
-    private final VaultSessionCache cache;
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Context appContext;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     /* ==========================================================
      * Callbacks
@@ -40,7 +50,7 @@ public final class TrustedAccountsDriveHelper {
     }
 
     public interface AddCallback {
-        void onAdded();
+        void onAdded(TrustedAccount account);
         void onAlreadyExists();
         void onError(Exception e);
     }
@@ -52,15 +62,15 @@ public final class TrustedAccountsDriveHelper {
     public TrustedAccountsDriveHelper(Context context) {
         UserSession session = new UserSession(context);
         this.appContext = context.getApplicationContext();
-        this.cache = session.getVaultCache();
         this.primaryEmail = session.getPrimaryAccountEmail();
-        this.primaryDrive = DriveClientProvider.forAccount(appContext, primaryEmail);
+        this.primaryDrive =
+                DriveClientProvider.forAccount(appContext, primaryEmail);
 
         Log.d(TAG, "Initialized for primary: " + primaryEmail);
     }
 
     /* ==========================================================
-     * Fetch (cache-first)
+     * Fetch (ALWAYS hits Drive)
      * ========================================================== */
 
     public void fetchTrustedAccounts(
@@ -69,20 +79,11 @@ public final class TrustedAccountsDriveHelper {
     ) {
         executor.execute(() -> {
             try {
-                if (cache.trustedAccounts.isCached()) {
-                    Log.d(TAG, "Trusted accounts cache HIT");
-                    postResult(callback, cache.trustedAccounts.get());
-                    return;
-                }
-
-                Log.d(TAG, "Trusted accounts cache MISS");
-
                 String rootFolderId =
                         DriveFolderRepository.findRootFolderId(primaryDrive);
 
                 if (rootFolderId == null) {
-                    cache.trustedAccounts.set(new ArrayList<>());
-                    postResult(callback, cache.trustedAccounts.get());
+                    postResult(callback, List.of());
                     return;
                 }
 
@@ -116,7 +117,6 @@ public final class TrustedAccountsDriveHelper {
                     }
                 }
 
-                cache.trustedAccounts.set(result);
                 postResult(callback, result);
 
             } catch (Exception e) {
@@ -127,7 +127,7 @@ public final class TrustedAccountsDriveHelper {
     }
 
     /* ==========================================================
-     * Add trusted account
+     * Add trusted account (Drive-only)
      * ========================================================== */
 
     public void addTrustedAccount(
@@ -159,15 +159,13 @@ public final class TrustedAccountsDriveHelper {
                         .setSendNotificationEmail(true)
                         .execute();
 
-                // Incremental cache update
                 Drive drive =
                         DriveClientProvider.forAccount(appContext, trustedEmail);
 
-                cache.trustedAccounts.addAccount(
-                        DriveStorageRepository.fetchStorageInfo(drive, trustedEmail)
-                );
+                TrustedAccount account =
+                        DriveStorageRepository.fetchStorageInfo(drive, trustedEmail);
 
-                postAdded(callback);
+                postAdded(callback, account);
 
             } catch (Exception e) {
                 Log.e(TAG, "Failed to add trusted account", e);
@@ -188,8 +186,8 @@ public final class TrustedAccountsDriveHelper {
         mainHandler.post(() -> cb.onError(e));
     }
 
-    private void postAdded(AddCallback cb) {
-        mainHandler.post(cb::onAdded);
+    private void postAdded(AddCallback cb, TrustedAccount account) {
+        mainHandler.post(() -> cb.onAdded(account));
     }
 
     private void postAlreadyExists(AddCallback cb) {

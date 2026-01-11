@@ -11,8 +11,6 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
-import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
 import com.github.jaykkumar01.vaultspace.views.popups.ActivityLoadingOverlay;
 
 public class LoginActivity extends AppCompatActivity {

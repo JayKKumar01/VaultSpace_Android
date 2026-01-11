@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.github.jaykkumar01.vaultspace.core.consent.DriveConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 
@@ -44,6 +45,7 @@ public final class ExpandVaultHelper {
     private final String primaryEmail;
 
     private final TrustedAccountsDriveHelper driveHelper;
+    private final TrustedAccountsCache cache;
     private final AccountPickerHelper accountPicker;
     private final DriveConsentHelper consentHelper;
 
@@ -67,6 +69,7 @@ public final class ExpandVaultHelper {
             throw new IllegalStateException("Primary email is null");
         }
 
+        this.cache = session.getVaultCache().trustedAccounts;
         this.driveHelper =
                 new TrustedAccountsDriveHelper(activity.getApplicationContext());
         this.accountPicker = new AccountPickerHelper(activity);
@@ -74,20 +77,27 @@ public final class ExpandVaultHelper {
     }
 
     /* ==========================================================
-     * Storage observation
+     * Storage observation (CACHE-FIRST)
      * ========================================================== */
 
     public void observeVaultStorage(@NonNull StorageStateListener listener) {
         this.storageListener = listener;
-        refreshVaultStorage();
+
+        if (cache.isInitialized()) {
+            emitStorageState(cache.getAccountsView());
+            return;
+        }
+
+        refreshFromDrive();
     }
 
-    private void refreshVaultStorage() {
+    private void refreshFromDrive() {
         driveHelper.fetchTrustedAccounts(
                 executor,
                 new TrustedAccountsDriveHelper.FetchCallback() {
                     @Override
                     public void onResult(List<TrustedAccount> accounts) {
+                        cache.initializeFromDrive(accounts);
                         emitStorageState(accounts);
                     }
 
@@ -100,7 +110,7 @@ public final class ExpandVaultHelper {
     }
 
     /* ==========================================================
-     * Expand vault action
+     * Expand vault flow
      * ========================================================== */
 
     public void launchExpandVault(@NonNull ExpandActionListener listener) {
@@ -144,16 +154,12 @@ public final class ExpandVaultHelper {
 
                     @Override
                     public void onConsentDenied(String email) {
-                        failAction(
-                                "Drive permission is required to add trusted account"
-                        );
+                        failAction("Drive permission is required");
                     }
 
                     @Override
                     public void onFailure(String email, Exception e) {
-                        failAction(
-                                "Failed to verify Drive permissions"
-                        );
+                        failAction("Failed to verify Drive permissions");
                     }
                 }
         );
@@ -165,8 +171,9 @@ public final class ExpandVaultHelper {
                 email,
                 new TrustedAccountsDriveHelper.AddCallback() {
                     @Override
-                    public void onAdded() {
-                        refreshVaultStorage();
+                    public void onAdded(TrustedAccount account) {
+                        cache.addAccount(account);
+                        emitStorageState(cache.getAccountsView());
                         succeedAction();
                     }
 
@@ -188,7 +195,7 @@ public final class ExpandVaultHelper {
      * Storage aggregation
      * ========================================================== */
 
-    private void emitStorageState(List<TrustedAccount> accounts) {
+    private void emitStorageState(Iterable<TrustedAccount> accounts) {
         if (storageListener == null) return;
 
         long total = 0L;
@@ -209,7 +216,7 @@ public final class ExpandVaultHelper {
     }
 
     /* ==========================================================
-     * Action helpers (ALWAYS callback)
+     * Action helpers (guaranteed single callback)
      * ========================================================== */
 
     private void succeedAction() {
@@ -231,7 +238,7 @@ public final class ExpandVaultHelper {
     }
 
     /* ==========================================================
-     * Utils / cleanup
+     * Cleanup
      * ========================================================== */
 
     private void runOnUi(Runnable r) {

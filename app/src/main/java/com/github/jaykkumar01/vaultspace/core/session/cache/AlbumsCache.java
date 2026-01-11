@@ -1,101 +1,139 @@
 package com.github.jaykkumar01.vaultspace.core.session.cache;
 
-import android.util.Log;
-
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-public final class AlbumsCache extends VaultCache<List<AlbumInfo>> {
+/**
+ * AlbumsCache
+ *
+ * Guarantees:
+ * - O(1) lookup by albumId
+ * - O(1) lookup by albumName
+ * - O(1) add / remove / replace / rename
+ * - O(1) reorder (move-to-top)
+ * - O(n) ONLY during initialization
+ *
+ * Uses only built-in Java data structures.
+ */
+public final class AlbumsCache extends VaultCache {
 
-    private static final String TAG = "VaultSpace:AlbumsCache";
+    /* ==========================================================
+     * Storage
+     * ========================================================== */
 
-    private List<AlbumInfo> albums = new ArrayList<>();
-    private final Map<String, AlbumInfo> albumsById = new HashMap<>();
-    private final Set<String> albumNames = new HashSet<>();
+    /**
+     * albumId -> AlbumInfo
+     *
+     * accessOrder = true enables O(1) reordering when accessed.
+     */
+    private final LinkedHashMap<String, AlbumInfo> albumsById =
+            new LinkedHashMap<>(16, 0.75f, true);
 
-    /* ================= VaultCache hooks ================= */
+    /**
+     * albumName -> albumId
+     */
+    private final Map<String, String> albumIdByName = new HashMap<>();
 
-    @Override
-    protected List<AlbumInfo> getInternal() {
-        return albums;
-    }
+    /* ==========================================================
+     * Initialization (O(n) — ONLY allowed place)
+     * ========================================================== */
 
-    @Override
-    protected List<AlbumInfo> getEmpty() {
-        return Collections.emptyList();
-    }
+    /**
+     * Initializes cache from Drive result.
+     * Order provided by Drive is preserved.
+     */
+    public void initializeFromDrive(Iterable<AlbumInfo> albums) {
+        if (isInitialized()) return;
 
-    @Override
-    protected void setInternal(List<AlbumInfo> list) {
-        albums.clear();
-        albumsById.clear();
-        albumNames.clear();
-
-        if (list != null) {
-            for (AlbumInfo a : list) {
-                albums.add(a);
-                albumsById.put(a.id, a);
-                albumNames.add(a.name);
-            }
+        for (AlbumInfo album : albums) {
+            albumsById.put(album.id, album);
+            albumIdByName.put(album.name, album.id);
         }
 
-        Log.d(TAG, "Albums cached: " + albums.size());
+        markInitialized();
     }
 
-    @Override
-    protected void clearInternal() {
-        albums.clear();
-        albumsById.clear();
-        albumNames.clear();
-        Log.d(TAG, "Albums cache cleared");
-    }
-
-    /* ================= Domain API ================= */
+    /* ==========================================================
+     * Read APIs (O(1))
+     * ========================================================== */
 
     public boolean hasAlbumWithName(String name) {
-        return isCached() && name != null && albumNames.contains(name);
+        return isInitialized()
+                && name != null
+                && albumIdByName.containsKey(name);
     }
 
+    public AlbumInfo getAlbumById(String albumId) {
+        if (!isInitialized() || albumId == null) return null;
+        return albumsById.get(albumId);
+    }
+
+    /**
+     * Read-only ordered view of albums.
+     * Iteration is O(n) (UI-only, allowed).
+     */
+    public Iterable<AlbumInfo> getAlbumsView() {
+        return Collections.unmodifiableCollection(albumsById.values());
+    }
+
+    /* ==========================================================
+     * Mutation APIs (ALL O(1))
+     * ========================================================== */
+
     public void addAlbum(AlbumInfo album) {
-        if (!isCached() || album == null) return;
+        if (!isInitialized() || album == null) return;
 
-        albums.add(0, album);
         albumsById.put(album.id, album);
-        albumNames.add(album.name);
-
-        Log.d(TAG, "Album added: " + album.name);
+        albumIdByName.put(album.name, album.id);
     }
 
     public void removeAlbum(String albumId) {
-        if (!isCached() || albumId == null) return;
+        if (!isInitialized() || albumId == null) return;
 
         AlbumInfo removed = albumsById.remove(albumId);
         if (removed == null) return;
 
-        albumNames.remove(removed.name);
-        albums.removeIf(a -> albumId.equals(a.id));
-
-        Log.d(TAG, "Album removed: " + albumId);
+        albumIdByName.remove(removed.name);
     }
 
     public void replaceAlbum(AlbumInfo updated) {
-        if (!isCached() || updated == null) return;
+        if (!isInitialized() || updated == null) return;
 
         AlbumInfo old = albumsById.get(updated.id);
         if (old == null) return;
 
-        albumsById.put(updated.id, updated);
-        albumNames.remove(old.name);
-        albumNames.add(updated.name);
-
-        for (int i = 0; i < albums.size(); i++) {
-            if (updated.id.equals(albums.get(i).id)) {
-                albums.set(i, updated);
-                break;
-            }
+        // Update name index if name changed
+        if (!old.name.equals(updated.name)) {
+            albumIdByName.remove(old.name);
+            albumIdByName.put(updated.name, updated.id);
         }
 
-        Log.d(TAG, "Album replaced: " + updated.id);
+        // Replace value without affecting order
+        albumsById.put(updated.id, updated);
+    }
+
+    /**
+     * Moves album to most-recent position (top).
+     * Implemented via accessOrder (O(1)).
+     */
+    public void moveAlbumToTop(String albumId) {
+        if (!isInitialized() || albumId == null) return;
+
+        // Access triggers reorder in LinkedHashMap
+        albumsById.get(albumId);
+    }
+
+    /* ==========================================================
+     * VaultCache hook
+     * ========================================================== */
+
+    @Override
+    protected void onClear() {
+        albumsById.clear();
+        albumIdByName.clear();
     }
 }

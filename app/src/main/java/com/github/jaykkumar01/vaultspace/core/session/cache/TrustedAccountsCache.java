@@ -1,71 +1,111 @@
 package com.github.jaykkumar01.vaultspace.core.session.cache;
 
-import android.util.Log;
-
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-public final class TrustedAccountsCache
-        extends VaultCache<List<TrustedAccount>> {
+/**
+ * TrustedAccountsCache
+ *
+ * Session-scoped cache for trusted accounts.
+ *
+ * Guarantees:
+ * - O(1) lookup by email
+ * - O(1) add / remove
+ * - O(n) ONLY during initialization
+ * - Empty result is a VALID initialized state
+ *
+ * Responsibilities:
+ * - Hold trusted account knowledge for the session
+ *
+ * Non-responsibilities:
+ * - Drive access
+ * - Permission checks
+ * - UI logic
+ */
+public final class TrustedAccountsCache extends VaultCache {
 
-    private static final String TAG = "VaultSpace:TrustedAccountsCache";
+    /* ==========================================================
+     * Storage
+     * ========================================================== */
 
-    private final List<TrustedAccount> accounts = new ArrayList<>();
-    private final Map<String, TrustedAccount> byEmail = new HashMap<>();
+    /**
+     * email -> TrustedAccount
+     *
+     * LinkedHashMap preserves insertion order for UI.
+     */
+    private final Map<String, TrustedAccount> accountsByEmail =
+            new LinkedHashMap<>();
 
-    /* ================= VaultCache hooks ================= */
+    /* ==========================================================
+     * Initialization (O(n) — ONLY allowed place)
+     * ========================================================== */
 
-    @Override
-    protected List<TrustedAccount> getInternal() {
-        return accounts;
-    }
+    /**
+     * Initializes cache from Drive result.
+     * Empty result is considered INITIALIZED.
+     */
+    public void initializeFromDrive(Iterable<TrustedAccount> accounts) {
+        if (isInitialized()) return;
 
-    @Override
-    protected List<TrustedAccount> getEmpty() {
-        return Collections.emptyList();
-    }
-
-    @Override
-    protected void setInternal(List<TrustedAccount> data) {
-        accounts.clear();
-        byEmail.clear();
-
-        if (data != null) {
-            for (TrustedAccount a : data) {
-                accounts.add(a);
-                byEmail.put(a.email, a);
+        if (accounts != null) {
+            for (TrustedAccount account : accounts) {
+                if (account != null && account.email != null) {
+                    accountsByEmail.put(account.email, account);
+                }
             }
         }
 
-        Log.d(TAG, "Trusted accounts cached: " + accounts.size());
+        markInitialized();
     }
 
-    @Override
-    protected void clearInternal() {
-        accounts.clear();
-        byEmail.clear();
-        Log.d(TAG, "Trusted accounts cache cleared");
-    }
-
-    /* ================= Domain API ================= */
+    /* ==========================================================
+     * Read APIs (O(1))
+     * ========================================================== */
 
     public boolean hasAccount(String email) {
-        return isCached() && email != null && byEmail.containsKey(email);
+        return isInitialized()
+                && email != null
+                && accountsByEmail.containsKey(email);
     }
 
     public TrustedAccount getAccount(String email) {
-        return email != null ? byEmail.get(email) : null;
+        if (!isInitialized() || email == null) return null;
+        return accountsByEmail.get(email);
     }
 
+    /**
+     * Read-only iterable view for UI.
+     * UI should snapshot to List if needed.
+     */
+    public Iterable<TrustedAccount> getAccountsView() {
+        return Collections.unmodifiableCollection(accountsByEmail.values());
+    }
+
+    /* ==========================================================
+     * Mutation APIs (ALL O(1))
+     * ========================================================== */
+
     public void addAccount(TrustedAccount account) {
-        if (!isCached() || account == null || account.email == null) return;
+        if (!isInitialized() || account == null || account.email == null) return;
 
-        if (byEmail.containsKey(account.email)) return;
+        accountsByEmail.put(account.email, account);
+    }
 
-        accounts.add(account);
-        byEmail.put(account.email, account);
+    public void removeAccount(String email) {
+        if (!isInitialized() || email == null) return;
 
-        Log.d(TAG, "Trusted account added: " + account.email);
+        accountsByEmail.remove(email);
+    }
+
+    /* ==========================================================
+     * VaultCache hook
+     * ========================================================== */
+
+    @Override
+    protected void onClear() {
+        accountsByEmail.clear();
     }
 }

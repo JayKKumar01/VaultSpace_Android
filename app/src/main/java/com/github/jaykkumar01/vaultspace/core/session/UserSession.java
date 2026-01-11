@@ -3,8 +3,6 @@ package com.github.jaykkumar01.vaultspace.core.session;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import com.github.jaykkumar01.vaultspace.utils.GoogleUserProfileFetcher;
-
 public class UserSession {
 
     private static final String PREF_NAME = "vaultspace_session";

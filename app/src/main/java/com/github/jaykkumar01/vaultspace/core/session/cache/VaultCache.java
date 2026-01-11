@@ -1,33 +1,89 @@
 package com.github.jaykkumar01.vaultspace.core.session.cache;
 
-public abstract class VaultCache<T> {
+/**
+ * Base class for all session-scoped caches.
+ *
+ * Responsibilities:
+ * - Manage cache lifecycle only
+ * - Enforce explicit activation and clearing
+ *
+ * Non-responsibilities:
+ * - Store data
+ * - Expose collections
+ * - Provide domain APIs
+ * - Guarantee performance (subclasses must)
+ */
+public abstract class VaultCache {
 
-    private boolean cached = false;
+    /* ==========================================================
+     * Cache Lifecycle State
+     * ========================================================== */
 
-    /* ================= Public API (FINAL) ================= */
-
-    public final boolean isCached() {
-        return cached;
+    public enum State {
+        UNINITIALIZED,
+        INITIALIZED,
+        CLEARED
     }
 
-    public final T get() {
-        return cached ? getInternal() : getEmpty();
+    private State state = State.UNINITIALIZED;
+
+    /* ==========================================================
+     * Public lifecycle inspection
+     * ========================================================== */
+
+    public final State getState() {
+        return state;
     }
 
-    public final void set(T data) {
-        setInternal(data);
-        cached = true;
+    public final boolean isInitialized() {
+        return state == State.INITIALIZED;
     }
 
+    /* ==========================================================
+     * Public lifecycle control
+     * ========================================================== */
+
+    /**
+     * Clears this cache completely and marks it as CLEARED.
+     * Called on logout or session reset.
+     *
+     * This method is FINAL to prevent subclasses
+     * from breaking lifecycle guarantees.
+     */
     public final void clear() {
-        clearInternal();
-        cached = false;
+        if (state != State.CLEARED) {
+            onClear();
+            state = State.CLEARED;
+        }
     }
 
-    /* ================= Hooks for subclasses ================= */
+    /* ==========================================================
+     * Protected lifecycle control (subclasses only)
+     * ========================================================== */
 
-    protected abstract T getInternal();
-    protected abstract T getEmpty();
-    protected abstract void setInternal(T data);
-    protected abstract void clearInternal();
+    /**
+     * Marks this cache as initialized.
+     * Subclasses decide WHEN initialization is valid.
+     */
+    protected final void markInitialized() {
+        state = State.INITIALIZED;
+    }
+
+    /**
+     * Resets lifecycle state to UNINITIALIZED.
+     * Rarely needed; intended for advanced flows only.
+     */
+    protected final void resetState() {
+        state = State.UNINITIALIZED;
+    }
+
+    /* ==========================================================
+     * Hooks for subclasses
+     * ========================================================== */
+
+    /**
+     * Subclasses must clear all internal data here.
+     * This method is called exactly once per clear().
+     */
+    protected abstract void onClear();
 }

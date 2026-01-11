@@ -7,14 +7,17 @@ import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumMediaEntry;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class AlbumUiHelper {
+public final class AlbumUiHelper {
 
     private static final String TAG = "VaultSpace:AlbumUI";
 
@@ -28,20 +31,36 @@ public class AlbumUiHelper {
     private boolean released;
 
     private final Context context;
+    private final String albumId;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final AlbumSnapshotListener snapshotListener;
-    private final String albumId;
 
     private final LoadingStateView loadingView;
     private final EmptyStateView emptyView;
     private final AlbumContentView contentView;
 
+    // Cache (UI-owned)
+    private final AlbumMediaEntry mediaEntry;
+
+    // Drive helper (skeleton usage only)
     private final AlbumDriveHelper driveHelper;
 
-    public AlbumUiHelper(Context context, FrameLayout container, String albumId, AlbumSnapshotListener snapshotListener) {
+    public AlbumUiHelper(
+            Context context,
+            FrameLayout container,
+            String albumId,
+            AlbumSnapshotListener snapshotListener
+    ) {
         this.context = context;
         this.albumId = albumId;
         this.snapshotListener = snapshotListener;
+
+        this.mediaEntry =
+                new UserSession(context)
+                        .getVaultCache()
+                        .albumMedia
+                        .getOrCreateEntry(albumId);
+
         this.driveHelper = new AlbumDriveHelper(context, albumId);
 
         loadingView = new LoadingStateView(context);
@@ -60,31 +79,31 @@ public class AlbumUiHelper {
         contentView.setVisibility(View.GONE);
 
         Log.d(TAG, "init album=" + albumId);
-
     }
+
+    /* ==========================================================
+     * Entry
+     * ========================================================== */
 
     public void show() {
         if (released || state != UiState.UNINITIALIZED) return;
+
         moveToState(UiState.LOADING);
 
-        driveHelper.fetchAlbumItems(executor, new AlbumDriveHelper.FetchCallback() {
+        // ✅ Cache-first
+        if (mediaEntry.isInitialized()) {
+            renderFromCache();
+            return;
+        }
+
+        // ❌ Drive path (skeleton)
+        driveHelper.fetchAlbumMedia(executor, new AlbumDriveHelper.FetchCallback() {
             @Override
             public void onResult(List<AlbumMedia> items) {
                 if (released) return;
 
-                int photoCount = 0, videoCount = 0;
-                for (AlbumMedia item : items) {
-                    if (item.isVideo) videoCount++;
-                    else photoCount++;
-                }
-
-                AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
-                snapshot.photoCount = photoCount;
-                snapshot.videoCount = videoCount;
-                snapshot.isError = false;
-
-                snapshotListener.onAlbumSnapshot(snapshot);
-                moveToState(snapshot.getTotalCount() > 0 ? UiState.CONTENT : UiState.EMPTY);
+                mediaEntry.initializeFromDrive(items);
+                renderFromCache();
             }
 
             @Override
@@ -96,12 +115,46 @@ public class AlbumUiHelper {
 
                 AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
                 snapshot.isError = true;
-
                 snapshotListener.onAlbumSnapshot(snapshot);
+
                 moveToState(UiState.ERROR);
             }
         });
     }
+
+    /* ==========================================================
+     * Render
+     * ========================================================== */
+
+    private void renderFromCache() {
+        int photoCount = 0;
+        int videoCount = 0;
+
+        List<AlbumMedia> snapshotList = new ArrayList<>();
+        for (AlbumMedia m : mediaEntry.getMediaView()) {
+            snapshotList.add(m);
+            if (m.isVideo) videoCount++;
+            else photoCount++;
+        }
+
+        AlbumSnapshot snapshot = new AlbumSnapshot(albumId);
+        snapshot.photoCount = photoCount;
+        snapshot.videoCount = videoCount;
+        snapshot.isError = false;
+
+        snapshotListener.onAlbumSnapshot(snapshot);
+
+        if (snapshot.getTotalCount() == 0) {
+            moveToState(UiState.EMPTY);
+        } else {
+            contentView.setMedia(snapshotList);
+            moveToState(UiState.CONTENT);
+        }
+    }
+
+    /* ==========================================================
+     * UI state helpers
+     * ========================================================== */
 
     private void moveToState(UiState newState) {
         if (state == newState) return;
@@ -110,10 +163,16 @@ public class AlbumUiHelper {
         state = newState;
 
         switch (newState) {
-            case LOADING: showLoading(); break;
+            case LOADING:
+                showLoading();
+                break;
+            case CONTENT:
+                showContent();
+                break;
             case EMPTY:
-            case ERROR: showEmpty(); break;
-            case CONTENT: showContent(); break;
+            case ERROR:
+                showEmpty();
+                break;
         }
     }
 
@@ -142,6 +201,10 @@ public class AlbumUiHelper {
         emptyView.setPrimaryAction("Add Media", v -> {});
         emptyView.hideSecondaryAction();
     }
+
+    /* ==========================================================
+     * Lifecycle
+     * ========================================================== */
 
     public void release() {
         released = true;
