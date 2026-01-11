@@ -32,7 +32,7 @@ public final class ExpandVaultHelper {
         void onVaultStorageState(@NonNull VaultStorageState state);
     }
 
-    public interface ExpandActionListener {
+    public interface ExpandAccountListener {
         void onSuccess();
         void onError(@NonNull String message);
     }
@@ -53,7 +53,7 @@ public final class ExpandVaultHelper {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private StorageStateListener storageListener;
-    private ExpandActionListener actionListener;
+    private ExpandAccountListener actionListener;
 
     /* ==========================================================
      * Constructor
@@ -113,7 +113,7 @@ public final class ExpandVaultHelper {
      * Expand vault flow
      * ========================================================== */
 
-    public void launchExpandVault(@NonNull ExpandActionListener listener) {
+    public void launchExpandVault(@NonNull ExpandAccountListener listener) {
         this.actionListener = listener;
 
         accountPicker.launch(new AccountPickerHelper.Callback() {

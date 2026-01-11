@@ -3,22 +3,15 @@ package com.github.jaykkumar01.vaultspace.views.states;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.Gravity;
-import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
-import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.views.components.LoadingIndicatorView;
 
 public class LoadingStateView extends FrameLayout {
 
-    private View pulseView;
-    private TextView loadingText;
-    private Animation pulseAnimation;
+    private LoadingIndicatorView indicatorView;
 
     public LoadingStateView(Context context) {
         super(context);
@@ -42,50 +35,16 @@ public class LoadingStateView extends FrameLayout {
                 LayoutParams.MATCH_PARENT
         ));
 
-        LinearLayout contentGroup = new LinearLayout(context);
-        contentGroup.setOrientation(LinearLayout.VERTICAL);
-        contentGroup.setGravity(Gravity.CENTER);
-        contentGroup.setPadding(dp(24), dp(24), dp(24), dp(24));
+        indicatorView = new LoadingIndicatorView(context);
 
-        LayoutParams contentParams = new LayoutParams(
+        LayoutParams params = new LayoutParams(
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER
         );
-        contentGroup.setLayoutParams(contentParams);
+        indicatorView.setLayoutParams(params);
 
-        FrameLayout pulseWrapper = new FrameLayout(context);
-        LinearLayout.LayoutParams pulseWrapperParams =
-                new LinearLayout.LayoutParams(dp(48), dp(48));
-        pulseWrapper.setLayoutParams(pulseWrapperParams);
-
-        pulseView = new View(context);
-        FrameLayout.LayoutParams pulseParams =
-                new FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER);
-        pulseView.setLayoutParams(pulseParams);
-        pulseView.setBackgroundResource(R.drawable.bg_loading_pulse);
-        pulseView.setAlpha(0.9f);
-
-        pulseWrapper.addView(pulseView);
-
-        loadingText = new TextView(context);
-        LinearLayout.LayoutParams textParams =
-                new LinearLayout.LayoutParams(
-                        LayoutParams.WRAP_CONTENT,
-                        LayoutParams.WRAP_CONTENT
-                );
-        textParams.topMargin = dp(14);
-        loadingText.setLayoutParams(textParams);
-        loadingText.setTextSize(13);
-        loadingText.setTextColor(context.getColor(R.color.vs_text_content));
-        loadingText.setAlpha(0.75f);
-        loadingText.setText("Loading…");
-
-        contentGroup.addView(pulseWrapper);
-        contentGroup.addView(loadingText);
-        addView(contentGroup);
-
-        pulseAnimation = AnimationUtils.loadAnimation(context, R.anim.pulse);
+        addView(indicatorView);
 
         // IMPORTANT: start hidden
         setVisibility(GONE);
@@ -94,23 +53,12 @@ public class LoadingStateView extends FrameLayout {
     /* ---------------- Public API ---------------- */
 
     public void setText(String text) {
-        loadingText.setText(text);
+        indicatorView.setText(text);
     }
 
     @Override
     public void setVisibility(int visibility) {
         super.setVisibility(visibility);
-
-        if (visibility == VISIBLE) {
-            pulseView.startAnimation(pulseAnimation);
-        } else {
-            pulseView.clearAnimation();
-        }
-    }
-
-    /* ---------------- Utils ---------------- */
-
-    private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density);
+        indicatorView.setVisibility(visibility);
     }
 }

@@ -197,7 +197,7 @@ public class DashboardActivity extends AppCompatActivity {
 
         btnExpandVault.setOnClickListener(v -> {
             blockingHelper.showLoading();
-            expandVaultHelper.launchExpandVault(expandActionListener);
+            expandVaultHelper.launchExpandVault(expandAccountListener);
         });
     }
     /* ---------------- View Mode ---------------- */
@@ -279,22 +279,21 @@ public class DashboardActivity extends AppCompatActivity {
         storageBar.setUsage(state.used, state.total, state.unit);
     }
 
-    private final ExpandVaultHelper.ExpandActionListener expandActionListener =
-            new ExpandVaultHelper.ExpandActionListener() {
+    private final ExpandVaultHelper.ExpandAccountListener expandAccountListener =
+            new ExpandVaultHelper.ExpandAccountListener() {
                 @Override
                 public void onSuccess() {
+                    Log.d(TAG, "Expand Vault success");
                     blockingHelper.clearLoading();
                 }
 
                 @Override
                 public void onError(@NonNull String message) {
+                    Log.e(TAG, "Expand Vault error: " + message);
                     blockingHelper.clearLoading();
-                    Toast.makeText(
-                            DashboardActivity.this,
-                            message,
-                            Toast.LENGTH_SHORT
-                    ).show();
+                    showToast(message);
                 }
+
             };
 
     /* ==========================================================
@@ -308,10 +307,18 @@ public class DashboardActivity extends AppCompatActivity {
         blockingHelper.resetAll();
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 
-        userSession.clearSession();
+        boolean internetWorking = true;
+        if (internetWorking) {
+            userSession.clearSession();
+        }
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }
+
+    private void showToast(@NonNull String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
 
     @Override
     protected void onDestroy() {
