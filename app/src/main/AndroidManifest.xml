@@ -16,8 +16,9 @@
         tools:targetApi="31" >
         <activity
             android:name=".activities.AlbumActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"/>
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
         <!-- ================= Main (Launcher) ================= -->
         <activity
             android:name=".activities.MainActivity"
