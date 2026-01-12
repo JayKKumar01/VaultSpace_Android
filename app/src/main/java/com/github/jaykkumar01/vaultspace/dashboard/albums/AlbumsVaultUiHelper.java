@@ -13,9 +13,11 @@ import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumsCache;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.views.popups.BlockingOverlayView;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;
+import com.github.jaykkumar01.vaultspace.views.popups.old.confirm.ConfirmRisk;
+import com.github.jaykkumar01.vaultspace.views.popups.old.confirm.ConfirmSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,9 +42,9 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     public AlbumsVaultUiHelper(
             Context context,
             FrameLayout container,
-            BlockingOverlayView blockingOverlay
+            ModalHostView hostView
     ) {
-        super(context, container, blockingOverlay);
+        super(context, container, hostView);
 
         drive = new AlbumsDriveHelper(context);
         cache = new UserSession(context).getVaultCache().albums;
@@ -286,21 +288,18 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
      * ========================================================== */
 
     private void showDeleteAlbumConfirm(AlbumInfo album) {
-        blockingOverlay.showConfirm(
-                "Delete album?",
-                "This will permanently delete \"" + album.name + "\" and all its contents.",
-                "Delete",
-                BlockingOverlayView.RISK_DESTRUCTIVE,
-                TAG,
-                new BlockingOverlayView.ConfirmCallback() {
-                    @Override
-                    public void onConfirm() {
-                        deleteAlbum(album);
-                    }
-
-                    @Override
-                    public void onCancel() {}
-                }
+        hostView.request(
+                new ConfirmSpec(
+                        "Delete album?",
+                        "This will permanently delete \"" + album.name + "\" and all its contents.",
+                        "Delete",
+                        true,
+                        true,
+                        true,
+                        ConfirmRisk.RISK_CRITICAL,
+                        () -> deleteAlbum(album),   // ✅ FIX
+                        null
+                )
         );
     }
 
@@ -353,6 +352,9 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     @Override
     public boolean onBackPressed() {
+        if (hostView.handleBackPress()) {
+            return true;
+        }
         if (itemActionView != null && itemActionView.isVisible()) {
             hideItemActionPopup();
             return true;

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools" >
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- ================= Permissions ================= -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -14,28 +14,30 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.VaultSpace"
-        tools:targetApi="31" >
+        tools:targetApi="31">
+        <activity
+            android:name=".activities.DemoActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"/>
         <activity
             android:name=".activities.AlbumActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
-            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
-        <!-- ================= Main (Launcher) ================= -->
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" /> <!-- ================= Main (Launcher) ================= -->
         <activity
             android:name=".activities.MainActivity"
-            android:exported="true" >
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-        <!-- ================= Auth ================= -->
+        </activity> <!-- ================= Auth ================= -->
         <activity
             android:name=".activities.LoginActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-        <!-- ================= Dashboard ================= -->
+            android:exported="false" /> <!-- ================= Dashboard ================= -->
         <activity
             android:name=".activities.DashboardActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"

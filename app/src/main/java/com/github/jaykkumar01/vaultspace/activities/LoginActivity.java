@@ -11,7 +11,9 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
-import com.github.jaykkumar01.vaultspace.views.popups.ActivityLoadingOverlay;
+import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalDismissReason;
+import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
+import com.github.jaykkumar01.vaultspace.views.popups.old.loading.LoadingSpec;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -20,23 +22,22 @@ public class LoginActivity extends AppCompatActivity {
     private AccountPickerHelper accountPickerHelper;
     private PrimaryAccountConsentHelper primaryConsentHelper;
 
-    private ActivityLoadingOverlay loading;
-    private String pendingEmail;
+    private ModalHostView modalHost;
+    private LoadingSpec loadingSpec;
 
-    /* ---------------- Lifecycle ---------------- */
+    private String pendingEmail;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        loading = new ActivityLoadingOverlay(this);
+        modalHost = ModalHostView.attach(this);
+        loadingSpec = new LoadingSpec();
 
         initHelpers();
         initUI();
     }
-
-    /* ---------------- Init ---------------- */
 
     private void initHelpers() {
         primaryConsentHelper = new PrimaryAccountConsentHelper(this);
@@ -48,9 +49,8 @@ public class LoginActivity extends AppCompatActivity {
                 .setOnClickListener(v -> onSelectAccountClicked());
     }
 
-    /* ---------------- Account Flow ---------------- */
-
     private void onSelectAccountClicked() {
+
         accountPickerHelper.launch(new AccountPickerHelper.Callback() {
             @Override
             public void onAccountSelected(String email) {
@@ -59,14 +59,14 @@ public class LoginActivity extends AppCompatActivity {
 
             @Override
             public void onCancelled() {
-                loading.hide(); // 👈 safety, in case it was shown
+                hideLoading(); // defensive
             }
         });
     }
 
     private void handleAccountSelected(String email) {
         pendingEmail = email;
-        loading.show();
+        showLoading();
 
         primaryConsentHelper.startLoginConsentFlow(
                 email,
@@ -79,30 +79,26 @@ public class LoginActivity extends AppCompatActivity {
 
                     @Override
                     public void onConsentDenied() {
-                        loading.hide();
+                        hideLoading();
                         toast("Required permissions not granted");
                     }
 
                     @Override
                     public void onFailure(Exception e) {
-                        loading.hide();
+                        hideLoading();
                         toast("Failed to verify permissions");
                     }
                 }
         );
     }
 
-    /* ---------------- Finalization ---------------- */
-
     private void finalizeLogin() {
         if (pendingEmail == null) {
             Log.w(TAG, "finalizeLogin() called with null email");
-            loading.hide();
+            hideLoading();
             toast("Something went wrong. Please try again.");
             return;
         }
-
-        Log.d(TAG, "Finalizing login for: " + pendingEmail);
 
         PrimaryUserCoordinator.prepare(
                 getApplicationContext(),
@@ -111,23 +107,20 @@ public class LoginActivity extends AppCompatActivity {
 
                     @Override
                     public void onSuccess() {
-                        loading.hide();
+                        hideLoading();
                         navigateToDashboard();
                     }
 
                     @Override
                     public void onError() {
-                        loading.hide();
+                        hideLoading();
                         toast("Failed to set up your account. Please try again.");
-                        // stay on Login screen
                     }
                 }
         );
     }
 
-
     private void navigateToDashboard() {
-        loading.hide();
         startActivity(
                 new Intent(this, DashboardActivity.class)
                         .putExtra("FROM_LOGIN", true)
@@ -135,7 +128,15 @@ public class LoginActivity extends AppCompatActivity {
         finish();
     }
 
-    /* ---------------- UI Helpers ---------------- */
+    /* ---------- Modal helpers (correct usage) ---------- */
+
+    private void showLoading() {
+        modalHost.request(loadingSpec);
+    }
+
+    private void hideLoading() {
+        modalHost.dismiss(loadingSpec, ModalDismissReason.SYSTEM);
+    }
 
     private void toast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();

@@ -6,7 +6,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
-import com.github.jaykkumar01.vaultspace.views.popups.BlockingOverlayView;
+import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
 import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;
@@ -31,12 +31,12 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected ItemActionView itemActionView;
 
     // ✅ NEW: Confirm abstraction
-    protected BlockingOverlayView blockingOverlay;
+    protected ModalHostView hostView;
 
-    protected BaseVaultSectionUiHelper(Context context, FrameLayout container, BlockingOverlayView blockingOverlay) {
+    protected BaseVaultSectionUiHelper(Context context, FrameLayout container, ModalHostView hostView) {
         this.context = context;
         this.container = container;
-        this.blockingOverlay = blockingOverlay;
+        this.hostView = hostView;
         initBaseUi();
     }
 

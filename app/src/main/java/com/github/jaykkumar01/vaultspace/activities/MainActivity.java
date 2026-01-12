@@ -20,10 +20,11 @@ public class MainActivity extends AppCompatActivity {
 
         networkGate.awaitNetwork(() -> {
             UserSession session = new UserSession(this);
+            Intent intent = new Intent(this, DemoActivity.class);
 
-            Intent intent = session.isLoggedIn()
-                    ? new Intent(this, DashboardActivity.class)
-                    : new Intent(this, LoginActivity.class);
+//            Intent intent = session.isLoggedIn()
+//                    ? new Intent(this, DashboardActivity.class)
+//                    : new Intent(this, LoginActivity.class);
 
             startActivity(intent);
             finish();
