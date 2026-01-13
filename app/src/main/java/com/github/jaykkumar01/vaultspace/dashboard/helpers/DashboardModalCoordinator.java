@@ -1,38 +1,27 @@
 package com.github.jaykkumar01.vaultspace.dashboard.helpers;
 
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.activities.DashboardActivity;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
-import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.*;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.DismissResult;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
 
 public final class DashboardModalCoordinator {
 
-    private static final String TAG = "VaultSpace:DashboardModal";
-
     private final ModalHost modalHost;
     private final Runnable exitToLogin;
 
-    /* =======================
-       Specs (stable instances)
-       ======================= */
+    /* ---------- Stable specs ---------- */
 
-    private final LoadingSpec loadingSpec;
+    private final LoadingSpec loadingSpec = new LoadingSpec();
+
     private final ConfirmSpec cancelSetupSpec;
     private final ConfirmSpec exitAppSpec;
     private final ConfirmSpec logoutSpec;
-
-    /* =======================
-       Debug counters (loading)
-       ======================= */
-
-    private int loadingReq = 0;
-    private int loadingClear = 0;
+    private final ConfirmSpec retryConsentSpec;
 
     public DashboardModalCoordinator(
             @NonNull ModalHost modalHost,
@@ -40,8 +29,6 @@ public final class DashboardModalCoordinator {
     ) {
         this.modalHost = modalHost;
         this.exitToLogin = exitToLogin;
-
-        loadingSpec = new LoadingSpec();
 
         cancelSetupSpec = new ConfirmSpec(
                 "Cancel setup?",
@@ -57,7 +44,7 @@ public final class DashboardModalCoordinator {
                 "Are you sure you want to exit the app?",
                 true,
                 ConfirmView.RISK_WARNING,
-                null,   // assigned at call time
+                null,
                 null
         );
 
@@ -69,66 +56,77 @@ public final class DashboardModalCoordinator {
                 exitToLogin,
                 null
         );
+
+        retryConsentSpec = new ConfirmSpec(
+                "Connection issue",
+                "Unable to verify permissions right now.",
+                true,
+                ConfirmView.RISK_CRITICAL,
+                null,
+                null
+        );
+        retryConsentSpec.setPositiveText("Retry");
+        retryConsentSpec.setNegativeText("Exit");
     }
 
-    /* ==========================================================
-     * Loading (STATE)
-     * ========================================================== */
+    /* ---------- Loading ---------- */
 
     public void showLoading() {
-        loadingReq++;
-        Log.d(TAG, "showLoading() #" + loadingReq);
         modalHost.request(loadingSpec);
     }
 
     public void clearLoading() {
-        loadingClear++;
-        Log.d(TAG, "clearLoading() #" + loadingClear);
         modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
     }
 
-    /* ==========================================================
-     * Back press semantics
-     * ========================================================== */
+    /* ---------- Back press ---------- */
 
     public void handleBackPress(
             @NonNull DashboardActivity.AuthState state,
-            @NonNull Runnable exitApp
+            @NonNull Runnable exitApp,
+            @NonNull Runnable retryChecking
     ) {
         switch (state) {
+
             case INIT:
-            case CHECKING:
                 modalHost.request(cancelSetupSpec);
                 break;
 
+            case CHECKING:
+                confirmRetryConsent(
+                        retryChecking,
+                        exitApp
+                );
+                break;
+
             case GRANTED:
-                // bind action just before request (no new spec)
                 exitAppSpec.setPositiveAction(exitApp);
                 modalHost.request(exitAppSpec);
                 break;
         }
     }
 
-    /* ==========================================================
-     * Explicit actions
-     * ========================================================== */
+
+    /* ---------- Explicit actions ---------- */
 
     public void confirmLogout() {
         modalHost.request(logoutSpec);
     }
 
-    /* ==========================================================
-     * Reset
-     * ========================================================== */
+    public void confirmRetryConsent(
+            @NonNull Runnable onRetry,
+            @NonNull Runnable onExit
+    ) {
+        retryConsentSpec.setPositiveAction(onRetry);
+        retryConsentSpec.setNegativeAction(onExit);
+        modalHost.request(retryConsentSpec);
+    }
+
+    /* ---------- Reset ---------- */
 
     public void reset() {
         modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
         modalHost.dismiss(cancelSetupSpec, DismissResult.SYSTEM);
-//        modalHost.dismiss(exitAppSpec, DismissResult.SYSTEM);
-//        modalHost.dismiss(logoutSpec, DismissResult.SYSTEM);
-
-        Log.d(TAG,
-                "reset() loadingReq=" + loadingReq +
-                        " loadingClear=" + loadingClear);
+        modalHost.dismiss(retryConsentSpec, DismissResult.SYSTEM);
     }
 }

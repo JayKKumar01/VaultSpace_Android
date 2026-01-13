@@ -30,7 +30,9 @@ public class ConfirmModal extends EventModal {
                 () -> {
                     requestDismiss(ModalEnums.DismissResult.CANCELED, null);
                     if (spec.onNegative != null) spec.onNegative.run();
-                }
+                },
+                spec.positiveText,
+                spec.negativeText
         );
     }
 

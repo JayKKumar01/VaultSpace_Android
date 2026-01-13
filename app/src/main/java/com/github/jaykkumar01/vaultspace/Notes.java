@@ -9,4 +9,5 @@ public class Notes {
     // backpress should remove, on touch, on cancel does not work for now, on touch listener should be added.. add everthing one by one
     // some bugs are there for the backpress and the outside touch, clickable true to false
     // how onDismissedData is going to help me
+    //dashboard > cancel setup or wait, while retrying
 }

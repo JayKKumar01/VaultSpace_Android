@@ -23,11 +23,6 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected LoadingStateView loadingView;
     protected EmptyStateView emptyView;
     protected View contentView;
-
-//    protected FolderActionView folderActionView;
-//    protected ItemActionView itemActionView;
-
-    // ✅ NEW: Confirm abstraction
     protected ModalHost hostView;
 
     protected BaseVaultSectionUiHelper(Context context, FrameLayout container, ModalHost hostView) {

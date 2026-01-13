@@ -14,7 +14,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
 import com.google.android.material.button.MaterialButton;
 
 public final class ConfirmView extends FrameLayout {
@@ -39,10 +38,10 @@ public final class ConfirmView extends FrameLayout {
             boolean showNegative,
             int riskLevel,
             Runnable onPositive,
-            Runnable onNegative
-    ) {
+            Runnable onNegative,
+            String positiveText, String negativeText) {
         super(context);
-        init(title, message, showNegative, riskLevel, onPositive, onNegative);
+        init(title, message, showNegative, riskLevel, onPositive, onNegative, positiveText, negativeText);
     }
 
     private void init(
@@ -51,8 +50,8 @@ public final class ConfirmView extends FrameLayout {
             boolean showNegative,
             int riskLevel,
             Runnable onPositive,
-            Runnable onNegative
-    ) {
+            Runnable onNegative,
+            String positiveText, String negativeText) {
         /* ---------------- Root ---------------- */
 
         setLayoutParams(new LayoutParams(
@@ -106,12 +105,12 @@ public final class ConfirmView extends FrameLayout {
                 getContext(), null,
                 com.google.android.material.R.attr.borderlessButtonStyle
         );
-        negativeBtn.setText("Cancel");
+        negativeBtn.setText(resolveButtonText(negativeText, "Cancel"));
         negativeBtn.setTextColor(getContext().getColor(R.color.vs_text_content));
         negativeBtn.setVisibility(showNegative ? VISIBLE : GONE);
 
         MaterialButton positiveBtn = new MaterialButton(getContext());
-        positiveBtn.setText("Confirm");
+        positiveBtn.setText(resolveButtonText(positiveText, "Confirm"));
         positiveBtn.setTextColor(getContext().getColor(R.color.black));
 
         applyRiskStyle(positiveBtn, riskLevel);
@@ -153,6 +152,13 @@ public final class ConfirmView extends FrameLayout {
             });
         });
     }
+
+    private String resolveButtonText(String override, String fallback) {
+        return (override != null && !override.trim().isEmpty())
+                ? override
+                : fallback;
+    }
+
 
     /* ==========================================================
      * Exit animation (NO dismiss logic)

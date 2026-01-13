@@ -159,8 +159,10 @@ public class DashboardActivity extends AppCompatActivity {
 
                         modalCoordinator.handleBackPress(
                                 authState,
-                                DashboardActivity.this::finish
+                                DashboardActivity.this::finish,
+                                () -> moveToState(AuthState.INIT)
                         );
+
                     }
                 });
     }
@@ -200,6 +202,7 @@ public class DashboardActivity extends AppCompatActivity {
         moveToState(isFromLogin ? AuthState.GRANTED : AuthState.CHECKING);
     }
 
+
     private void handleChecking() {
         modalCoordinator.showLoading();
 
@@ -210,6 +213,14 @@ public class DashboardActivity extends AppCompatActivity {
                     break;
                 case TEMPORARY_UNAVAILABLE:
                     modalCoordinator.clearLoading();
+
+                    modalCoordinator.confirmRetryConsent(
+                            // Retry
+                            () -> moveToState(AuthState.INIT),
+
+                            // Exit
+                            this::finish
+                    );
                     break;
                 default:
                     exitToLogin("Permissions were revoked. Please login again.");
@@ -291,7 +302,7 @@ public class DashboardActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-//        albumsUi.onRelease();
-//        filesUi.onRelease();
+        albumsUi.onRelease();
+        filesUi.onRelease();
     }
 }
