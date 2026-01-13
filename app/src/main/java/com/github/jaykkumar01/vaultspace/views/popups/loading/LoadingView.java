@@ -9,9 +9,9 @@ import android.widget.ProgressBar;
 
 import com.github.jaykkumar01.vaultspace.R;
 
-public class LoadingModalView extends FrameLayout {
+public class LoadingView extends FrameLayout {
 
-    public LoadingModalView(Context context) {
+    public LoadingView(Context context) {
         super(context);
         init(context);
     }

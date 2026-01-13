@@ -64,7 +64,7 @@ public final class DashboardModalCoordinator {
                 "Log out?",
                 "You’ll need to sign in again to access your vault.",
                 true,
-                Priority.MEDIUM,
+                Priority.CRITICAL,
                 exitToLogin,
                 null
         );

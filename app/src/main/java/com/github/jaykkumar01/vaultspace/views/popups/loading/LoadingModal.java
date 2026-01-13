@@ -14,6 +14,6 @@ public class LoadingModal extends StateModal {
 
     @Override
     public View createView(Context context) {
-        return new LoadingModalView(context);
+        return new LoadingView(context);
     }
 }

@@ -6,12 +6,9 @@ import static android.view.View.VISIBLE;
 import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -205,6 +202,12 @@ public final class ModalHost{
 
         active = new ActiveEntry(spec, modal, modalView);
 
+        if (modal.getKind() == ModalEnums.Kind.EVENT) {
+            ((EventModal) modal).attachDismissRequester((request, result, data) -> {
+                dismissActive(result, data);
+            });
+        }
+
         root.addView(modalView);
 
         Log.d(TAG,
@@ -276,7 +279,7 @@ public final class ModalHost{
         if (state == SpecState.DISMISSED) return;
 
         if (active != null && spec == active.spec) {
-            dismissActive(result);
+            dismissActive(result, null);
             return;
         }
 
@@ -286,7 +289,7 @@ public final class ModalHost{
     }
 
 
-    private void dismissActive(ModalEnums.DismissResult result) {
+    private void dismissActive(ModalEnums.DismissResult result, Object dismissedData) {
         ActiveEntry entry = active;
 
         Log.d(TAG,
@@ -297,7 +300,8 @@ public final class ModalHost{
             stateKeys.remove(((StateModal) entry.modal).getStateKey());
         }
 
-        entry.modal.onDismissed(result, null);
+        entry.modal.onDismissed(result, dismissedData);
+
         entry.modal.onHide();
         root.removeView(entry.modalView);
 

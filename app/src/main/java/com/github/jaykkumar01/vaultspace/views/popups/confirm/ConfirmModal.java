@@ -22,14 +22,14 @@ public class ConfirmModal extends EventModal {
                 spec.title,
                 spec.message,
                 spec.allowNegative,
+                spec.priority,
                 () -> {
-                    onDismissed(ModalEnums.DismissResult.CONFIRMED, null);
-                    spec.onPositive.run();
+                    requestDismiss(ModalEnums.DismissResult.CONFIRMED, null);
+                    if (spec.onPositive != null) spec.onPositive.run();
                 },
                 () -> {
-                    onDismissed(ModalEnums.DismissResult.CANCELED, null);
+                    requestDismiss(ModalEnums.DismissResult.CANCELED, null);
                     if (spec.onNegative != null) spec.onNegative.run();
-
                 }
         );
     }

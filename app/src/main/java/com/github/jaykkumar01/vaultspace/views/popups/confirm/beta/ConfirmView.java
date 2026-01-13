@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views.popups.confirm;
+package com.github.jaykkumar01.vaultspace.views.popups.confirm.beta;
 
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
@@ -6,7 +6,6 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -14,7 +13,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
 import com.google.android.material.button.MaterialButton;
 
 public final class ConfirmView extends FrameLayout {
@@ -22,17 +20,20 @@ public final class ConfirmView extends FrameLayout {
     private static final String TAG = "VaultSpace:ConfirmView";
 
     /* ==========================================================
-     * Card reference (needed for animations)
+     * Public Risk Levels
      * ========================================================== */
 
-    private LinearLayout card;
+    public static final int RISK_NEUTRAL = 0;
+    public static final int RISK_WARNING = 1;
+    public static final int RISK_DESTRUCTIVE = 2;
+    public static final int RISK_CRITICAL = 3;
 
     public ConfirmView(
             @NonNull Context context,
             String title,
             String message,
             boolean showNegative,
-            ModalEnums.Priority riskLevel,
+            int riskLevel,
             Runnable onPositive,
             Runnable onNegative
     ) {
@@ -44,7 +45,7 @@ public final class ConfirmView extends FrameLayout {
             String title,
             String message,
             boolean showNegative,
-            ModalEnums.Priority riskLevel,
+            int riskLevel,
             Runnable onPositive,
             Runnable onNegative
     ) {
@@ -55,11 +56,11 @@ public final class ConfirmView extends FrameLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
         setBackgroundColor(0x990D1117);
-        setClickable(false);
+        setClickable(true);
 
         /* ---------------- Card ---------------- */
 
-        card = new LinearLayout(getContext());
+        LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(20), dp(18), dp(20), dp(18));
         card.setElevation(dp(10));
@@ -76,11 +77,6 @@ public final class ConfirmView extends FrameLayout {
         );
         cardParams.gravity = Gravity.CENTER;
         card.setLayoutParams(cardParams);
-
-        // Initial state for entry animation
-        card.setScaleX(0.9f);
-        card.setScaleY(0.9f);
-        card.setAlpha(0f);
 
         TextView titleView = new TextView(getContext());
         titleView.setTextSize(18);
@@ -122,76 +118,48 @@ public final class ConfirmView extends FrameLayout {
 
         addView(card);
 
-        /* ---------------- Entry animation ---------------- */
-
-        card.animate()
-                .scaleX(1f)
-                .scaleY(1f)
-                .alpha(1f)
-                .setDuration(180)
-                .setInterpolator(new DecelerateInterpolator())
-                .start();
-
         /* ---------------- Interactions ---------------- */
-
-        positiveBtn.setOnClickListener(v -> {
-            Log.d(TAG, "→ confirm");
-            animateOut(() -> {
-                if (onPositive != null) onPositive.run();
-            });
-        });
 
         negativeBtn.setOnClickListener(v -> {
             Log.d(TAG, "→ cancel");
-            animateOut(() -> {
-                if (onNegative != null) onNegative.run();
-            });
+            if (onNegative != null) onNegative.run();
         });
-    }
 
-    /* ==========================================================
-     * Exit animation (NO dismiss logic)
-     * ========================================================== */
-
-    public void animateOut(@NonNull Runnable endAction) {
-        card.animate()
-                .scaleX(0.9f)
-                .scaleY(0.9f)
-                .alpha(0f)
-                .setDuration(120)
-                .withEndAction(endAction)
-                .start();
+        positiveBtn.setOnClickListener(v -> {
+            Log.d(TAG, "→ confirm");
+            if (onPositive != null) onPositive.run();
+        });
     }
 
     /* ==========================================================
      * Styling
      * ========================================================== */
 
-    private void applyRiskStyle(MaterialButton positiveBtn, ModalEnums.Priority risk) {
+    private void applyRiskStyle(MaterialButton positiveBtn, int risk) {
         switch (risk) {
 
-            case MEDIUM:
+            case RISK_WARNING:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_warning)
                 );
                 positiveBtn.setRippleColorResource(R.color.vs_warning_ripple);
                 break;
 
-            case HIGH:
+            case RISK_DESTRUCTIVE:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_danger)
                 );
                 positiveBtn.setRippleColorResource(R.color.vs_danger_ripple);
                 break;
 
-            case CRITICAL:
+            case RISK_CRITICAL:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_danger_strong)
                 );
                 positiveBtn.setRippleColorResource(R.color.vs_danger_ripple);
                 break;
 
-            case LOW:
+            case RISK_NEUTRAL:
             default:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_accent_primary)

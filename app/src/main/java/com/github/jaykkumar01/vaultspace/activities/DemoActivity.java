@@ -63,6 +63,8 @@ public class DemoActivity extends AppCompatActivity {
                 "Setup is in progress. Do you want to cancel it?",
                 true,
                 ModalEnums.Priority.HIGH,
+
+
                 () -> {
                     // user CONFIRMED cancel → stop work
                     setupCanceled = true;
