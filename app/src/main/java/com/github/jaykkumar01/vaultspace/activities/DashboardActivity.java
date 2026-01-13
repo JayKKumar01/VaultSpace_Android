@@ -27,6 +27,7 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 
 @SuppressLint("SetTextI18n")
@@ -35,7 +36,7 @@ public class DashboardActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
 
-    private enum AuthState {
+    public enum AuthState {
         UNINITIALIZED, INIT, CHECKING, GRANTED, EXIT
     }
 
@@ -48,7 +49,7 @@ public class DashboardActivity extends AppCompatActivity {
     private boolean isFromLogin;
 
     /* Modals */
-    private ModalHostView modalHost;
+    private ModalHost modalHost;
     private DashboardModalCoordinator modalCoordinator;
 
     /* Helpers */
@@ -61,8 +62,8 @@ public class DashboardActivity extends AppCompatActivity {
     private View btnExpandVault, btnLogout;
 
     /* Vault UI */
-    private VaultSectionUi albumsUi;
-    private VaultSectionUi filesUi;
+//    private VaultSectionUi albumsUi;
+//    private VaultSectionUi filesUi;
 
     private VaultViewMode currentViewMode;
 
@@ -109,7 +110,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initCore() {
-        modalHost = ModalHostView.attach(this);
+        modalHost = ModalHost.attach(this);
         modalCoordinator = new DashboardModalCoordinator(
                 modalHost,
                 () -> exitToLogin("You have been logged out")
@@ -132,8 +133,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initVaultSections() {
-        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer, modalHost);
-        filesUi = new FilesVaultUiHelper(this, filesContainer, modalHost);
+//        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer, modalHost);
+//        filesUi = new FilesVaultUiHelper(this, filesContainer, modalHost);
     }
 
     private void initListeners() {
@@ -147,11 +148,11 @@ public class DashboardActivity extends AppCompatActivity {
                     public void handleOnBackPressed() {
                         if (authState == AuthState.EXIT) return;
 
-                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi.onBackPressed()) return;
-                        if (currentViewMode == VaultViewMode.FILES && filesUi.onBackPressed()) return;
+//                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi.onBackPressed()) return;
+//                        if (currentViewMode == VaultViewMode.FILES && filesUi.onBackPressed()) return;
 
                         modalCoordinator.handleBackPress(
-                                toCoordinatorState(authState),
+                                authState,
                                 DashboardActivity.this::finish
                         );
                     }
@@ -241,8 +242,8 @@ public class DashboardActivity extends AppCompatActivity {
         albumsContainer.setVisibility(showAlbums ? View.VISIBLE : View.GONE);
         filesContainer.setVisibility(showAlbums ? View.GONE : View.VISIBLE);
 
-        if (showAlbums) albumsUi.show();
-        else filesUi.show();
+//        if (showAlbums) albumsUi.show();
+//        else filesUi.show();
     }
 
     private void onVaultStorageState(VaultStorageState state) {
@@ -280,16 +281,10 @@ public class DashboardActivity extends AppCompatActivity {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 
-    private DashboardModalCoordinator.DashboardAuthState toCoordinatorState(AuthState s) {
-        return s == AuthState.GRANTED
-                ? DashboardModalCoordinator.DashboardAuthState.GRANTED
-                : DashboardModalCoordinator.DashboardAuthState.INIT;
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        albumsUi.onRelease();
-        filesUi.onRelease();
+//        albumsUi.onRelease();
+//        filesUi.onRelease();
     }
 }

@@ -1,11 +1,17 @@
 package com.github.jaykkumar01.vaultspace.views.popups.core;
 
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
+
 import android.app.Activity;
 import android.content.Context;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+
+import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -15,7 +21,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public final class ModalHost {
+public final class ModalHost{
 
     /* =======================
        ACTIVE ENTRY
@@ -24,23 +30,22 @@ public final class ModalHost {
     private static final class ActiveEntry {
         final ModalSpec spec;
         final Modal modal;
-        final FrameLayout overlay;
         final View modalView;
 
-        ActiveEntry(ModalSpec spec, Modal modal, FrameLayout overlay, View modalView) {
+        ActiveEntry(ModalSpec spec, Modal modal, View modalView) {
             this.spec = spec;
             this.modal = modal;
-            this.overlay = overlay;
             this.modalView = modalView;
         }
     }
+
 
     /* =======================
        STATE
        ======================= */
 
     private final Context context;
-    private final ViewGroup root;
+    private final FrameLayout root;
 
     private ActiveEntry active;
 
@@ -62,9 +67,22 @@ public final class ModalHost {
        ATTACH
        ======================= */
 
+    private static final String TAG = "VaultSpace:ModalHost";
+    private static String id(Object o) {
+        return o == null ? "null" : Integer.toHexString(System.identityHashCode(o));
+    }
+
+
     private ModalHost(Activity activity) {
         this.context = activity;
-        this.root = activity.findViewById(android.R.id.content);
+        root = new FrameLayout(activity);
+        root.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        root.setClickable(true);
+        root.setVisibility(GONE);
+
 
         for (ModalEnums.Priority p : ModalEnums.Priority.values()) {
             eventQueues.put(p, new ArrayDeque<>());
@@ -74,8 +92,15 @@ public final class ModalHost {
     }
 
     public static ModalHost attach(Activity activity) {
-        return new ModalHost(activity);
+        ViewGroup content = activity.findViewById(android.R.id.content);
+        ModalHost host = new ModalHost(activity);
+        content.addView(host.root);
+
+        Log.d(TAG, "attach() host=" + id(host) + " rootAttached=true");
+        return host;
     }
+
+
 
     /* =======================
        SAFE QUEUE ACCESS
@@ -86,9 +111,11 @@ public final class ModalHost {
         if (q == null) {
             q = new ArrayDeque<>();
             eventQueues.put(priority, q);
+            Log.d(TAG, "queueFor() created queue for priority=" + priority);
         }
         return q;
     }
+
 
     /* =======================
        REQUEST
@@ -96,14 +123,24 @@ public final class ModalHost {
 
     public void request(ModalSpec spec) {
         if (spec == null) return;
-        if (specStates.get(spec) == SpecState.DISMISSED) return;
+
+        SpecState state = specStates.get(spec);
+
+        Log.d(TAG,
+                "request() spec=" + id(spec) +
+                        " state=" + state +
+                        " hasActive=" + (active != null));
+
+        if (state == SpecState.ACTIVE) return;
 
         if (active == null) {
+            Log.d(TAG, "request() -> activate immediately");
             activate(spec);
             return;
         }
 
         Modal incoming = spec.createModal();
+        Log.d(TAG, "request() -> incoming kind=" + incoming.getKind());
 
         if (incoming.getKind() == ModalEnums.Kind.STATE) {
             handleStateRequest(spec, (StateModal) incoming);
@@ -114,22 +151,41 @@ public final class ModalHost {
 
     private void handleStateRequest(ModalSpec spec, StateModal modal) {
         String key = modal.getStateKey();
-        if (stateKeys.contains(key)) return;
+        boolean exists = stateKeys.contains(key);
+
+        Log.d(TAG,
+                "handleStateRequest() spec=" + id(spec) +
+                        " key=" + key +
+                        " exists=" + exists);
+
+        if (exists) return;
 
         stateQueue.addLast(spec);
         stateKeys.add(key);
         specStates.put(spec, SpecState.QUEUED);
     }
 
+
     private void handleEventRequest(ModalSpec spec, EventModal incoming) {
+        Log.d(TAG,
+                "handleEventRequest() spec=" + id(spec) +
+                        " priority=" + incoming.getPriority() +
+                        " activeKind=" + active.modal.getKind());
+
         if (active.modal.getKind() == ModalEnums.Kind.STATE) {
+            Log.d(TAG, "EVENT interrupts STATE");
             moveActiveToQueue();
             activate(spec);
             return;
         }
 
         EventModal activeEvent = (EventModal) active.modal;
-        if (incoming.getPriority().ordinal() >= activeEvent.getPriority().ordinal()) {
+        boolean replaces =
+                incoming.getPriority().ordinal() >= activeEvent.getPriority().ordinal();
+
+        Log.d(TAG, replaces ? "EVENT replaces active" : "EVENT queued");
+
+        if (replaces) {
             moveActiveToQueue();
             activate(spec);
         } else {
@@ -137,6 +193,7 @@ public final class ModalHost {
             specStates.put(spec, SpecState.QUEUED);
         }
     }
+
 
     /* =======================
        ACTIVATE
@@ -146,36 +203,30 @@ public final class ModalHost {
         Modal modal = spec.createModal();
         View modalView = modal.createView(context);
 
-        FrameLayout overlay = new FrameLayout(context);
-        overlay.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        overlay.setClickable(true);
+        active = new ActiveEntry(spec, modal, modalView);
 
-        modalView.setClickable(true);
+        root.addView(modalView);
 
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        lp.gravity = Gravity.CENTER;
+        Log.d(TAG,
+                "activate() spec=" + id(spec) +
+                        " kind=" + modal.getKind() +
+                        " children=" + root.getChildCount());
 
-        overlay.addView(modalView, lp);
-
-        ActiveEntry entry = new ActiveEntry(spec, modal, overlay, modalView);
-        active = entry;
-
-        overlay.setOnClickListener(v -> {
-            if (entry.modal.canDismiss(ModalEnums.DismissRequest.OUTSIDE_TOUCH)) {
-                dismiss(entry.spec, ModalEnums.DismissResult.CANCELED);
+        root.setOnClickListener(v -> {
+            if (active != null &&
+                    active.modal.canDismiss(ModalEnums.DismissRequest.OUTSIDE_TOUCH)) {
+                dismiss(active.spec, ModalEnums.DismissResult.CANCELED);
             }
         });
 
         specStates.put(spec, SpecState.ACTIVE);
-        root.addView(overlay);
+        root.setVisibility(VISIBLE);
+
+        Log.d(TAG, "activate() -> root VISIBLE");
+
         modal.onShow();
     }
+
 
     /* =======================
        REPLACE
@@ -183,6 +234,10 @@ public final class ModalHost {
 
     private void moveActiveToQueue() {
         ActiveEntry entry = active;
+
+        Log.d(TAG,
+                "moveActiveToQueue() spec=" + id(entry.spec) +
+                        " kind=" + entry.modal.getKind());
 
         if (entry.modal.getKind() == ModalEnums.Kind.STATE) {
             StateModal state = (StateModal) entry.modal;
@@ -196,10 +251,14 @@ public final class ModalHost {
         specStates.put(entry.spec, SpecState.QUEUED);
 
         entry.modal.onHide();
-        root.removeView(entry.overlay);
+        root.removeView(entry.modalView);
+
+        Log.d(TAG,
+                "moveActiveToQueue() done children=" + root.getChildCount());
 
         active = null;
     }
+
 
     /* =======================
        DISMISS
@@ -207,6 +266,13 @@ public final class ModalHost {
 
     public void dismiss(ModalSpec spec, ModalEnums.DismissResult result) {
         SpecState state = specStates.get(spec);
+
+        Log.d(TAG,
+                "dismiss() spec=" + id(spec) +
+                        " result=" + result +
+                        " state=" + state +
+                        " activeMatch=" + (active != null && spec == active.spec));
+
         if (state == SpecState.DISMISSED) return;
 
         if (active != null && spec == active.spec) {
@@ -219,8 +285,13 @@ public final class ModalHost {
         }
     }
 
+
     private void dismissActive(ModalEnums.DismissResult result) {
         ActiveEntry entry = active;
+
+        Log.d(TAG,
+                "dismissActive() spec=" + id(entry.spec) +
+                        " result=" + result);
 
         if (entry.modal instanceof StateModal) {
             stateKeys.remove(((StateModal) entry.modal).getStateKey());
@@ -228,15 +299,25 @@ public final class ModalHost {
 
         entry.modal.onDismissed(result, null);
         entry.modal.onHide();
-        root.removeView(entry.overlay);
+        root.removeView(entry.modalView);
 
         specStates.put(entry.spec, SpecState.DISMISSED);
         active = null;
 
         activateNext();
+
+        if (active == null) {
+            root.setVisibility(GONE);
+            Log.d(TAG, "dismissActive() -> root GONE");
+        }
     }
 
+
     private void dismissQueued(ModalSpec spec, ModalEnums.DismissResult result) {
+        Log.d(TAG,
+                "dismissQueued() spec=" + id(spec) +
+                        " result=" + result);
+
         if (spec.createModal().getKind() == ModalEnums.Kind.EVENT) {
             spec.createModal().onDismissed(result, null);
         }
@@ -249,14 +330,18 @@ public final class ModalHost {
         specStates.put(spec, SpecState.DISMISSED);
     }
 
+
     /* =======================
        ACTIVATE NEXT
        ======================= */
 
     private void activateNext() {
+        Log.d(TAG, "activateNext()");
+
         for (ModalEnums.Priority p : ModalEnums.Priority.values()) {
             ModalSpec next = queueFor(p).pollFirst();
             if (next != null) {
+                Log.d(TAG, "activateNext() -> EVENT priority=" + p);
                 activate(next);
                 return;
             }
@@ -264,20 +349,28 @@ public final class ModalHost {
 
         ModalSpec nextState = stateQueue.pollFirst();
         if (nextState != null) {
+            Log.d(TAG, "activateNext() -> STATE");
             activate(nextState);
+        } else {
+            Log.d(TAG, "activateNext() -> none");
         }
     }
+
 
     /* =======================
        INPUT
        ======================= */
 
     public boolean onBackPressed() {
+        Log.d(TAG, "onBackPressed() hasActive=" + (active != null));
+
         if (active == null) return false;
 
         if (active.modal.canDismiss(ModalEnums.DismissRequest.BACK_PRESS)) {
+            Log.d(TAG, "onBackPressed() -> dismiss");
             dismiss(active.spec, ModalEnums.DismissResult.CANCELED);
         }
         return true;
     }
+
 }

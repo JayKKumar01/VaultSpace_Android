@@ -65,6 +65,7 @@ public class UserSession {
         if (vaultCache != null) {
             vaultCache.clear();
             vaultCache = null;
+
         }
 
         PrimaryUserCoordinator.clearSavedProfilePhoto(appContext);

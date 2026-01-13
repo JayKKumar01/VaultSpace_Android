@@ -9,8 +9,8 @@ public class ConfirmSpec extends ModalSpec {
     public final String title;
     public final String message;
     public final boolean allowNegative;
-    public final Runnable onPositive;
-    public final Runnable onNegative;
+    public Runnable onPositive;
+    public Runnable onNegative;
     public final ModalEnums.Priority priority;
 
     public ConfirmSpec(
@@ -32,5 +32,13 @@ public class ConfirmSpec extends ModalSpec {
     @Override
     public Modal createModal() {
         return new ConfirmModal(this);
+    }
+
+    public void setPositiveAction(Runnable onPositive) {
+        this.onPositive = onPositive;
+    }
+
+    public void setNegativeAction(Runnable onNegative){
+        this.onNegative = onNegative;
     }
 }

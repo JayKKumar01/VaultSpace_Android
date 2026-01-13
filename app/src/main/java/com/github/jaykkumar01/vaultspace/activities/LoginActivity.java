@@ -5,15 +5,16 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalDismissReason;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
-import com.github.jaykkumar01.vaultspace.views.popups.old.loading.LoadingSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -22,7 +23,7 @@ public class LoginActivity extends AppCompatActivity {
     private AccountPickerHelper accountPickerHelper;
     private PrimaryAccountConsentHelper primaryConsentHelper;
 
-    private ModalHostView modalHost;
+    private ModalHost modalHost;
     private LoadingSpec loadingSpec;
 
     private String pendingEmail;
@@ -32,9 +33,10 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        modalHost = ModalHostView.attach(this);
+        modalHost = ModalHost.attach(this);
         loadingSpec = new LoadingSpec();
 
+        initBackHandling();
         initHelpers();
         initUI();
     }
@@ -50,8 +52,9 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void onSelectAccountClicked() {
-
+        showLoading();
         accountPickerHelper.launch(new AccountPickerHelper.Callback() {
+
             @Override
             public void onAccountSelected(String email) {
                 handleAccountSelected(email);
@@ -128,14 +131,30 @@ public class LoginActivity extends AppCompatActivity {
         finish();
     }
 
-    /* ---------- Modal helpers (correct usage) ---------- */
+    /* ---------- Modal helpers (new system) ---------- */
 
     private void showLoading() {
+
         modalHost.request(loadingSpec);
     }
 
     private void hideLoading() {
-        modalHost.dismiss(loadingSpec, ModalDismissReason.SYSTEM);
+        modalHost.dismiss(loadingSpec, ModalEnums.DismissResult.SYSTEM);
+    }
+
+    private void initBackHandling() {
+        getOnBackPressedDispatcher().addCallback(
+                this,
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (modalHost.onBackPressed()) {
+                            return;
+                        }
+                        finish();
+                    }
+                }
+        );
     }
 
     private void toast(String msg) {

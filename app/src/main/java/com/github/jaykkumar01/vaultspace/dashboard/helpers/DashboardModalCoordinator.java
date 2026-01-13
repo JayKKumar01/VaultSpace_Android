@@ -1,27 +1,73 @@
 package com.github.jaykkumar01.vaultspace.dashboard.helpers;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.views.popups.old.confirm.ConfirmRisk;
-import com.github.jaykkumar01.vaultspace.views.popups.old.confirm.ConfirmSpec;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalDismissReason;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
-import com.github.jaykkumar01.vaultspace.views.popups.old.loading.LoadingSpec;
+import com.github.jaykkumar01.vaultspace.activities.DashboardActivity;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.*;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
 
 public final class DashboardModalCoordinator {
 
-    private final ModalHostView modalHost;
+    private static final String TAG = "VaultSpace:DashboardModal";
+
+    private final ModalHost modalHost;
     private final Runnable exitToLogin;
 
-    // STATE modal (spec-type scoped dismiss)
-    private final LoadingSpec loadingSpec = new LoadingSpec();
+    /* =======================
+       Specs (stable instances)
+       ======================= */
+
+    private final LoadingSpec loadingSpec;
+    private final ConfirmSpec cancelSetupSpec;
+    private final ConfirmSpec exitAppSpec;
+    private final ConfirmSpec logoutSpec;
+
+    /* =======================
+       Debug counters (loading)
+       ======================= */
+
+    private int loadingReq = 0;
+    private int loadingClear = 0;
 
     public DashboardModalCoordinator(
-            @NonNull ModalHostView modalHost,
+            @NonNull ModalHost modalHost,
             @NonNull Runnable exitToLogin
     ) {
         this.modalHost = modalHost;
         this.exitToLogin = exitToLogin;
+
+        loadingSpec = new LoadingSpec();
+
+        cancelSetupSpec = new ConfirmSpec(
+                "Cancel setup?",
+                "This will stop verification and return you to login.",
+                true,
+                Priority.HIGH,
+                exitToLogin,
+                null
+        );
+
+        exitAppSpec = new ConfirmSpec(
+                "Exit VaultSpace?",
+                "Are you sure you want to exit the app?",
+                true,
+                Priority.MEDIUM,
+                null,   // assigned at call time
+                null
+        );
+
+        logoutSpec = new ConfirmSpec(
+                "Log out?",
+                "You’ll need to sign in again to access your vault.",
+                true,
+                Priority.MEDIUM,
+                exitToLogin,
+                null
+        );
     }
 
     /* ==========================================================
@@ -29,11 +75,15 @@ public final class DashboardModalCoordinator {
      * ========================================================== */
 
     public void showLoading() {
+        loadingReq++;
+        Log.d(TAG, "showLoading() #" + loadingReq);
         modalHost.request(loadingSpec);
     }
 
     public void clearLoading() {
-        modalHost.dismiss(loadingSpec, ModalDismissReason.SYSTEM);
+        loadingClear++;
+        Log.d(TAG, "clearLoading() #" + loadingClear);
+        modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
     }
 
     /* ==========================================================
@@ -41,17 +91,19 @@ public final class DashboardModalCoordinator {
      * ========================================================== */
 
     public void handleBackPress(
-            @NonNull DashboardAuthState state,
+            @NonNull DashboardActivity.AuthState state,
             @NonNull Runnable exitApp
     ) {
         switch (state) {
             case INIT:
             case CHECKING:
-                showCancelSetupConfirm();
+                modalHost.request(cancelSetupSpec);
                 break;
 
             case GRANTED:
-                showExitConfirm(exitApp);
+                // bind action just before request (no new spec)
+                exitAppSpec.setPositiveAction(exitApp);
+                modalHost.request(exitAppSpec);
                 break;
         }
     }
@@ -61,19 +113,7 @@ public final class DashboardModalCoordinator {
      * ========================================================== */
 
     public void confirmLogout() {
-        modalHost.request(
-                new ConfirmSpec(
-                        "Log out?",
-                        "You’ll need to sign in again to access your vault.",
-                        "Log out",
-                        true,
-                        true,
-                        true,
-                        ConfirmRisk.RISK_CRITICAL,
-                        exitToLogin,
-                        null
-                )
-        );
+        modalHost.request(logoutSpec);
     }
 
     /* ==========================================================
@@ -81,53 +121,13 @@ public final class DashboardModalCoordinator {
      * ========================================================== */
 
     public void reset() {
-        clearLoading();
-        // EVENT modals auto-clear via replacement / back press
-    }
+        modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
+        modalHost.dismiss(cancelSetupSpec, DismissResult.SYSTEM);
+//        modalHost.dismiss(exitAppSpec, DismissResult.SYSTEM);
+//        modalHost.dismiss(logoutSpec, DismissResult.SYSTEM);
 
-    /* ==========================================================
-     * Internal confirms
-     * ========================================================== */
-
-    private void showCancelSetupConfirm() {
-        modalHost.request(
-                new ConfirmSpec(
-                        "Cancel setup?",
-                        "This will stop verification and return you to login.",
-                        "Return to login",
-                        true,
-                        true,
-                        true,
-                        ConfirmRisk.RISK_WARNING,
-                        exitToLogin,
-                        null
-                )
-        );
-    }
-
-    private void showExitConfirm(@NonNull Runnable exitApp) {
-        modalHost.request(
-                new ConfirmSpec(
-                        "Exit VaultSpace?",
-                        "Are you sure you want to exit the app?",
-                        "Exit",
-                        true,
-                        true,
-                        true,
-                        ConfirmRisk.RISK_WARNING,
-                        exitApp,
-                        null
-                )
-        );
-    }
-
-    /* ==========================================================
-     * Auth state mirror (minimal enum)
-     * ========================================================== */
-
-    public enum DashboardAuthState {
-        INIT,
-        CHECKING,
-        GRANTED
+        Log.d(TAG,
+                "reset() loadingReq=" + loadingReq +
+                        " loadingClear=" + loadingClear);
     }
 }
