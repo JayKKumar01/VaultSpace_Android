@@ -7,7 +7,7 @@ import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.states.FilesContentView;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
 
@@ -15,7 +15,7 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
 
     private static final String TAG = "VaultSpace:FilesUI";
 
-    public FilesVaultUiHelper(Context context, FrameLayout container, ModalHostView hostView) {
+    public FilesVaultUiHelper(Context context, FrameLayout container, ModalHost hostView) {
         super(context, container, hostView);
 
         loadingView.setText("Loading files…");
@@ -81,9 +81,6 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
 
     @Override
     public boolean onBackPressed() {
-        if (hostView.handleBackPress()) {
-            return true;
-        }
         if (folderActionView != null && folderActionView.isVisible()) {
             Log.d(TAG, "onBackPressed() → dismiss popup");
             hideFolderActionPopup();

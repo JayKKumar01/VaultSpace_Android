@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
@@ -28,12 +29,12 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected View contentView;
 
     protected FolderActionView folderActionView;
-    protected ItemActionView itemActionView;
+//    protected ItemActionView itemActionView;
 
     // ✅ NEW: Confirm abstraction
-    protected ModalHostView hostView;
+    protected ModalHost hostView;
 
-    protected BaseVaultSectionUiHelper(Context context, FrameLayout container, ModalHostView hostView) {
+    protected BaseVaultSectionUiHelper(Context context, FrameLayout container, ModalHost hostView) {
         this.context = context;
         this.container = container;
         this.hostView = hostView;
@@ -104,31 +105,6 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected void hideFolderActionPopup() {
         if (folderActionView != null && folderActionView.isVisible()) {
             folderActionView.hide();
-        }
-    }
-
-    /* ---------------- Item Action ---------------- */
-
-    protected void showItemActionPopup(
-            String title,
-            String[] actions,
-            String debugOwner,
-            ItemActionView.Callback callback
-    ) {
-        Activity activity = (Activity) context;
-        FrameLayout root = activity.findViewById(android.R.id.content);
-
-        if (itemActionView == null) {
-            itemActionView = new ItemActionView(context);
-            root.addView(itemActionView);
-        }
-
-        itemActionView.show(title, actions, debugOwner, callback);
-    }
-
-    protected void hideItemActionPopup() {
-        if (itemActionView != null && itemActionView.isVisible()) {
-            itemActionView.hide();
         }
     }
 }

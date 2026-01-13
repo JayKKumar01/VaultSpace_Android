@@ -14,12 +14,11 @@ import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumsCache;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
-import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;
-import com.github.jaykkumar01.vaultspace.views.popups.old.confirm.ConfirmRisk;
-import com.github.jaykkumar01.vaultspace.views.popups.old.confirm.ConfirmSpec;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.list.ListSpec;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,7 +41,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     public AlbumsVaultUiHelper(
             Context context,
             FrameLayout container,
-            ModalHostView hostView
+            ModalHost hostView
     ) {
         super(context, container, hostView);
 
@@ -143,22 +142,19 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     }
 
     private void onAlbumAction(AlbumInfo album) {
-        showItemActionPopup(
+        hostView.request(new ListSpec(
                 album.name.toUpperCase(),
-                new String[]{"Rename", "Delete"},
-                TAG,
-                new ItemActionView.Callback() {
-                    @Override
-                    public void onActionSelected(int index, String label) {
-                        hideItemActionPopup();
-                        if (index == 0) showRenameAlbum(album);
-                        else showDeleteAlbumConfirm(album);
+                Arrays.asList("Rename", "Delete"),
+                index -> {
+                    if (index == 0) {
+                        showRenameAlbum(album);
+                    } else {
+                        showDeleteAlbumConfirm(album);
                     }
+                },
+                null
+        ));
 
-                    @Override
-                    public void onCancel() {}
-                }
-        );
     }
 
     /* ==========================================================
@@ -288,19 +284,19 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
      * ========================================================== */
 
     private void showDeleteAlbumConfirm(AlbumInfo album) {
-        hostView.request(
-                new ConfirmSpec(
-                        "Delete album?",
-                        "This will permanently delete \"" + album.name + "\" and all its contents.",
-                        "Delete",
-                        true,
-                        true,
-                        true,
-                        ConfirmRisk.RISK_CRITICAL,
-                        () -> deleteAlbum(album),   // ✅ FIX
-                        null
-                )
-        );
+//        hostView.request(
+//                new ConfirmSpec(
+//                        "Delete album?",
+//                        "This will permanently delete \"" + album.name + "\" and all its contents.",
+//                        "Delete",
+//                        true,
+//                        true,
+//                        true,
+//                        ConfirmRisk.RISK_CRITICAL,
+//                        () -> deleteAlbum(album),   // ✅ FIX
+//                        null
+//                )
+//        );
     }
 
     private void deleteAlbum(AlbumInfo album) {
@@ -352,13 +348,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     @Override
     public boolean onBackPressed() {
-        if (hostView.handleBackPress()) {
-            return true;
-        }
-        if (itemActionView != null && itemActionView.isVisible()) {
-            hideItemActionPopup();
-            return true;
-        }
         if (folderActionView != null && folderActionView.isVisible()) {
             hideFolderActionPopup();
             return true;
