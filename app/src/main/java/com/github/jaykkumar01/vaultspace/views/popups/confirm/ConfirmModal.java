@@ -11,7 +11,7 @@ public class ConfirmModal extends EventModal {
     private final ConfirmSpec spec;
 
     public ConfirmModal(ConfirmSpec spec) {
-        super(spec.priority);
+        super(ModalEnums.Priority.MEDIUM);
         this.spec = spec;
     }
 
@@ -22,7 +22,7 @@ public class ConfirmModal extends EventModal {
                 spec.title,
                 spec.message,
                 spec.allowNegative,
-                spec.priority,
+                spec.riskLevel,
                 () -> {
                     requestDismiss(ModalEnums.DismissResult.CONFIRMED, null);
                     if (spec.onPositive != null) spec.onPositive.run();
@@ -36,6 +36,6 @@ public class ConfirmModal extends EventModal {
 
     @Override
     public boolean canDismiss(ModalEnums.DismissRequest request) {
-        return spec.allowNegative;
+        return spec.allowNegative && spec.riskLevel != ConfirmView.RISK_CRITICAL;
     }
 }

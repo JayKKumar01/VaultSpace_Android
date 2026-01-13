@@ -1,7 +1,6 @@
 package com.github.jaykkumar01.vaultspace.views.popups.confirm;
 
 import com.github.jaykkumar01.vaultspace.views.popups.core.Modal;
-import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalSpec;
 
 public class ConfirmSpec extends ModalSpec {
@@ -11,20 +10,20 @@ public class ConfirmSpec extends ModalSpec {
     public final boolean allowNegative;
     public Runnable onPositive;
     public Runnable onNegative;
-    public final ModalEnums.Priority priority;
+    public final int riskLevel;
 
     public ConfirmSpec(
             String title,
             String message,
             boolean allowNegative,
-            ModalEnums.Priority priority,
+            int riskLevel,
             Runnable onPositive,
             Runnable onNegative
     ) {
         this.title = title;
         this.message = message;
         this.allowNegative = allowNegative;
-        this.priority = priority;
+        this.riskLevel = riskLevel;
         this.onPositive = onPositive;
         this.onNegative = onNegative;
     }

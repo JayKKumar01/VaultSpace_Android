@@ -373,8 +373,9 @@ public final class ModalHost{
         if (active.modal.canDismiss(ModalEnums.DismissRequest.BACK_PRESS)) {
             Log.d(TAG, "onBackPressed() -> dismiss");
             dismiss(active.spec, ModalEnums.DismissResult.CANCELED);
+            return true;
         }
-        return true;
+        return false;
     }
 
 }

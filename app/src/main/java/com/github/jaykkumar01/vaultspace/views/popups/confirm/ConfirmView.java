@@ -19,6 +19,11 @@ import com.google.android.material.button.MaterialButton;
 
 public final class ConfirmView extends FrameLayout {
 
+    public static final int RISK_NEUTRAL = 0;
+    public static final int RISK_WARNING = 1;
+    public static final int RISK_DESTRUCTIVE = 2;
+    public static final int RISK_CRITICAL = 3;
+
     private static final String TAG = "VaultSpace:ConfirmView";
 
     /* ==========================================================
@@ -32,7 +37,7 @@ public final class ConfirmView extends FrameLayout {
             String title,
             String message,
             boolean showNegative,
-            ModalEnums.Priority riskLevel,
+            int riskLevel,
             Runnable onPositive,
             Runnable onNegative
     ) {
@@ -44,7 +49,7 @@ public final class ConfirmView extends FrameLayout {
             String title,
             String message,
             boolean showNegative,
-            ModalEnums.Priority riskLevel,
+            int riskLevel,
             Runnable onPositive,
             Runnable onNegative
     ) {
@@ -167,31 +172,31 @@ public final class ConfirmView extends FrameLayout {
      * Styling
      * ========================================================== */
 
-    private void applyRiskStyle(MaterialButton positiveBtn, ModalEnums.Priority risk) {
+    private void applyRiskStyle(MaterialButton positiveBtn, int risk) {
         switch (risk) {
 
-            case MEDIUM:
+            case RISK_WARNING:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_warning)
                 );
                 positiveBtn.setRippleColorResource(R.color.vs_warning_ripple);
                 break;
 
-            case HIGH:
+            case RISK_DESTRUCTIVE:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_danger)
                 );
                 positiveBtn.setRippleColorResource(R.color.vs_danger_ripple);
                 break;
 
-            case CRITICAL:
+            case RISK_CRITICAL:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_danger_strong)
                 );
                 positiveBtn.setRippleColorResource(R.color.vs_danger_ripple);
                 break;
 
-            case LOW:
+            case RISK_NEUTRAL:
             default:
                 positiveBtn.setBackgroundTintList(
                         getContext().getColorStateList(R.color.vs_accent_primary)

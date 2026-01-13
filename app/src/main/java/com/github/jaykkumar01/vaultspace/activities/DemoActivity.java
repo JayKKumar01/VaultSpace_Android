@@ -11,6 +11,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
@@ -62,7 +63,7 @@ public class DemoActivity extends AppCompatActivity {
                 "Cancel setup?",
                 "Setup is in progress. Do you want to cancel it?",
                 true,
-                ModalEnums.Priority.HIGH,
+                ConfirmView.RISK_DESTRUCTIVE,
 
 
                 () -> {
@@ -107,7 +108,7 @@ public class DemoActivity extends AppCompatActivity {
                 "Exit App",
                 "Setup is complete. Exit the app?",
                 true,
-                ModalEnums.Priority.MEDIUM,
+                ConfirmView.RISK_WARNING,
                 () -> {
                     finish();
                 },

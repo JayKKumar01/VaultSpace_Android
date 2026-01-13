@@ -62,8 +62,8 @@ public class DashboardActivity extends AppCompatActivity {
     private View btnExpandVault, btnLogout;
 
     /* Vault UI */
-//    private VaultSectionUi albumsUi;
-//    private VaultSectionUi filesUi;
+    private VaultSectionUi albumsUi;
+    private VaultSectionUi filesUi;
 
     private VaultViewMode currentViewMode;
 
@@ -133,8 +133,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initVaultSections() {
-//        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer, modalHost);
-//        filesUi = new FilesVaultUiHelper(this, filesContainer, modalHost);
+        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer, modalHost);
+        filesUi = new FilesVaultUiHelper(this, filesContainer, modalHost);
     }
 
     private void initListeners() {
@@ -148,8 +148,13 @@ public class DashboardActivity extends AppCompatActivity {
                     public void handleOnBackPressed() {
                         if (authState == AuthState.EXIT) return;
 
-//                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi.onBackPressed()) return;
-//                        if (currentViewMode == VaultViewMode.FILES && filesUi.onBackPressed()) return;
+                        if (modalHost.onBackPressed()){
+                            return;
+                        }
+
+                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi.onBackPressed()) return;
+                        if (currentViewMode == VaultViewMode.FILES && filesUi.onBackPressed()) return;
+
 
                         modalCoordinator.handleBackPress(
                                 authState,
@@ -242,8 +247,8 @@ public class DashboardActivity extends AppCompatActivity {
         albumsContainer.setVisibility(showAlbums ? View.VISIBLE : View.GONE);
         filesContainer.setVisibility(showAlbums ? View.GONE : View.VISIBLE);
 
-//        if (showAlbums) albumsUi.show();
-//        else filesUi.show();
+        if (showAlbums) albumsUi.show();
+        else filesUi.show();
     }
 
     private void onVaultStorageState(VaultStorageState state) {

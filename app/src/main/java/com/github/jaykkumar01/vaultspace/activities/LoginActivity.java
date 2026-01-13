@@ -12,6 +12,8 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
@@ -25,6 +27,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private ModalHost modalHost;
     private LoadingSpec loadingSpec;
+    private ConfirmSpec exitAppSpec;
 
     private String pendingEmail;
 
@@ -35,6 +38,14 @@ public class LoginActivity extends AppCompatActivity {
 
         modalHost = ModalHost.attach(this);
         loadingSpec = new LoadingSpec();
+        exitAppSpec = new ConfirmSpec(
+                "Exit VaultSpace?",
+                "Are you sure you want to exit the app?",
+                true,
+                ConfirmView.RISK_WARNING,
+                this::finish,
+                null
+        );
 
         initBackHandling();
         initHelpers();
@@ -151,7 +162,7 @@ public class LoginActivity extends AppCompatActivity {
                         if (modalHost.onBackPressed()) {
                             return;
                         }
-                        finish();
+                        modalHost.request(exitAppSpec);
                     }
                 }
         );

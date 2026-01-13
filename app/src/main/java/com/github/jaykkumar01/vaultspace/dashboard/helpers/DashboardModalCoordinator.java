@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.activities.DashboardActivity;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.*;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
@@ -46,7 +47,7 @@ public final class DashboardModalCoordinator {
                 "Cancel setup?",
                 "This will stop verification and return you to login.",
                 true,
-                Priority.HIGH,
+                ConfirmView.RISK_DESTRUCTIVE,
                 exitToLogin,
                 null
         );
@@ -55,7 +56,7 @@ public final class DashboardModalCoordinator {
                 "Exit VaultSpace?",
                 "Are you sure you want to exit the app?",
                 true,
-                Priority.MEDIUM,
+                ConfirmView.RISK_WARNING,
                 null,   // assigned at call time
                 null
         );
@@ -64,7 +65,7 @@ public final class DashboardModalCoordinator {
                 "Log out?",
                 "You’ll need to sign in again to access your vault.",
                 true,
-                Priority.CRITICAL,
+                ConfirmView.RISK_CRITICAL,
                 exitToLogin,
                 null
         );
