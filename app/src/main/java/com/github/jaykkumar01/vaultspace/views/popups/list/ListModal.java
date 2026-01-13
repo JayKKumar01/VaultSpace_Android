@@ -25,7 +25,8 @@ public class ListModal extends EventModal {
         );
     }
 
-    @Override
+
+        @Override
     public void onDismissed(ModalEnums.DismissResult result, Object data) {
         if (result == ModalEnums.DismissResult.CONFIRMED) {
             if (spec.onItemSelected != null && data instanceof Integer) {

@@ -1,16 +1,12 @@
 package com.github.jaykkumar01.vaultspace.dashboard.helpers;
 
-import android.app.Activity;
 import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
-import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
-import com.github.jaykkumar01.vaultspace.views.popups.ItemActionView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
 /* ---------------- Contract ---------------- */
@@ -28,7 +24,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected EmptyStateView emptyView;
     protected View contentView;
 
-    protected FolderActionView folderActionView;
+//    protected FolderActionView folderActionView;
 //    protected ItemActionView itemActionView;
 
     // ✅ NEW: Confirm abstraction
@@ -80,31 +76,5 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.VISIBLE);
-    }
-
-    /* ---------------- Folder Action ---------------- */
-
-    protected void showFolderActionPopup(
-            String title,
-            String hint,
-            String positiveText,
-            String debugOwner,
-            FolderActionView.Callback callback
-    ) {
-        Activity activity = (Activity) context;
-        FrameLayout root = activity.findViewById(android.R.id.content);
-
-        if (folderActionView == null) {
-            folderActionView = new FolderActionView(context);
-            root.addView(folderActionView);
-        }
-
-        folderActionView.show(title, hint, positiveText, debugOwner, callback);
-    }
-
-    protected void hideFolderActionPopup() {
-        if (folderActionView != null && folderActionView.isVisible()) {
-            folderActionView.hide();
-        }
     }
 }

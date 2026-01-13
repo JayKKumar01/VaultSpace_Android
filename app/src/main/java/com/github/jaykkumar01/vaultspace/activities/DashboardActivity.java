@@ -23,12 +23,12 @@ import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardModalCoordinator;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
-import com.github.jaykkumar01.vaultspace.views.popups.old.core.ModalHostView;
 
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
@@ -53,6 +53,7 @@ public class DashboardActivity extends AppCompatActivity {
     private DashboardModalCoordinator modalCoordinator;
 
     /* Helpers */
+    private DashboardProfileHelper profileHelper;
     private ExpandVaultHelper expandVaultHelper;
 
     /* UI */
@@ -115,8 +116,8 @@ public class DashboardActivity extends AppCompatActivity {
                 modalHost,
                 () -> exitToLogin("You have been logged out")
         );
-
         userSession = new UserSession(this);
+        profileHelper = new DashboardProfileHelper(this);
         consentHelper = new PrimaryAccountConsentHelper(this);
         expandVaultHelper = new ExpandVaultHelper(this);
     }
@@ -218,6 +219,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void activateGrantedState() {
         modalCoordinator.reset();
+        profileHelper.attach(isFromLogin);
 
         applyViewMode(VaultViewMode.ALBUMS);
         segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));

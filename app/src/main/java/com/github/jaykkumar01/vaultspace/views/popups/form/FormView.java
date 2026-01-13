@@ -1,8 +1,7 @@
-package com.github.jaykkumar01.vaultspace.views.popups;
+package com.github.jaykkumar01.vaultspace.views.popups.form;
 
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,24 +17,27 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.R;
 import com.google.android.material.button.MaterialButton;
 
-public class FolderActionView extends FrameLayout {
+public final class FormView extends FrameLayout {
 
-    private static final String TAG = "VaultSpace:CreateFolderView";
+    public interface OnSubmit {
+        void onSubmit(String value);
+    }
 
-    public interface Callback {
-        void onCreate(String name);
+    public interface OnCancel {
         void onCancel();
     }
 
     private final LinearLayout card;
-    private final TextView titleView;
     private final EditText input;
-    private final MaterialButton positiveBtn;
 
-    private Callback callback;
-    private String debugOwner = "unknown";
-
-    public FolderActionView(@NonNull Context context) {
+    public FormView(
+            @NonNull Context context,
+            String title,
+            String hint,
+            String positiveText,
+            OnSubmit onSubmit,
+            OnCancel onCancel
+    ) {
         super(context);
 
         setLayoutParams(new LayoutParams(
@@ -43,9 +45,9 @@ public class FolderActionView extends FrameLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
         setClickable(true);
-        setBackgroundColor(0x990D1117); // dimmed vs_console_bg
+        setBackgroundColor(0x990D1117);
 
-        /* ---------------- Card ---------------- */
+        /* ---------- Card ---------- */
 
         card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -64,21 +66,25 @@ public class FolderActionView extends FrameLayout {
         cardParams.gravity = Gravity.CENTER;
         card.setLayoutParams(cardParams);
 
-        /* ---------------- Title ---------------- */
+        /* ---------- Title ---------- */
 
-        titleView = new TextView(context);
+        TextView titleView = new TextView(context);
         titleView.setTextSize(18);
         titleView.setTextColor(context.getColor(R.color.vs_text_header));
+        titleView.setText(title);
 
-        /* ---------------- Input ---------------- */
+        /* ---------- Input ---------- */
 
         input = new EditText(context);
         input.setSingleLine(true);
+        input.setHint(hint);
         input.setTextColor(context.getColor(R.color.vs_text_header));
         input.setHintTextColor(context.getColor(R.color.vs_text_content));
-        input.setBackgroundTintList(context.getColorStateList(R.color.vs_toggle_off));
+        input.setBackgroundTintList(
+                context.getColorStateList(R.color.vs_toggle_off)
+        );
 
-        /* ---------------- Actions ---------------- */
+        /* ---------- Actions ---------- */
 
         LinearLayout actions = new LinearLayout(context);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -91,7 +97,8 @@ public class FolderActionView extends FrameLayout {
         cancelBtn.setText("Cancel");
         cancelBtn.setTextColor(context.getColor(R.color.vs_text_content));
 
-        positiveBtn = new MaterialButton(context);
+        MaterialButton positiveBtn = new MaterialButton(context);
+        positiveBtn.setText(positiveText);
         positiveBtn.setTextColor(context.getColor(R.color.black));
         positiveBtn.setBackgroundTintList(
                 context.getColorStateList(R.color.vs_accent_primary)
@@ -101,7 +108,7 @@ public class FolderActionView extends FrameLayout {
         actions.addView(cancelBtn);
         actions.addView(positiveBtn);
 
-        /* ---------------- Assemble ---------------- */
+        /* ---------- Assemble ---------- */
 
         card.addView(titleView);
         card.addView(space());
@@ -111,21 +118,17 @@ public class FolderActionView extends FrameLayout {
 
         addView(card);
 
-        /* ---------------- Interactions ---------------- */
+        /* ---------- Interactions ---------- */
 
         card.setOnClickListener(v -> {});
 
-        setOnClickListener(v -> {
-            Log.d(TAG, debugOwner + " → outside dismiss");
-            if (callback != null) callback.onCancel();
-            hide();
-        });
+        setOnClickListener(v ->
+                animateOut(onCancel::onCancel)
+        );
 
-        cancelBtn.setOnClickListener(v -> {
-            Log.d(TAG, debugOwner + " → cancel");
-            if (callback != null) callback.onCancel();
-            hide();
-        });
+        cancelBtn.setOnClickListener(v ->
+                animateOut(onCancel::onCancel)
+        );
 
         positiveBtn.setOnClickListener(v -> {
             String value = input.getText().toString().trim();
@@ -133,39 +136,14 @@ public class FolderActionView extends FrameLayout {
                 input.setError("Required");
                 return;
             }
-            Log.d(TAG, debugOwner + " → create: " + value);
-            if (callback != null) callback.onCreate(value);
-            hide();
+            animateOut(() -> onSubmit.onSubmit(value));
         });
 
-        setVisibility(GONE);
-    }
-
-    /* ---------------- Public API ---------------- */
-
-    public void show(
-            String title,
-            String hint,
-            String positiveText,
-            String debugOwner,
-            Callback callback
-    ) {
-        this.callback = callback;
-        this.debugOwner = debugOwner;
-
-        titleView.setText(title);
-        input.setHint(hint);
-        positiveBtn.setText(positiveText);
-        input.setText("");
-
-        Log.d(TAG, debugOwner + " → show");
-
-        setVisibility(VISIBLE);
+        /* ---------- Entry animation ---------- */
 
         card.setScaleX(0.9f);
         card.setScaleY(0.9f);
         card.setAlpha(0f);
-
         card.animate()
                 .scaleX(1f)
                 .scaleY(1f)
@@ -174,37 +152,31 @@ public class FolderActionView extends FrameLayout {
                 .setInterpolator(new DecelerateInterpolator())
                 .start();
 
-        input.requestFocus();
-        showKeyboard();
+        requestFocusAndShowKeyboard();
     }
 
-    public void hide() {
+    private void animateOut(@NonNull Runnable endAction) {
         hideKeyboard();
-
         card.animate()
                 .scaleX(0.9f)
-                .scaleY(0f)
+                .scaleY(0.9f)
                 .alpha(0f)
                 .setDuration(120)
-                .withEndAction(() -> {
-                    setVisibility(GONE);
-                    callback = null;
-                })
+                .withEndAction(endAction)
                 .start();
     }
 
-    public boolean isVisible() {
-        return getVisibility() == VISIBLE;
-    }
+    /* ---------- Keyboard ---------- */
 
-    /* ---------------- Keyboard ---------------- */
-
-    private void showKeyboard() {
+    private void requestFocusAndShowKeyboard() {
+        input.requestFocus();
         post(() -> {
             InputMethodManager imm =
                     (InputMethodManager) getContext()
                             .getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+            if (imm != null) {
+                imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+            }
         });
     }
 
@@ -212,15 +184,21 @@ public class FolderActionView extends FrameLayout {
         InputMethodManager imm =
                 (InputMethodManager) getContext()
                         .getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) imm.hideSoftInputFromWindow(getWindowToken(), 0);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(getWindowToken(), 0);
+        }
     }
 
-    /* ---------------- Utils ---------------- */
+    /* ---------- Utils ---------- */
 
     private View space() {
         View v = new View(getContext());
-        v.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(12)));
+        v.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(12)
+                )
+        );
         return v;
     }
 

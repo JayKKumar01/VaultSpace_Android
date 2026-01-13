@@ -300,8 +300,6 @@ public final class ModalHost{
             stateKeys.remove(((StateModal) entry.modal).getStateKey());
         }
 
-        entry.modal.onDismissed(result, dismissedData);
-
         entry.modal.onHide();
         root.removeView(entry.modalView);
 
@@ -310,10 +308,13 @@ public final class ModalHost{
 
         activateNext();
 
+        entry.modal.onDismissed(result, dismissedData);
+
         if (active == null) {
             root.setVisibility(GONE);
             Log.d(TAG, "dismissActive() -> root GONE");
         }
+
     }
 
 

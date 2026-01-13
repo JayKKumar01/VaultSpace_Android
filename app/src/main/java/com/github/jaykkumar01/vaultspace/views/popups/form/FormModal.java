@@ -8,31 +8,41 @@ import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
 
 public class FormModal extends EventModal {
 
-    private final boolean allowCancel;
+    private final FormSpec spec;
 
-    public FormModal(ModalEnums.Priority priority, boolean allowCancel) {
-        super(priority);
-        this.allowCancel = allowCancel;
-    }
-
-    /** User submits the form */
-    public void onSubmit(Object formData) {
-        onDismissed(ModalEnums.DismissResult.CONFIRMED, formData);
-    }
-
-    /** User cancels the form */
-    public void onCancel() {
-        if (!allowCancel) return;
-        onDismissed(ModalEnums.DismissResult.CANCELED, null);
+    public FormModal(FormSpec spec) {
+        super(ModalEnums.Priority.MEDIUM);
+        this.spec = spec;
     }
 
     @Override
     public View createView(Context context) {
-        return null;
+        return new FormView(
+                context,
+                spec.title,
+                spec.hint,
+                spec.positiveText,
+                value -> requestDismiss(
+                        ModalEnums.DismissResult.CONFIRMED,
+                        value
+                ),
+                () -> requestDismiss(
+                        ModalEnums.DismissResult.CANCELED,
+                        null
+                )
+        );
     }
 
     @Override
-    public boolean canDismiss(ModalEnums.DismissRequest request) {
-        return allowCancel;
+    public void onDismissed(ModalEnums.DismissResult result, Object data) {
+        if (result == ModalEnums.DismissResult.CONFIRMED) {
+            if (spec.onSubmit != null && data instanceof String) {
+                spec.onSubmit.accept((String) data);
+            }
+        } else if (result == ModalEnums.DismissResult.CANCELED) {
+            if (spec.onCanceled != null) {
+                spec.onCanceled.run();
+            }
+        }
     }
 }

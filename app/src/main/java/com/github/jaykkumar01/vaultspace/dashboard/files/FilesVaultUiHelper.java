@@ -8,8 +8,8 @@ import android.widget.FrameLayout;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.form.FormSpec;
 import com.github.jaykkumar01.vaultspace.views.states.FilesContentView;
-import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
 
 public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
 
@@ -56,36 +56,23 @@ public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
     /* ---------------- Popup (stub) ---------------- */
 
     private void showCreateFolderPopup() {
-        showFolderActionPopup(
+        hostView.request(new FormSpec(
                 "Create Folder",
                 "Folder name",
                 "Create",
-                TAG,
-                new FolderActionView.Callback() {
-                    @Override
-                    public void onCreate(String name) {
-                        Log.d(TAG, "CreateFolderView → onCreate: " + name + " (stub)");
-                        hideFolderActionPopup();
-                    }
+                this::createFolder,
+                null
+        ));
+    }
 
-                    @Override
-                    public void onCancel() {
-                        Log.d(TAG, "CreateFolderView → onCancel");
-                        hideFolderActionPopup();
-                    }
-                }
-        );
+    private void createFolder(String name) {
+        Log.d(TAG, "CreateFolderView → onCreate: " + name + " (stub)");
     }
 
     /* ---------------- Back ---------------- */
 
     @Override
     public boolean onBackPressed() {
-        if (folderActionView != null && folderActionView.isVisible()) {
-            Log.d(TAG, "onBackPressed() → dismiss popup");
-            hideFolderActionPopup();
-            return true;
-        }
         return false;
     }
 

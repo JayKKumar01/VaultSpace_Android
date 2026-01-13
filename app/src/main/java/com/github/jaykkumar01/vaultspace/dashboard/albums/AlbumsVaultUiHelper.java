@@ -13,8 +13,10 @@ import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumsCache;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.views.popups.FolderActionView;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.form.FormSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.list.ListSpec;
 
 import java.util.ArrayList;
@@ -162,27 +164,17 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
      * ========================================================== */
 
     private void showRenameAlbum(AlbumInfo album) {
-        showFolderActionPopup(
+
+        hostView.request(new FormSpec(
                 "Rename Album",
                 album.name,
-                "Rename",
-                TAG,
-                new FolderActionView.Callback() {
-                    @Override
-                    public void onCreate(String name) {
-                        renameAlbum(album, name);
-                    }
-
-                    @Override
-                    public void onCancel() {
-                        hideFolderActionPopup();
-                    }
-                }
-        );
+                "Create",
+                name -> renameAlbum(album,name),
+                null
+        ));
     }
 
     private void renameAlbum(AlbumInfo old, String newName) {
-        hideFolderActionPopup();
 
         String trimmed = newName == null ? "" : newName.trim();
         if (trimmed.isEmpty() || trimmed.equals(old.name)) {
@@ -222,28 +214,16 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     private void onCreateAlbum() {
         if (released) return;
-
-        showFolderActionPopup(
+        hostView.request(new FormSpec(
                 "Create Album",
                 "Album name",
                 "Create",
-                TAG,
-                new FolderActionView.Callback() {
-                    @Override
-                    public void onCreate(String name) {
-                        createAlbum(name);
-                    }
-
-                    @Override
-                    public void onCancel() {
-                        hideFolderActionPopup();
-                    }
-                }
-        );
+                this::createAlbum,
+                null
+        ));
     }
 
     private void createAlbum(String name) {
-        hideFolderActionPopup();
 
         String trimmed = name == null ? "" : name.trim();
         if (trimmed.isEmpty()) {
@@ -284,19 +264,15 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
      * ========================================================== */
 
     private void showDeleteAlbumConfirm(AlbumInfo album) {
-//        hostView.request(
-//                new ConfirmSpec(
-//                        "Delete album?",
-//                        "This will permanently delete \"" + album.name + "\" and all its contents.",
-//                        "Delete",
-//                        true,
-//                        true,
-//                        true,
-//                        ConfirmRisk.RISK_CRITICAL,
-//                        () -> deleteAlbum(album),   // ✅ FIX
-//                        null
-//                )
-//        );
+        hostView.request(new ConfirmSpec(
+                "Delete album?",
+                "This will permanently delete \"" + album.name + "\" and all its contents.",
+                true,
+                ConfirmView.RISK_CRITICAL,
+                () -> deleteAlbum(album),
+                null
+
+        ));
     }
 
     private void deleteAlbum(AlbumInfo album) {
@@ -348,10 +324,6 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     @Override
     public boolean onBackPressed() {
-        if (folderActionView != null && folderActionView.isVisible()) {
-            hideFolderActionPopup();
-            return true;
-        }
         return false;
     }
 
