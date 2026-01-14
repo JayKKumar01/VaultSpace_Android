@@ -19,7 +19,7 @@ import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
  * - Error classification
  * - UI state management
  */
-public final class AlbumModalCoordinator {
+public final class AlbumModalHandler {
 
     private final ModalHost modalHost;
 
@@ -29,7 +29,7 @@ public final class AlbumModalCoordinator {
     private final ConfirmSpec permissionRevokedSpec;
     private final ConfirmSpec unrecoverableErrorSpec;
 
-    public AlbumModalCoordinator(
+    public AlbumModalHandler(
             @NonNull ModalHost modalHost,
             @NonNull Runnable onRetry,
             @NonNull Runnable onExit
@@ -101,5 +101,9 @@ public final class AlbumModalCoordinator {
         modalHost.dismiss(retryLoadSpec, DismissResult.SYSTEM);
         modalHost.dismiss(permissionRevokedSpec, DismissResult.SYSTEM);
         modalHost.dismiss(unrecoverableErrorSpec, DismissResult.SYSTEM);
+    }
+
+    public boolean onBackPressed() {
+        return modalHost.onBackPressed();
     }
 }

@@ -21,7 +21,6 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -90,78 +89,101 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
-                <!-- Back Button -->
-                <ImageView
-                    android:id="@+id/btnBack"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    app:layout_constraintDimensionRatio="1"
-                    android:src="@drawable/ic_arrow_back"
-                    android:contentDescription="Back"
-                    android:alpha="0.85"
-                    android:padding="8dp"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent" />
-
-                <!-- Album Title -->
-                <TextView
-                    android:id="@+id/tvAlbumName"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:text="Album Name"
-                    android:textColor="@color/vs_text_console"
-                    android:textSize="17sp"
-                    android:textStyle="bold"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    app:layout_constraintStart_toEndOf="@id/btnBack"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
-
-                <!-- Album Meta Row -->
                 <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/albumMetaRow"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textAlignment="center"
-                    app:layout_constraintTop_toBottomOf="@id/tvAlbumName"
-                    app:layout_constraintStart_toStartOf="@id/tvAlbumName"
-                    app:layout_constraintEnd_toEndOf="parent">
+                    android:id="@+id/albumLeft"
+                    app:layout_constraintWidth_percent=".55"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent">
 
-                    <com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView
-                        android:id="@+id/albumMetaInfo"
+                    <!-- Back Button -->
+                    <ImageView
+                        android:id="@+id/btnBack"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        app:layout_constraintDimensionRatio="1"
+                        android:src="@drawable/ic_arrow_back"
+                        android:contentDescription="Back"
+                        android:padding="2dp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent" />
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                        android:layout_marginStart="8dp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/btnBack"
+                        app:layout_constraintEnd_toEndOf="parent">
+                        <!-- Album Title -->
+                        <TextView
+                            android:id="@+id/tvAlbumName"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:text="Album Name"
+                            android:textColor="@color/vs_text_console"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:layout_constraintBottom_toTopOf="@id/albumMetaInfo"
+                            app:layout_constraintEnd_toEndOf="parent" />
+                        <com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView
+                            android:id="@+id/albumMetaInfo"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintBottom_toBottomOf="parent"/>
 
+                    </androidx.constraintlayout.widget.ConstraintLayout>
 
+                </androidx.constraintlayout.widget.ConstraintLayout>
 
-
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:id="@+id/albumRight"
+                    app:layout_constraintStart_toEndOf="@id/albumLeft"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent">
                     <!-- Right: Philosophy -->
                     <TextView
-                        android:id="@+id/tvAlbumSize"
-                        android:layout_width="wrap_content"
-                        android:layout_height="0dp"
+                        android:id="@+id/tvPhilosophy"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
                         android:textAlignment="center"
                         android:text="No limits · Just memories"
                         android:textColor="@color/vs_brand_text"
                         android:textSize="11sp"
+                        app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                        app:layout_constraintBottom_toBottomOf="parent"/>
+
+
+
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
-
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
 
+
+
+
+
+
+
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.cardview.widget.CardView>
+
 
 
     <!-- ================= Album Content Container ================= -->
@@ -181,6 +203,20 @@
             android:layout_height="match_parent" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+
+    <!-- ================= Upload Status Card ================= -->
+    <com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView
+        android:id="@+id/uploadStatusView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:visibility="visible"
+        app:layout_constraintVertical_bias="1"
+        app:layout_constraintTop_toTopOf="@id/albumHeaderCard"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

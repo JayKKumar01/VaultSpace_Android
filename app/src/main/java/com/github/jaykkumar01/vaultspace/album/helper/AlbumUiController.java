@@ -12,7 +12,7 @@ import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
 import java.util.List;
 
-public final class AlbumUiHelper {
+public final class AlbumUiController {
 
     public interface AlbumUiCallback {
         void onAddMediaClicked();
@@ -26,7 +26,7 @@ public final class AlbumUiHelper {
     private final EmptyStateView emptyView;
     private final AlbumContentView contentView;
 
-    public AlbumUiHelper(
+    public AlbumUiController(
             Context context,
             FrameLayout container,
             AlbumUiCallback callback

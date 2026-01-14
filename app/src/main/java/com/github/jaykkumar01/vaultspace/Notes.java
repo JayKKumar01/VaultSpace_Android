@@ -10,4 +10,6 @@ public class Notes {
     // some bugs are there for the backpress and the outside touch, clickable true to false
     // how onDismissedData is going to help me
     //dashboard > cancel setup or wait, while retrying
+
+    // use the retry on the same upload status view after failed upload, so normalize the cancel button
 }

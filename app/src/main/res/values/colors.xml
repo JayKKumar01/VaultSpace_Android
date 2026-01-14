@@ -31,6 +31,8 @@
     <color name="vs_brand_text">#CFEDE0</color>
 
     <color name="vs_surface_soft">#1B2430</color>
+    <color name="vs_surface_soft_translucent">#E61B2430</color>
+
 
     <!-- ===== Ripple Effects ===== -->
     <color name="vs_ripple_primary">#337BE495</color> <!-- green ripple (Expand Vault) -->

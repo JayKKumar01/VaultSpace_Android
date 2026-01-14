@@ -17,16 +17,22 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.AlbumLoader;
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalCoordinator;
-import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiHelper;
-import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiHelper.AlbumUiCallback;
+import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController.AlbumUiCallback;
+import com.github.jaykkumar01.vaultspace.core.picker.AlbumMediaPicker;
+import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback {
+public class AlbumActivity extends AppCompatActivity
+        implements AlbumUiCallback,
+        AlbumActionCoordinator.Host {
+
 
     private static final String TAG = "VaultSpace:Album";
 
@@ -47,11 +53,15 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
     private AlbumMetaInfoView albumMetaInfo;
     private SwipeRefreshLayout swipeRefresh;
 
-    private AlbumUiHelper albumUi;
+    private AlbumUiController albumUiController;
     private AlbumLoader albumLoader;
-    private AlbumModalCoordinator modalCoordinator;
+    private AlbumModalHandler albumModalHandler;
 
-    private final List<AlbumMedia> currentMedia = new ArrayList<>();
+    private AlbumActionCoordinator actionCoordinator;
+
+
+
+    private final List<AlbumMedia> visibleMedia = new ArrayList<>();
 
     private final AlbumLoader.Callback loaderCallback = new AlbumLoader.Callback() {
         @Override
@@ -64,9 +74,10 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         public void onError(Exception e) {
             if (released) return;
             Log.e(TAG, "Album load failed", e);
-            moveToState(UiState.ERROR);
+            transitionTo(UiState.ERROR);
         }
     };
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,28 +98,28 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         setupBackHandling();
 
         ModalHost modalHost = ModalHost.attach(this);
-        modalCoordinator = new AlbumModalCoordinator(
+        albumModalHandler = new AlbumModalHandler(
                 modalHost,
                 this::refreshAlbum,
                 this::finish
         );
 
-        initAlbumUi();
+        albumLoader = new AlbumLoader(this, albumId);
+        albumUiController = new AlbumUiController(this, contentContainer, this);
+        actionCoordinator = new AlbumActionCoordinator(this, this);
+
+
+
         loadAlbum();
 
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
     }
 
-    /* ---------------- Load & Refresh ---------------- */
-
-    private void initAlbumUi() {
-        albumLoader = new AlbumLoader(this, albumId);
-        albumUi = new AlbumUiHelper(this, contentContainer, this);
-    }
+    /* ---------------- Load / Refresh ---------------- */
 
     private void loadAlbum() {
         if (released || state != UiState.UNINITIALIZED) return;
-        moveToState(UiState.LOADING);
+        transitionTo(UiState.LOADING);
         albumLoader.load(loaderCallback);
     }
 
@@ -117,33 +128,33 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
             swipeRefresh.setRefreshing(false);
             return;
         }
-        moveToState(UiState.LOADING);
+        transitionTo(UiState.LOADING);
         albumLoader.refresh(loaderCallback);
     }
 
-    /* ---------------- Render ---------------- */
+    /* ---------------- Rendering ---------------- */
 
     private void renderFromCache() {
         int photos = 0;
         int videos = 0;
 
-        List<AlbumMedia> mediaList = albumLoader.getMedia();
-        for (AlbumMedia m : mediaList) {
+        List<AlbumMedia> snapshot = albumLoader.getMedia();
+        for (AlbumMedia m : snapshot) {
             if (m.isVideo) videos++;
             else photos++;
         }
 
         albumMetaInfo.setCounts(photos, videos);
 
-        currentMedia.clear();
-        currentMedia.addAll(mediaList);
+        visibleMedia.clear();
+        visibleMedia.addAll(snapshot);
 
-        moveToState(currentMedia.isEmpty() ? UiState.EMPTY : UiState.CONTENT);
+        transitionTo(visibleMedia.isEmpty() ? UiState.EMPTY : UiState.CONTENT);
     }
 
-    /* ---------------- UI State ---------------- */
+    /* ---------------- State Machine ---------------- */
 
-    private void moveToState(UiState newState) {
+    private void transitionTo(UiState newState) {
         if (state == newState) return;
 
         Log.d(TAG, "state " + state + " → " + newState);
@@ -155,46 +166,73 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
 
         switch (newState) {
             case LOADING:
-                albumUi.showLoading();
+                renderLoading();
                 break;
 
             case EMPTY:
-                albumUi.showEmpty();
+                renderEmpty();
                 break;
 
             case ERROR:
-                modalCoordinator.showRetryLoad();
+                renderError();
                 break;
 
             case CONTENT:
-                modalCoordinator.dismissAll();
-                albumUi.showContent(currentMedia);
+                renderContent();
                 break;
 
             case UNINITIALIZED:
+                // no-op
                 break;
         }
     }
+
+    private void renderLoading() {
+        albumUiController.showLoading();
+    }
+
+    private void renderEmpty() {
+        albumUiController.showEmpty();
+    }
+
+    private void renderError() {
+        albumModalHandler.showRetryLoad();
+    }
+
+    private void renderContent() {
+        albumModalHandler.dismissAll();
+        albumUiController.showContent(visibleMedia);
+    }
+
+
 
     /* ---------------- UI Callbacks ---------------- */
 
     @Override
     public void onAddMediaClicked() {
-        if (released) return;
-        Log.d(TAG, "Add media requested for album=" + albumId);
+        actionCoordinator.onAddMediaClicked();
     }
 
     @Override
     public void onMediaClicked(AlbumMedia media, int position) {
-        if (released) return;
-        Log.d(TAG, "Media clicked pos=" + position);
+        actionCoordinator.onMediaClicked(media, position);
+    }
+    @Override
+    public void onMediaLongPressed(AlbumMedia media, int position) {
+        actionCoordinator.onMediaLongPressed(media, position);
     }
 
     @Override
-    public void onMediaLongPressed(AlbumMedia media, int position) {
-        if (released) return;
-        Log.d(TAG, "Media long-pressed pos=" + position);
+    public boolean isReleased() {
+        return released;
     }
+
+    @Override
+    public String getAlbumId() {
+        return albumId;
+    }
+
+
 
     /* ---------------- Setup ---------------- */
 
@@ -229,6 +267,7 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                if (albumModalHandler.onBackPressed()) return;
                 finish();
                 overridePendingTransition(
                         R.anim.album_return_enter,
@@ -250,7 +289,7 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
     protected void onDestroy() {
         super.onDestroy();
         released = true;
-        if (modalCoordinator != null) modalCoordinator.dismissAll();
-        if (albumLoader != null) albumLoader.release();
+        albumModalHandler.dismissAll();
+        albumLoader.release();
     }
 }
