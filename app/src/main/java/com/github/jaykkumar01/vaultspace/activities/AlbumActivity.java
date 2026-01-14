@@ -17,9 +17,11 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.AlbumLoader;
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.album.AlbumUiHelper;
-import com.github.jaykkumar01.vaultspace.album.AlbumUiHelper.AlbumUiCallback;
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalCoordinator;
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiHelper;
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiHelper.AlbumUiCallback;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +49,7 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
 
     private AlbumUiHelper albumUi;
     private AlbumLoader albumLoader;
+    private AlbumModalCoordinator modalCoordinator;
 
     private final List<AlbumMedia> currentMedia = new ArrayList<>();
 
@@ -83,8 +86,14 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         bindHeader();
         setupBackHandling();
 
-        initAlbumUi();
+        ModalHost modalHost = ModalHost.attach(this);
+        modalCoordinator = new AlbumModalCoordinator(
+                modalHost,
+                this::refreshAlbum,
+                this::finish
+        );
 
+        initAlbumUi();
         loadAlbum();
 
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
@@ -92,19 +101,13 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
 
     /* ---------------- Load & Refresh ---------------- */
 
-    private void initAlbumUi(){
+    private void initAlbumUi() {
         albumLoader = new AlbumLoader(this, albumId);
-
-        albumUi = new AlbumUiHelper(
-                this,
-                contentContainer,
-                this
-        );
+        albumUi = new AlbumUiHelper(this, contentContainer, this);
     }
 
     private void loadAlbum() {
         if (released || state != UiState.UNINITIALIZED) return;
-
         moveToState(UiState.LOADING);
         albumLoader.load(loaderCallback);
     }
@@ -114,7 +117,6 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
             swipeRefresh.setRefreshing(false);
             return;
         }
-
         moveToState(UiState.LOADING);
         albumLoader.refresh(loaderCallback);
     }
@@ -136,11 +138,7 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         currentMedia.clear();
         currentMedia.addAll(mediaList);
 
-        if (currentMedia.isEmpty()) {
-            moveToState(UiState.EMPTY);
-        } else {
-            moveToState(UiState.CONTENT);
-        }
+        moveToState(currentMedia.isEmpty() ? UiState.EMPTY : UiState.CONTENT);
     }
 
     /* ---------------- UI State ---------------- */
@@ -161,11 +159,15 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
                 break;
 
             case EMPTY:
-            case ERROR:
                 albumUi.showEmpty();
                 break;
 
+            case ERROR:
+                modalCoordinator.showRetryLoad();
+                break;
+
             case CONTENT:
+                modalCoordinator.dismissAll();
                 albumUi.showContent(currentMedia);
                 break;
 
@@ -248,6 +250,7 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
     protected void onDestroy() {
         super.onDestroy();
         released = true;
+        if (modalCoordinator != null) modalCoordinator.dismissAll();
         if (albumLoader != null) albumLoader.release();
     }
 }

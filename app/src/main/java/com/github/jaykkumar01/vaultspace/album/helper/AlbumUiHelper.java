@@ -1,10 +1,12 @@
-package com.github.jaykkumar01.vaultspace.album;
+package com.github.jaykkumar01.vaultspace.album.helper;
 
 import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.album.AlbumContentView;
+import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 

@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album;
+package com.github.jaykkumar01.vaultspace.album.helper;
 
 import android.content.Context;
 import android.os.Handler;
@@ -7,6 +7,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.google.api.services.drive.Drive;
