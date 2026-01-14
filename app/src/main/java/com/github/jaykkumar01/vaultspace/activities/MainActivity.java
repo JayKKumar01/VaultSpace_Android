@@ -18,7 +18,7 @@ public class MainActivity extends AppCompatActivity {
 
         networkGate = new NetworkGateHelper(this);
 
-        networkGate.awaitNetwork(() -> {
+//        networkGate.awaitNetwork(() -> {
             UserSession session = new UserSession(this);
 
             Intent intent = session.isLoggedIn()
@@ -28,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
 
             startActivity(intent);
             finish();
-        });
+//        });
     }
 
     @Override

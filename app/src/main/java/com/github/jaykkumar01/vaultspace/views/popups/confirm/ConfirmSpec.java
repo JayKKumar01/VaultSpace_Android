@@ -13,9 +13,12 @@ public class ConfirmSpec extends ModalSpec {
     public Runnable onPositive;
     public Runnable onNegative;
 
-    // NEW: optional button labels
+    // Optional button labels
     public String positiveText;
     public String negativeText;
+
+    // NEW: modal cancelability (back / outside)
+    public boolean cancelable = true;
 
     public ConfirmSpec(
             String title,
@@ -60,5 +63,13 @@ public class ConfirmSpec extends ModalSpec {
 
     public void setNegativeText(String text) {
         this.negativeText = text;
+    }
+
+    /* =======================
+       Cancelability
+       ======================= */
+
+    public void setCancelable(boolean cancelable) {
+        this.cancelable = cancelable;
     }
 }

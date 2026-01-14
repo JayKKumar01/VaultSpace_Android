@@ -61,12 +61,13 @@ public final class DashboardModalCoordinator {
                 "Connection issue",
                 "Unable to verify permissions right now.",
                 true,
-                ConfirmView.RISK_CRITICAL,
+                ConfirmView.RISK_NEUTRAL,
                 null,
                 null
         );
         retryConsentSpec.setPositiveText("Retry");
         retryConsentSpec.setNegativeText("Exit");
+        retryConsentSpec.setCancelable(false);
     }
 
     /* ---------- Loading ---------- */
