@@ -11,7 +11,7 @@ public class ListModal extends EventModal {
     private final ListSpec spec;
 
     public ListModal(ListSpec spec) {
-        super(ModalEnums.Priority.MEDIUM);
+        super(ModalEnums.Priority.LOW);
         this.spec = spec;
     }
 

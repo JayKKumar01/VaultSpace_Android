@@ -11,7 +11,7 @@ public class ConfirmModal extends EventModal {
     private final ConfirmSpec spec;
 
     public ConfirmModal(ConfirmSpec spec) {
-        super(ModalEnums.Priority.MEDIUM);
+        super(ModalEnums.Priority.HIGH);
         this.spec = spec;
     }
 

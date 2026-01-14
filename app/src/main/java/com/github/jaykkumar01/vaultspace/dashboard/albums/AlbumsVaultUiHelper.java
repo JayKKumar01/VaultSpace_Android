@@ -137,6 +137,14 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             intent.putExtra("album_id", album.id);
             intent.putExtra("album_name", album.name);
             context.startActivity(intent);
+
+            // 👇 This is the magic
+            if (context instanceof android.app.Activity) {
+                ((android.app.Activity) context).overridePendingTransition(
+                        R.anim.album_enter,
+                        R.anim.album_exit
+                );
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to launch AlbumActivity", e);
             Toast.makeText(context, "Unable to open album", Toast.LENGTH_SHORT).show();

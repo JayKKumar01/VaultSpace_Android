@@ -32,9 +32,7 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder>
 
     /* ---------------- Callbacks wiring ---------------- */
 
-    void setOnAlbumClickListener(
-            AlbumsContentView.OnAlbumClickListener listener
-    ) {
+    void setOnAlbumClickListener(AlbumsContentView.OnAlbumClickListener listener) {
         this.clickListener = listener;
     }
 
@@ -164,12 +162,34 @@ class AlbumsAdapter extends RecyclerView.Adapter<AlbumsViewHolder>
 
         holder.itemView.setOnClickListener(v -> {
             if (clickListener == null) return;
-
-            // Ignore temp albums
             if (album.id != null && album.id.startsWith("temp_")) return;
 
-            clickListener.onAlbumClick(album);
+            // Prevent double taps during animation
+            v.setEnabled(false);
+
+            v.animate()
+                    .scaleX(0.98f)
+                    .scaleY(0.98f)
+                    .alpha(0.7f)
+                    .setDuration(90)
+                    .withEndAction(() -> {
+                        v.animate()
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .alpha(1f)
+                                .setDuration(90)
+                                .withEndAction(() -> {
+                                    v.setEnabled(true);
+                                    clickListener.onAlbumClick(album);
+                                })
+                                .start();
+                    })
+                    .start();
         });
+
+
+
+
     }
 
     @Override
