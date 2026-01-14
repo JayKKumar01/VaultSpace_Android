@@ -77,6 +77,17 @@ public final class AlbumLoader {
             return;
         }
 
+        fetchFromDrive(callback);
+    }
+
+    public void refresh(@NonNull Callback callback) {
+        if (released) return;
+
+        invalidate();
+        fetchFromDrive(callback);
+    }
+
+    private void fetchFromDrive(@NonNull Callback callback) {
         driveHelper.fetchAlbumMedia(
                 executor,
                 new AlbumDriveHelper.FetchCallback() {
@@ -93,12 +104,13 @@ public final class AlbumLoader {
                     public void onError(Exception e) {
                         if (released) return;
 
-                        Log.e(TAG, "load failed albumId=" + albumId, e);
+                        Log.e(TAG, "fetch failed albumId=" + albumId, e);
                         callback.onError(e);
                     }
                 }
         );
     }
+
 
     /**
      * Read-only access to cached media.
@@ -119,11 +131,6 @@ public final class AlbumLoader {
 
     public void invalidate() {
         mediaEntry.clear();
-    }
-
-    public void refresh(@NonNull Callback callback) {
-        invalidate();
-        load(callback);
     }
 
     /* ==========================================================

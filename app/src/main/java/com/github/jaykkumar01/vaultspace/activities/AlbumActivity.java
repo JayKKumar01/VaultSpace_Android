@@ -12,21 +12,17 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.album.AlbumDriveHelper;
 import com.github.jaykkumar01.vaultspace.album.AlbumLoader;
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.AlbumUiHelper;
 import com.github.jaykkumar01.vaultspace.album.AlbumUiHelper.AlbumUiCallback;
-import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumMediaEntry;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback {
 
@@ -47,15 +43,27 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
     private ImageView btnBack;
     private FrameLayout contentContainer;
     private AlbumMetaInfoView albumMetaInfo;
+    private SwipeRefreshLayout swipeRefresh;
 
     private AlbumUiHelper albumUi;
-
-    // Data
     private AlbumLoader albumLoader;
 
     private final List<AlbumMedia> currentMedia = new ArrayList<>();
 
+    private final AlbumLoader.Callback loaderCallback = new AlbumLoader.Callback() {
+        @Override
+        public void onDataLoaded() {
+            if (released) return;
+            renderFromCache();
+        }
 
+        @Override
+        public void onError(Exception e) {
+            if (released) return;
+            Log.e(TAG, "Album load failed", e);
+            moveToState(UiState.ERROR);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,56 +79,54 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         applyWindowInsets();
 
         bindViews();
+        setupRefresh();
         bindHeader();
         setupBackHandling();
 
-        albumLoader = new AlbumLoader(this, albumId);
-
-
-        albumUi = new AlbumUiHelper(
-                this,
-                contentContainer,
-                this
-        );
+        initAlbumUi();
 
         loadAlbum();
 
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
     }
 
-    /* ---------------- Load flow ---------------- */
+    /* ---------------- Load & Refresh ---------------- */
+
+    private void initAlbumUi(){
+        albumLoader = new AlbumLoader(this, albumId);
+
+        albumUi = new AlbumUiHelper(
+                this,
+                contentContainer,
+                this
+        );
+    }
 
     private void loadAlbum() {
         if (released || state != UiState.UNINITIALIZED) return;
 
         moveToState(UiState.LOADING);
-
-        albumLoader.load(new AlbumLoader.Callback() {
-            @Override
-            public void onDataLoaded() {
-                if (released) return;
-                renderFromCache();
-            }
-
-            @Override
-            public void onError(Exception e) {
-                if (released) return;
-
-                Log.e(TAG, "Album load failed", e);
-                moveToState(UiState.ERROR);
-            }
-        });
+        albumLoader.load(loaderCallback);
     }
 
+    private void refreshAlbum() {
+        if (released) {
+            swipeRefresh.setRefreshing(false);
+            return;
+        }
 
+        moveToState(UiState.LOADING);
+        albumLoader.refresh(loaderCallback);
+    }
+
+    /* ---------------- Render ---------------- */
 
     private void renderFromCache() {
         int photos = 0;
         int videos = 0;
 
-        List<AlbumMedia> mediaList = new ArrayList<>();
-        for (AlbumMedia m : albumLoader.getMedia()) {
-            mediaList.add(m);
+        List<AlbumMedia> mediaList = albumLoader.getMedia();
+        for (AlbumMedia m : mediaList) {
             if (m.isVideo) videos++;
             else photos++;
         }
@@ -137,34 +143,17 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         }
     }
 
-
-
-    /* ---------------- UI callbacks ---------------- */
-
-    @Override
-    public void onAddMediaClicked() {
-        if (released) return;
-        Log.d(TAG, "Add media requested for album=" + albumId);
-        // picker / sheet later
-    }
-
-    @Override
-    public void onMediaClicked(AlbumMedia media, int position) {
-        if (released) return;
-        Log.d(TAG, "Media clicked pos=" + position);
-    }
-
-    @Override
-    public void onMediaLongPressed(AlbumMedia media, int position) {
-        if (released) return;
-        Log.d(TAG, "Media long-pressed pos=" + position);
-    }
+    /* ---------------- UI State ---------------- */
 
     private void moveToState(UiState newState) {
         if (state == newState) return;
 
         Log.d(TAG, "state " + state + " → " + newState);
         state = newState;
+
+        if (newState != UiState.LOADING) {
+            swipeRefresh.setRefreshing(false);
+        }
 
         switch (newState) {
             case LOADING:
@@ -181,14 +170,39 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
                 break;
 
             case UNINITIALIZED:
-                // no-op
                 break;
         }
     }
 
+    /* ---------------- UI Callbacks ---------------- */
 
+    @Override
+    public void onAddMediaClicked() {
+        if (released) return;
+        Log.d(TAG, "Add media requested for album=" + albumId);
+    }
 
-    /* ---------------- Intent ---------------- */
+    @Override
+    public void onMediaClicked(AlbumMedia media, int position) {
+        if (released) return;
+        Log.d(TAG, "Media clicked pos=" + position);
+    }
+
+    @Override
+    public void onMediaLongPressed(AlbumMedia media, int position) {
+        if (released) return;
+        Log.d(TAG, "Media long-pressed pos=" + position);
+    }
+
+    /* ---------------- Setup ---------------- */
+
+    private void setupRefresh() {
+        swipeRefresh.setOnRefreshListener(this::refreshAlbum);
+        swipeRefresh.setColorSchemeResources(
+                R.color.vs_accent_primary,
+                R.color.vs_brand_text
+        );
+    }
 
     private boolean readIntent() {
         albumId = getIntent().getStringExtra(EXTRA_ALBUM_ID);
@@ -196,21 +210,18 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
         return albumId != null && !albumId.isEmpty();
     }
 
-    /* ---------------- Views ---------------- */
-
     private void bindViews() {
         tvAlbumName = findViewById(R.id.tvAlbumName);
         btnBack = findViewById(R.id.btnBack);
         contentContainer = findViewById(R.id.stateContainer);
         albumMetaInfo = findViewById(R.id.albumMetaInfo);
+        swipeRefresh = findViewById(R.id.swipeRefresh);
     }
 
     private void bindHeader() {
         tvAlbumName.setText(albumName);
         btnBack.setOnClickListener(v -> finish());
     }
-
-    /* ---------------- Back handling ---------------- */
 
     private void setupBackHandling() {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -224,8 +235,6 @@ public class AlbumActivity extends AppCompatActivity implements AlbumUiCallback 
             }
         });
     }
-
-    /* ---------------- Insets ---------------- */
 
     private void applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {

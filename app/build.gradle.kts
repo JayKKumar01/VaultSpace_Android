@@ -61,6 +61,7 @@ dependencies {
 // Google Drive API v3
     implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation(libs.swiperefreshlayout)
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
     testImplementation(libs.junit)

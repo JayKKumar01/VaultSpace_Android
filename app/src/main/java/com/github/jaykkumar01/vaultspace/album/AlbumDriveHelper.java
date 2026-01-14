@@ -47,7 +47,7 @@ public final class AlbumDriveHelper {
     }
 
     /* ==========================================================
-     * Constructor (LOCKED)
+     * Constructor
      * ========================================================== */
 
     public AlbumDriveHelper(@NonNull Context context, @NonNull String albumId) {
@@ -57,24 +57,19 @@ public final class AlbumDriveHelper {
         String email = session.getPrimaryAccountEmail();
         primaryDrive = DriveClientProvider.forAccount(context, email);
 
-        Log.d(TAG, "Initialized for albumId=" + albumId);
+        Log.d(TAG, "Initialized albumId=" + albumId + ", account=" + email);
     }
 
     /* ==========================================================
      * Fetch
      * ========================================================== */
 
-    /**
-     * Fetches all media items for this album.
-     *
-     * - Always hits Drive
-     * - Runs on provided executor
-     * - Result delivered on main thread
-     */
     public void fetchAlbumMedia(
             ExecutorService executor,
             FetchCallback callback
     ) {
+        Log.d(TAG, "fetchAlbumMedia start albumId=" + albumId);
+
         executor.execute(() -> {
             try {
                 String q =
@@ -97,6 +92,13 @@ public final class AlbumDriveHelper {
                         .execute();
 
                 List<AlbumMedia> media = mapToAlbumMedia(list);
+
+                Log.d(
+                        TAG,
+                        "fetch success albumId=" + albumId +
+                                ", itemCount=" + media.size()
+                );
+
                 postResult(callback, media);
 
             } catch (Exception e) {
@@ -138,10 +140,12 @@ public final class AlbumDriveHelper {
      * ========================================================== */
 
     private void postResult(FetchCallback cb, List<AlbumMedia> items) {
+        Log.d(TAG, "postResult → main thread albumId=" + albumId);
         mainHandler.post(() -> cb.onResult(items));
     }
 
     private void postError(FetchCallback cb, Exception e) {
+        Log.d(TAG, "postError → main thread albumId=" + albumId);
         mainHandler.post(() -> cb.onError(e));
     }
 }
