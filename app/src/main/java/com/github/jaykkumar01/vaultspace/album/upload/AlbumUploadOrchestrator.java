@@ -1,76 +1,124 @@
 package com.github.jaykkumar01.vaultspace.album.upload;
 
-import android.telecom.Call;
+import android.content.Context;
+import android.content.Intent;
 
+import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
+
+import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
-import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 
-import java.util.ArrayList;
-import java.util.List;
+/**
+ * AlbumUploadOrchestrator
+ *
+ * Android-aware bridge between UI and UploadManager.
+ *
+ * Responsibilities:
+ * - Start / stop ForegroundService
+ * - Forward UI intents to UploadManager
+ * - Keep UploadManager Android-free
+ *
+ * Non-responsibilities:
+ * - Upload execution
+ * - Retry logic
+ * - Snapshot inspection
+ * - Notification state decisions
+ */
+public final class AlbumUploadOrchestrator {
+    private static AlbumUploadOrchestrator INSTANCE;
 
-public class AlbumUploadOrchestrator {
 
-    public interface Callback {
+    private final Context appContext;
+    private final UploadManager uploadManager;
+    private final UploadCache uploadCache;
 
-        /**
-         * Called for every upload state / progress change.
-         */
-        void onStateChanged(UploadSnapshot snapshot);
+    private boolean serviceRunning;
 
-        /**
-         * Called once when upload reaches a terminal state.
-         *
-         * @param hadFailures true if at least one item failed
-         */
-        void onCompleted(boolean hadFailures);
+    public AlbumUploadOrchestrator(
+            @NonNull Context context,
+            @NonNull UploadManager uploadManager,
+            @NonNull UploadCache uploadCache
+    ) {
+        this.appContext = context.getApplicationContext();
+        this.uploadManager = uploadManager;
+        this.uploadCache = uploadCache;
+
+        INSTANCE = this;
     }
 
-    private final String albumId;
-    private final Callback callback;
-
-    private UploadSnapshot snapshot =
-            new UploadSnapshot(
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    UploadStatusView.State.UPLOADING
-            );
-
-    public AlbumUploadOrchestrator(String albumId, Callback callback) {
-        this.albumId = albumId;
-        this.callback = callback;
+    static AlbumUploadOrchestrator getInstance() {
+        return INSTANCE;
     }
 
-    /* ================= Public API ================= */
 
-    public void startUpload(List<MediaSelection> selections) {
-        if (selections == null || selections.isEmpty()) return;
+    /* ==========================================================
+     * UI-facing APIs
+     * ========================================================== */
 
-        int photos = 0;
-        int videos = 0;
+    public void enqueue(
+            @NonNull String albumId,
+            @NonNull Iterable<MediaSelection> selections
+    ) {
+        uploadManager.enqueue(albumId, selections);
+        ensureForegroundServiceRunning();
+    }
 
-        for (MediaSelection s : selections) {
-            if (s.isVideo) videos++;
-            else photos++;
-        }
+    public void registerObserver(
+            @NonNull String albumId,
+            @NonNull UploadObserver observer
+    ) {
+        uploadManager.registerObserver(albumId, observer);
+    }
 
-        snapshot = new UploadSnapshot(
-                photos,
-                videos,
-                selections.size(),
-                0,
-                0,
-                UploadStatusView.State.UPLOADING
+    public void unregisterObserver(@NonNull String albumId) {
+        uploadManager.unregisterObserver(albumId);
+    }
+
+    public void cancelAllUploads() {
+        uploadManager.cancelAllByUser();
+        stopForegroundServiceIfIdle();
+    }
+
+    /* ==========================================================
+     * UploadManager → Orchestrator hooks
+     * ========================================================== */
+
+    /**
+     * Called by UploadManager when uploads reach a terminal state
+     * (queue empty + no current task).
+     */
+    void onUploadsTerminated() {
+        stopForegroundServiceIfIdle();
+    }
+
+    /* ==========================================================
+     * Foreground service control
+     * ========================================================== */
+
+    private void ensureForegroundServiceRunning() {
+        if (serviceRunning) return;
+
+        Intent intent = new Intent(
+                appContext,
+                UploadForegroundService.class
         );
 
-        callback.onStateChanged(snapshot);
-
-        //
+        ContextCompat.startForegroundService(appContext, intent);
+        serviceRunning = true;
     }
 
-    public void cancelUpload() {
-        // TODO
+    private void stopForegroundServiceIfIdle() {
+        if (!serviceRunning) return;
+
+        if (uploadCache.hasAnyActiveUploads()) return;
+
+        Intent intent = new Intent(
+                appContext,
+                UploadForegroundService.class
+        );
+
+        appContext.stopService(intent);
+        serviceRunning = false;
     }
 }

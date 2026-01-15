@@ -51,7 +51,6 @@ public class AlbumActivity extends AppCompatActivity {
     private ImageView btnBack;
     private FrameLayout contentContainer;
     private AlbumMetaInfoView albumMetaInfo;
-    private UploadStatusView uploadStatusView;
     private SwipeRefreshLayout swipeRefresh;
 
     private AlbumUiController albumUiController;
@@ -60,7 +59,6 @@ public class AlbumActivity extends AppCompatActivity {
     private AlbumModalHandler albumModalHandler;
 
     private AlbumActionCoordinator actionCoordinator;
-    private AlbumUploadOrchestrator uploadOrchestrator;
 
     private final List<AlbumMedia> visibleMedia = new ArrayList<>();
 
@@ -82,7 +80,7 @@ public class AlbumActivity extends AppCompatActivity {
     private final AlbumActionCoordinator.Callback actionCallback = new AlbumActionCoordinator.Callback() {
         @Override
         public void onMediaSelected(List<MediaSelection> selections) {
-            uploadOrchestrator.startUpload(selections);
+            // will be send for uploads
         }
     };
 
@@ -102,39 +100,6 @@ public class AlbumActivity extends AppCompatActivity {
         }
     };
 
-    private final AlbumUploadOrchestrator.Callback uploadCallback = new AlbumUploadOrchestrator.Callback() {
-        @Override
-        public void onStateChanged(UploadSnapshot s) {
-            if (released) return;
-
-            if (s.isIdle()) {
-                uploadStatusView.hide();
-                return;
-            }
-
-            uploadStatusView.show();
-            uploadStatusView.setMediaCounts(s.photos, s.videos);
-            uploadStatusView.setTotalCount(s.total);
-            uploadStatusView.setUploadedCount(s.uploaded);
-            uploadStatusView.setFailedCount(s.failed);
-            uploadStatusView.setState(s.state);
-        }
-
-        @Override
-        public void onCompleted(boolean hadFailures) {
-            if (!hadFailures) {
-                refreshAlbum();
-            }
-        }
-    };
-
-    private final View.OnClickListener onCancelUpload = v ->{
-        albumModalHandler.showCancelConfirm(() -> {
-            uploadOrchestrator.cancelUpload();
-            uploadStatusView.hide();
-        });
-    };
-
 
 
     @Override
@@ -152,7 +117,6 @@ public class AlbumActivity extends AppCompatActivity {
 
         bindViews();
         setupRefresh();
-        setupUploadView();
         bindHeader();
         setupBackHandling();
 
@@ -162,16 +126,11 @@ public class AlbumActivity extends AppCompatActivity {
         albumLoader = new AlbumLoader(this, albumId);
         albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
         actionCoordinator = new AlbumActionCoordinator(this,actionCallback);
-        uploadOrchestrator = new AlbumUploadOrchestrator(albumId, uploadCallback);
 
 
         loadAlbum();
 
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
-    }
-
-    private void setupUploadView() {
-        uploadStatusView.setOnCancelClickListener(onCancelUpload);
     }
 
 
@@ -287,7 +246,6 @@ public class AlbumActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBack);
         contentContainer = findViewById(R.id.stateContainer);
         albumMetaInfo = findViewById(R.id.albumMetaInfo);
-        uploadStatusView = findViewById(R.id.uploadStatusView);
         swipeRefresh = findViewById(R.id.swipeRefresh);
     }
 
