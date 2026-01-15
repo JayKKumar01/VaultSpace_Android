@@ -14,13 +14,13 @@ import java.util.List;
 
 public final class AlbumUiController {
 
-    public interface AlbumUiCallback {
+    public interface Callback {
         void onAddMediaClicked();
         void onMediaClicked(AlbumMedia media, int position);
         void onMediaLongPressed(AlbumMedia media, int position);
     }
 
-    private final AlbumUiCallback callback;
+    private final Callback callback;
 
     private final LoadingStateView loadingView;
     private final EmptyStateView emptyView;
@@ -29,7 +29,7 @@ public final class AlbumUiController {
     public AlbumUiController(
             Context context,
             FrameLayout container,
-            AlbumUiCallback callback
+            Callback callback
     ) {
         this.callback = callback;
 

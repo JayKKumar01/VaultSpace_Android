@@ -8,102 +8,71 @@ import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.DismissRes
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 /**
- * AlbumModalCoordinator
+ * AlbumModalHandler
  *
- * Responsibilities:
- * - Coordinate album-related modal decisions
- * - Offer Retry / Exit paths for recoverable failures
- *
- * Non-responsibilities:
- * - Album loading
- * - Error classification
- * - UI state management
+ * Coordinates album-related modal decisions.
+ * Does NOT handle loading, error classification, or UI state.
  */
 public final class AlbumModalHandler {
 
     private final ModalHost modalHost;
 
-    /* ---------- Stable Specs ---------- */
-
     private final ConfirmSpec retryLoadSpec;
-    private final ConfirmSpec permissionRevokedSpec;
-    private final ConfirmSpec unrecoverableErrorSpec;
+    private final ConfirmSpec cancelUploadSpec;
 
-    public AlbumModalHandler(
-            @NonNull ModalHost modalHost,
-            @NonNull Runnable onRetry,
-            @NonNull Runnable onExit
-    ) {
+    public AlbumModalHandler(@NonNull ModalHost modalHost) {
         this.modalHost = modalHost;
 
-        /* ---- Generic retry (network / transient) ---- */
-        retryLoadSpec = new ConfirmSpec(
+        retryLoadSpec = createRetryLoadSpec();
+        cancelUploadSpec = createCancelUploadSpec();
+    }
+
+    /* ---------- Public API ---------- */
+
+    public void showRetryLoad(Runnable onRetry, Runnable onExit) {
+        retryLoadSpec.setPositiveAction(onRetry);
+        retryLoadSpec.setNegativeAction(onExit);
+        modalHost.request(retryLoadSpec);
+    }
+
+    public void showCancelConfirm(Runnable onCancel) {
+        cancelUploadSpec.setPositiveAction(onCancel);
+        modalHost.request(cancelUploadSpec);
+    }
+
+    public void dismissAll() {
+        modalHost.dismiss(retryLoadSpec, DismissResult.SYSTEM);
+        modalHost.dismiss(cancelUploadSpec, DismissResult.SYSTEM);
+    }
+
+    /* ---------- Spec Builders ---------- */
+
+    private static ConfirmSpec createRetryLoadSpec() {
+        ConfirmSpec spec = new ConfirmSpec(
                 "Unable to load album",
                 "Please check your connection and try again.",
                 true,
                 ConfirmView.RISK_NEUTRAL,
-                onRetry,
-                onExit
+                null,
+                null
         );
-        retryLoadSpec.setPositiveText("Retry");
-        retryLoadSpec.setNegativeText("Back");
-        retryLoadSpec.setCancelable(false);
+        spec.setPositiveText("Retry");
+        spec.setNegativeText("Back");
+        spec.setCancelable(false);
+        return spec;
+    }
 
-        /* ---- Permission revoked (future) ---- */
-        permissionRevokedSpec = new ConfirmSpec(
-                "Access revoked",
-                "You no longer have permission to access this album.",
-                false,
+    private static ConfirmSpec createCancelUploadSpec() {
+        ConfirmSpec spec = new ConfirmSpec(
+                "Cancel upload?",
+                "Your uploaded moments are safe. The rest won’t upload.",
+                true,
                 ConfirmView.RISK_WARNING,
-                onRetry,      // retry may re-check permissions
-                onExit
+                null,
+                null // negative handled via dismiss
         );
-
-        /* ---- Unrecoverable error (future) ---- */
-        unrecoverableErrorSpec = new ConfirmSpec(
-                "Album unavailable",
-                "This album can no longer be accessed.",
-                false,
-                ConfirmView.RISK_CRITICAL,
-                null,         // no retry
-                onExit
-        );
-    }
-
-    /* ----------------------------------------------------------
-     * Public API (Current usage)
-     * ---------------------------------------------------------- */
-
-    /** Network / transient failure */
-    public void showRetryLoad() {
-        modalHost.request(retryLoadSpec);
-    }
-
-    /* ----------------------------------------------------------
-     * Public API (Future-ready)
-     * ---------------------------------------------------------- */
-
-    /** Permission revoked by user / Drive */
-    public void showPermissionRevoked() {
-        modalHost.request(permissionRevokedSpec);
-    }
-
-    /** Album deleted / unrecoverable */
-    public void showUnrecoverableError() {
-        modalHost.request(unrecoverableErrorSpec);
-    }
-
-    /* ----------------------------------------------------------
-     * Lifecycle
-     * ---------------------------------------------------------- */
-
-    public void dismissAll() {
-        modalHost.dismiss(retryLoadSpec, DismissResult.SYSTEM);
-        modalHost.dismiss(permissionRevokedSpec, DismissResult.SYSTEM);
-        modalHost.dismiss(unrecoverableErrorSpec, DismissResult.SYSTEM);
-    }
-
-    public boolean onBackPressed() {
-        return modalHost.onBackPressed();
+        spec.setPositiveText("Cancel");
+        spec.setNegativeText("Continue");
+        return spec;
     }
 }

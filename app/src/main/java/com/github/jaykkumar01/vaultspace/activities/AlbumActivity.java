@@ -2,6 +2,7 @@ package com.github.jaykkumar01.vaultspace.activities;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -20,18 +21,17 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
-import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController.AlbumUiCallback;
-import com.github.jaykkumar01.vaultspace.core.picker.AlbumMediaPicker;
+import com.github.jaykkumar01.vaultspace.album.upload.AlbumUploadOrchestrator;
+import com.github.jaykkumar01.vaultspace.album.upload.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
+import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class AlbumActivity extends AppCompatActivity
-        implements AlbumUiCallback,
-        AlbumActionCoordinator.Host {
+public class AlbumActivity extends AppCompatActivity {
 
 
     private static final String TAG = "VaultSpace:Album";
@@ -51,15 +51,16 @@ public class AlbumActivity extends AppCompatActivity
     private ImageView btnBack;
     private FrameLayout contentContainer;
     private AlbumMetaInfoView albumMetaInfo;
+    private UploadStatusView uploadStatusView;
     private SwipeRefreshLayout swipeRefresh;
 
     private AlbumUiController albumUiController;
     private AlbumLoader albumLoader;
+    private ModalHost modalHost;
     private AlbumModalHandler albumModalHandler;
 
     private AlbumActionCoordinator actionCoordinator;
-
-
+    private AlbumUploadOrchestrator uploadOrchestrator;
 
     private final List<AlbumMedia> visibleMedia = new ArrayList<>();
 
@@ -78,6 +79,63 @@ public class AlbumActivity extends AppCompatActivity
         }
     };
 
+    private final AlbumActionCoordinator.Callback actionCallback = new AlbumActionCoordinator.Callback() {
+        @Override
+        public void onMediaSelected(List<MediaSelection> selections) {
+            uploadOrchestrator.startUpload(selections);
+        }
+    };
+
+    private final AlbumUiController.Callback uiCallback = new AlbumUiController.Callback() {
+        @Override
+        public void onAddMediaClicked() {
+            actionCoordinator.onAddMediaClicked();
+        }
+
+        @Override
+        public void onMediaClicked(AlbumMedia media, int position) {
+            actionCoordinator.onMediaClicked(media, position);
+        }
+        @Override
+        public void onMediaLongPressed(AlbumMedia media, int position) {
+            actionCoordinator.onMediaLongPressed(media, position);
+        }
+    };
+
+    private final AlbumUploadOrchestrator.Callback uploadCallback = new AlbumUploadOrchestrator.Callback() {
+        @Override
+        public void onStateChanged(UploadSnapshot s) {
+            if (released) return;
+
+            if (s.isIdle()) {
+                uploadStatusView.hide();
+                return;
+            }
+
+            uploadStatusView.show();
+            uploadStatusView.setMediaCounts(s.photos, s.videos);
+            uploadStatusView.setTotalCount(s.total);
+            uploadStatusView.setUploadedCount(s.uploaded);
+            uploadStatusView.setFailedCount(s.failed);
+            uploadStatusView.setState(s.state);
+        }
+
+        @Override
+        public void onCompleted(boolean hadFailures) {
+            if (!hadFailures) {
+                refreshAlbum();
+            }
+        }
+    };
+
+    private final View.OnClickListener onCancelUpload = v ->{
+        albumModalHandler.showCancelConfirm(() -> {
+            uploadOrchestrator.cancelUpload();
+            uploadStatusView.hide();
+        });
+    };
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,26 +152,28 @@ public class AlbumActivity extends AppCompatActivity
 
         bindViews();
         setupRefresh();
+        setupUploadView();
         bindHeader();
         setupBackHandling();
 
-        ModalHost modalHost = ModalHost.attach(this);
-        albumModalHandler = new AlbumModalHandler(
-                modalHost,
-                this::refreshAlbum,
-                this::finish
-        );
+        modalHost = ModalHost.attach(this);
+        albumModalHandler = new AlbumModalHandler(modalHost);
 
         albumLoader = new AlbumLoader(this, albumId);
-        albumUiController = new AlbumUiController(this, contentContainer, this);
-        actionCoordinator = new AlbumActionCoordinator(this, this);
-
+        albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
+        actionCoordinator = new AlbumActionCoordinator(this,actionCallback);
+        uploadOrchestrator = new AlbumUploadOrchestrator(albumId, uploadCallback);
 
 
         loadAlbum();
 
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
     }
+
+    private void setupUploadView() {
+        uploadStatusView.setOnCancelClickListener(onCancelUpload);
+    }
+
 
     /* ---------------- Load / Refresh ---------------- */
 
@@ -196,40 +256,12 @@ public class AlbumActivity extends AppCompatActivity
     }
 
     private void renderError() {
-        albumModalHandler.showRetryLoad();
+        albumModalHandler.showRetryLoad(this::refreshAlbum,this::finish);
     }
 
     private void renderContent() {
         albumModalHandler.dismissAll();
         albumUiController.showContent(visibleMedia);
-    }
-
-
-
-    /* ---------------- UI Callbacks ---------------- */
-
-    @Override
-    public void onAddMediaClicked() {
-        actionCoordinator.onAddMediaClicked();
-    }
-
-    @Override
-    public void onMediaClicked(AlbumMedia media, int position) {
-        actionCoordinator.onMediaClicked(media, position);
-    }
-    @Override
-    public void onMediaLongPressed(AlbumMedia media, int position) {
-        actionCoordinator.onMediaLongPressed(media, position);
-    }
-
-    @Override
-    public boolean isReleased() {
-        return released;
-    }
-
-    @Override
-    public String getAlbumId() {
-        return albumId;
     }
 
 
@@ -255,6 +287,7 @@ public class AlbumActivity extends AppCompatActivity
         btnBack = findViewById(R.id.btnBack);
         contentContainer = findViewById(R.id.stateContainer);
         albumMetaInfo = findViewById(R.id.albumMetaInfo);
+        uploadStatusView = findViewById(R.id.uploadStatusView);
         swipeRefresh = findViewById(R.id.swipeRefresh);
     }
 
@@ -267,7 +300,9 @@ public class AlbumActivity extends AppCompatActivity
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (albumModalHandler.onBackPressed()) return;
+
+                if (modalHost.onBackPressed()) return;
+
                 finish();
                 overridePendingTransition(
                         R.anim.album_return_enter,
@@ -291,5 +326,6 @@ public class AlbumActivity extends AppCompatActivity
         released = true;
         albumModalHandler.dismissAll();
         albumLoader.release();
+        actionCoordinator.release();
     }
 }

@@ -12,4 +12,14 @@ public class Notes {
     //dashboard > cancel setup or wait, while retrying
 
     // use the retry on the same upload status view after failed upload, so normalize the cancel button
+
+    // notification: uploads completed || uploads failed, check albums for more info
+    // add a warning badge in the albums, move them to top. user can check and retry
+    // on retry... there should be two buttons one for cancel also
+    // show failed media also
+    // fix the backpress album
+    //think of a design how will you place retry and cancel both
+
+    // still there is a glitch, on entering for the first time it will return false 2nd time it works, check the modal what is wrong
+    
 }

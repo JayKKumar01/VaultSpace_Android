@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.views.creative;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
@@ -16,6 +17,8 @@ public class UploadStatusView extends CardView {
     public enum State {
         UPLOADING,
         COMPLETED,
+        CANCELLED,
+        RETRY,
         FAILED
     }
 
@@ -153,9 +156,14 @@ public class UploadStatusView extends CardView {
                 tvUploadingState.setText("Upload failed");
                 tvCancelUpload.setVisibility(VISIBLE);
                 break;
+            case RETRY:
+                tvUploadingState.setText("Upload failed");
+                tvCancelUpload.setText("Retry");
+                tvCancelUpload.setVisibility(VISIBLE);
+                break;
+
         }
     }
-
     private void updateProgress() {
         if (totalCount <= 0) {
             progressFraction = 0f;
