@@ -6,10 +6,15 @@ import android.content.Intent;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 
+import java.util.List;
+
 public final class AlbumUploadOrchestrator {
+
+    private static AlbumUploadOrchestrator INSTANCE;
 
     private final Context appContext;
     private final UploadManager uploadManager;
@@ -17,14 +22,27 @@ public final class AlbumUploadOrchestrator {
 
     private boolean serviceRunning;
 
-    public AlbumUploadOrchestrator(
-            @NonNull Context context,
-            @NonNull UploadManager uploadManager,
-            @NonNull UploadCache uploadCache
+    /* ================= Singleton ================= */
+
+    public static synchronized AlbumUploadOrchestrator getInstance(
+            @NonNull Context context
     ) {
+        if (INSTANCE == null) {
+            INSTANCE = new AlbumUploadOrchestrator(context);
+        }
+        return INSTANCE;
+    }
+
+    private AlbumUploadOrchestrator(@NonNull Context context) {
         this.appContext = context.getApplicationContext();
-        this.uploadManager = uploadManager;
-        this.uploadCache = uploadCache;
+
+        UserSession session = new UserSession(appContext);
+
+        this.uploadCache = session.getVaultCache().uploadCache;
+        this.uploadManager = new UploadManager(
+                uploadCache,
+                session.getUploadRetryStore()
+        );
 
         this.uploadManager.attachOrchestrator(this);
     }
@@ -33,10 +51,10 @@ public final class AlbumUploadOrchestrator {
 
     public void enqueue(
             @NonNull String albumId,
-            @NonNull Iterable<MediaSelection> selections
+            @NonNull String albumName,
+            @NonNull List<MediaSelection> selections
     ) {
-        uploadManager.enqueue(albumId, selections);
-        // service lifecycle is driven ONLY by state changes
+        uploadManager.enqueue(albumId, albumName, selections);
     }
 
     public void registerObserver(
@@ -51,7 +69,7 @@ public final class AlbumUploadOrchestrator {
     }
 
     public void cancelAllUploads() {
-        uploadManager.cancelAllByUser();
+        uploadManager.cancelAllUploads();
     }
 
     /* ================= UploadManager callback ================= */
@@ -65,11 +83,12 @@ public final class AlbumUploadOrchestrator {
 
         // service already running → nudge only
         Intent intent = new Intent(appContext, UploadForegroundService.class);
-        appContext.startService(intent);
 
-        if (!uploadCache.hasAnyActiveUploads()) {
-            stopForegroundServiceIfIdle();
+        if (uploadCache.hasAnyActiveUploads()) {
+            appContext.startService(intent);
+            return;
         }
+        stopForegroundServiceIfIdle(intent);
     }
 
     /* ================= Foreground service ================= */
@@ -84,16 +103,24 @@ public final class AlbumUploadOrchestrator {
         serviceRunning = true;
     }
 
-    private void stopForegroundServiceIfIdle() {
+    private void stopForegroundServiceIfIdle(Intent intent) {
         if (!serviceRunning) return;
-        if (uploadCache.hasAnyActiveUploads()) return;
-
-        Intent intent = new Intent(
-                appContext,
-                UploadForegroundService.class
-        );
 
         appContext.stopService(intent);
         serviceRunning = false;
     }
+
+    public void onSessionCleared() {
+
+        // 1️⃣ Cancel uploads if anything is running
+        uploadManager.cancelAllUploads();
+
+        // 2️⃣ Force-stop foreground service (defensive)
+        Intent intent = new Intent(appContext, UploadForegroundService.class);
+        appContext.stopService(intent);
+
+        // 3️⃣ Reset orchestrator state
+        serviceRunning = false;
+    }
+
 }

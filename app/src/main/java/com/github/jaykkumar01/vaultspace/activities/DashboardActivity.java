@@ -26,9 +26,14 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardModalCoordin
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
+
+import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+
+import java.util.List;
+import java.util.Map;
 
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
@@ -232,6 +237,10 @@ public class DashboardActivity extends AppCompatActivity {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
 
+
+        // 🔍 DEBUG: log retry data (read all)
+        logUploadRetries();
+
         applyViewMode(VaultViewMode.ALBUMS);
         segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
         segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
@@ -243,6 +252,34 @@ public class DashboardActivity extends AppCompatActivity {
             expandVaultHelper.launchExpandVault(expandAccountListener);
         });
     }
+
+    private void logUploadRetries() {
+        Map<String, List<MediaSelection>> retries =
+                userSession.getUploadRetryStore().getAllRetries();
+
+        if (retries.isEmpty()) {
+            Log.d(TAG, "UploadRetryStore: no retry entries");
+            return;
+        }
+
+        Log.d(TAG, "UploadRetryStore: total albums with retry = " + retries.size());
+
+        for (Map.Entry<String, List<MediaSelection>> entry
+                : retries.entrySet()) {
+
+            String albumId = entry.getKey();
+            List<MediaSelection> list = entry.getValue();
+
+            Log.d(TAG,
+                    "UploadRetryStore: albumId=" + albumId +
+                            ", retryCount=" + list.size());
+
+            for (MediaSelection s : list) {
+                Log.d(TAG, "  ↳ " + s);
+            }
+        }
+    }
+
 
     /* ==========================================================
      * UI helpers

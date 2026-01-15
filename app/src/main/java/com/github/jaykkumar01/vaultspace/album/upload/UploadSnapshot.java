@@ -20,6 +20,7 @@ import androidx.annotation.NonNull;
 public final class UploadSnapshot {
 
     public final String albumId;
+    public final String albumName;
 
     public final int photos;
     public final int videos;
@@ -30,12 +31,14 @@ public final class UploadSnapshot {
 
     public UploadSnapshot(
             @NonNull String albumId,
+            @NonNull String albumName,
             int photos,
             int videos,
             int uploaded,
             int failed
     ) {
         this.albumId = albumId;
+        this.albumName = albumName;
         this.photos = photos;
         this.videos = videos;
         this.total = photos + videos;

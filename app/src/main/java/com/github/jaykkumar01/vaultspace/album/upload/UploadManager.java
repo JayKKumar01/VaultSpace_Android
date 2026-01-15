@@ -1,20 +1,26 @@
 package com.github.jaykkumar01.vaultspace.album.upload;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
-import com.github.jaykkumar01.vaultspace.core.session.cache.UploadRetryCache;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class UploadManager {
 
+    private static final String TAG = "VaultSpace:UploadMgr";
+
     private final UploadCache uploadCache;
-    private final UploadRetryCache retryCache;
+    private final UploadRetryStore retryStore;
 
     private final Map<String, UploadObserver> observers = new HashMap<>();
     private final Deque<UploadTask> queue = new ArrayDeque<>();
@@ -26,10 +32,10 @@ public final class UploadManager {
 
     public UploadManager(
             @NonNull UploadCache uploadCache,
-            @NonNull UploadRetryCache retryCache
+            @NonNull UploadRetryStore retryStore
     ) {
         this.uploadCache = uploadCache;
-        this.retryCache = retryCache;
+        this.retryStore = retryStore;
     }
 
     /* ================= Wiring ================= */
@@ -78,23 +84,41 @@ public final class UploadManager {
 
     public void enqueue(
             @NonNull String albumId,
-            @NonNull Iterable<MediaSelection> selections
+            @NonNull String albumName,
+            @NonNull List<MediaSelection> selections
     ) {
+        Log.d(TAG, "enqueue(): albumId=" + albumId + ", selections=" + selections.size());
+
         int photos = 0, videos = 0;
         for (MediaSelection s : selections) {
             if (s.isVideo) videos++;
             else photos++;
         }
-        if (photos + videos == 0) return;
+        if (photos + videos == 0) {
+            Log.w(TAG, "enqueue(): nothing to upload, skipping");
+            return;
+        }
 
         stopped = false;
 
+        int uploaded = 0;
+        int failed = 0;
+
+        UploadSnapshot old = uploadCache.getSnapshot(albumId);
+        if (old != null) {
+            photos += old.photos;
+            videos += old.videos;
+            uploaded = old.uploaded;
+            failed = old.failed;
+        }
+
         UploadSnapshot snapshot = new UploadSnapshot(
                 albumId,
+                albumName,
                 photos,
                 videos,
-                0,
-                0
+                uploaded,
+                failed
         );
 
         uploadCache.putSnapshot(snapshot);
@@ -106,6 +130,8 @@ public final class UploadManager {
             queue.add(new UploadTask(albumId, s));
         }
 
+        Log.d(TAG, "enqueue(): queueSize=" + queue.size());
+
         if (currentTask == null) {
             startNext();
         }
@@ -116,28 +142,34 @@ public final class UploadManager {
     private void startNext() {
         if (stopped || queue.isEmpty()) {
             currentTask = null;
+            Log.d(TAG, "startNext(): stopped=" + stopped + ", queue empty");
             notifyNotification();
             return;
         }
 
         currentTask = queue.poll();
         if (currentTask != null) {
+            Log.d(TAG, "startNext(): executing albumId=" + currentTask.albumId);
             executeCurrent();
         }
     }
 
     private void executeCurrent() {
         // real upload logic will go here
+        Log.d(TAG, "executeCurrent(): started");
     }
 
     void onUploadSuccess() {
         if (currentTask == null) return;
+
+        Log.d(TAG, "onUploadSuccess(): albumId=" + currentTask.albumId);
 
         UploadSnapshot old = uploadCache.getSnapshot(currentTask.albumId);
         if (old == null) return;
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.albumId,
+                old.albumName,
                 old.photos,
                 old.videos,
                 old.uploaded + 1,
@@ -155,11 +187,15 @@ public final class UploadManager {
     void onUploadFailure() {
         if (currentTask == null) return;
 
+        Log.w(TAG, "onUploadFailure(): albumId=" + currentTask.albumId +
+                ", uri=" + currentTask.selection.uri);
+
         UploadSnapshot old = uploadCache.getSnapshot(currentTask.albumId);
         if (old == null) return;
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.albumId,
+                old.albumName,
                 old.photos,
                 old.videos,
                 old.uploaded,
@@ -170,10 +206,13 @@ public final class UploadManager {
         emitIfActive(updated.albumId, updated);
         notifyNotification();
 
-        retryCache.addRetry(
+        retryStore.addRetry(
                 currentTask.albumId,
                 currentTask.selection
         );
+        retryStore.flush();
+
+        Log.d(TAG, "onUploadFailure(): retry saved & flushed");
 
         currentTask = null;
         startNext();
@@ -181,32 +220,48 @@ public final class UploadManager {
 
     /* ================= Cancel ================= */
 
-    public void cancelAllByUser() {
+    public void cancelAllUploads() {
+        Log.w(TAG, "cancelAllByUser(): cancelling uploads");
+
         stopped = true;
         uploadCache.markStopped(UploadCache.StopReason.USER);
 
+        int retryCount = 0;
+
         if (currentTask != null) {
-            retryCache.addRetry(
+            retryStore.addRetry(
                     currentTask.albumId,
                     currentTask.selection
             );
+            retryCount++;
         }
 
         UploadTask t;
         while ((t = queue.poll()) != null) {
-            retryCache.addRetry(t.albumId, t.selection);
+            retryStore.addRetry(t.albumId, t.selection);
+            retryCount++;
         }
+
+        retryStore.flush();
+
+        Log.d(TAG, "cancelAllByUser(): retriesAdded=" + retryCount);
 
         currentTask = null;
 
-        notifyNotification();
-        emitFinalSnapshots();
-    }
+        // Stable snapshot copy (prevents CME)
+        List<UploadSnapshot> finalSnapshots =
+                new ArrayList<>(uploadCache.getAllSnapshots().values());
 
-
-    private void emitFinalSnapshots() {
-        for (UploadSnapshot s : uploadCache.getAllSnapshots().values()) {
-            emitIfActive(s.albumId, s);
+        // 🔁 Single loop: emit + remove
+        for (UploadSnapshot snapshot : finalSnapshots) {
+            emitIfActive(snapshot.albumId, snapshot);
+            uploadCache.removeSnapshot(snapshot.albumId);
         }
+
+        uploadCache.clearStopReason();
+
+        // Notify AFTER final truth is established
+        notifyNotification();
     }
+
 }

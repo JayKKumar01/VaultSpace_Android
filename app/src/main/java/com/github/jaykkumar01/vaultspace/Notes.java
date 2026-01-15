@@ -21,5 +21,8 @@ public class Notes {
     //think of a design how will you place retry and cancel both
 
     // still there is a glitch, on entering for the first time it will return false 2nd time it works, check the modal what is wrong
-    
+    // add the counts only one entry per album
+    //after logout service should stop
+
+    //2 issue: hashmap , ondestroy not called by user dismiss
 }

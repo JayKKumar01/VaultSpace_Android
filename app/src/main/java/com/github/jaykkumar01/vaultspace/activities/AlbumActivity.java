@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
@@ -22,10 +23,9 @@ import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinato
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
 import com.github.jaykkumar01.vaultspace.album.upload.AlbumUploadOrchestrator;
-import com.github.jaykkumar01.vaultspace.album.upload.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.album.upload.UploadObserver;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
-import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
@@ -61,6 +61,8 @@ public class AlbumActivity extends AppCompatActivity {
     private AlbumActionCoordinator actionCoordinator;
 
     private final List<AlbumMedia> visibleMedia = new ArrayList<>();
+    private AlbumUploadOrchestrator uploadOrchestrator;
+
 
     private final AlbumLoader.Callback loaderCallback = new AlbumLoader.Callback() {
         @Override
@@ -80,7 +82,7 @@ public class AlbumActivity extends AppCompatActivity {
     private final AlbumActionCoordinator.Callback actionCallback = new AlbumActionCoordinator.Callback() {
         @Override
         public void onMediaSelected(List<MediaSelection> selections) {
-            // will be send for uploads
+            uploadOrchestrator.enqueue(albumId,albumName,selections);
         }
     };
 
@@ -99,6 +101,18 @@ public class AlbumActivity extends AppCompatActivity {
             actionCoordinator.onMediaLongPressed(media, position);
         }
     };
+
+    private final UploadObserver uploadObserver = snapshot -> {
+        Log.d(
+                TAG,
+                "Upload snapshot → album=" + snapshot.albumId
+                        + " uploaded=" + snapshot.uploaded
+                        + " failed=" + snapshot.failed
+                        + " total=" + snapshot.total
+                        + " inProgress=" + snapshot.isInProgress()
+        );
+    };
+
 
 
 
@@ -126,6 +140,15 @@ public class AlbumActivity extends AppCompatActivity {
         albumLoader = new AlbumLoader(this, albumId);
         albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
         actionCoordinator = new AlbumActionCoordinator(this,actionCallback);
+
+        uploadOrchestrator = AlbumUploadOrchestrator.getInstance(this);
+        uploadOrchestrator.registerObserver(albumId, uploadObserver);
+
+
+        findViewById(R.id.tvPhilosophy).setOnClickListener(v -> {
+            Toast.makeText(this, "Cancelled!", Toast.LENGTH_SHORT).show();
+            uploadOrchestrator.cancelAllUploads();
+        });
 
 
         loadAlbum();
@@ -285,5 +308,6 @@ public class AlbumActivity extends AppCompatActivity {
         albumModalHandler.dismissAll();
         albumLoader.release();
         actionCoordinator.release();
+        uploadOrchestrator.unregisterObserver(albumId);
     }
 }

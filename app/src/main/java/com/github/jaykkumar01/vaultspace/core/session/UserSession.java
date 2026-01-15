@@ -3,6 +3,8 @@ package com.github.jaykkumar01.vaultspace.core.session;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.github.jaykkumar01.vaultspace.album.upload.AlbumUploadOrchestrator;
+
 public class UserSession {
 
     private static final String PREF_NAME = "vaultspace_session";
@@ -15,6 +17,9 @@ public class UserSession {
 
     // Session-scoped cache holder
     private static VaultSessionCache vaultCache;
+
+    // Session-scoped retry store (persisted)
+    private UploadRetryStore uploadRetryStore;
 
     public UserSession(Context context) {
         this.appContext = context.getApplicationContext();
@@ -53,6 +58,15 @@ public class UserSession {
         return vaultCache;
     }
 
+    /* ---------------- Upload Retry Store ---------------- */
+
+    public UploadRetryStore getUploadRetryStore() {
+        if (uploadRetryStore == null) {
+            uploadRetryStore = new UploadRetryStore(prefs);
+        }
+        return uploadRetryStore;
+    }
+
     /* ---------------- Session ---------------- */
 
     public boolean isLoggedIn() {
@@ -60,14 +74,22 @@ public class UserSession {
     }
 
     public void clearSession() {
+        // clear persisted session data
         prefs.edit().clear().apply();
 
+        // clear retry store
+        if (uploadRetryStore != null) {
+            uploadRetryStore.clearAll();
+            uploadRetryStore = null;
+        }
+
+        // clear in-memory vault cache
         if (vaultCache != null) {
             vaultCache.clear();
             vaultCache = null;
-
         }
 
         PrimaryUserCoordinator.clearSavedProfilePhoto(appContext);
+        AlbumUploadOrchestrator.getInstance(appContext).onSessionCleared();
     }
 }

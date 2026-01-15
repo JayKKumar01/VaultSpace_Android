@@ -8,6 +8,7 @@
 
     <!-- ================= Foreground Service ================= -->
     <!-- Android 14+ typed foreground service permission -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- ================= Notifications ================= -->

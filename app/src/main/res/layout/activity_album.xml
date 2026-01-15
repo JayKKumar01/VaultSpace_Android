@@ -161,6 +161,7 @@
                         android:text="No limits · Just memories"
                         android:textColor="@color/vs_brand_text"
                         android:textSize="11sp"
+                        android:clickable="true"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"/>
