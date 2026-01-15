@@ -22,12 +22,28 @@ public final class UploadManager {
     private UploadTask currentTask;
     private boolean stopped;
 
+    private AlbumUploadOrchestrator orchestrator;
+
     public UploadManager(
             @NonNull UploadCache uploadCache,
             @NonNull UploadRetryCache retryCache
     ) {
         this.uploadCache = uploadCache;
         this.retryCache = retryCache;
+    }
+
+    /* ================= Wiring ================= */
+
+    public void attachOrchestrator(
+            @NonNull AlbumUploadOrchestrator orchestrator
+    ) {
+        this.orchestrator = orchestrator;
+    }
+
+    private void notifyNotification() {
+        if (orchestrator != null) {
+            orchestrator.onUploadStateChanged();
+        }
     }
 
     /* ================= Observer ================= */
@@ -71,7 +87,7 @@ public final class UploadManager {
         }
         if (photos + videos == 0) return;
 
-        stopped = false; // reset cancellation
+        stopped = false;
 
         UploadSnapshot snapshot = new UploadSnapshot(
                 albumId,
@@ -84,6 +100,7 @@ public final class UploadManager {
         uploadCache.putSnapshot(snapshot);
         uploadCache.clearStopReason();
         emitIfActive(albumId, snapshot);
+        notifyNotification();
 
         for (MediaSelection s : selections) {
             queue.add(new UploadTask(albumId, s));
@@ -99,6 +116,7 @@ public final class UploadManager {
     private void startNext() {
         if (stopped || queue.isEmpty()) {
             currentTask = null;
+            notifyNotification();
             return;
         }
 
@@ -128,6 +146,7 @@ public final class UploadManager {
 
         uploadCache.putSnapshot(updated);
         emitIfActive(updated.albumId, updated);
+        notifyNotification();
 
         currentTask = null;
         startNext();
@@ -149,6 +168,7 @@ public final class UploadManager {
 
         uploadCache.putSnapshot(updated);
         emitIfActive(updated.albumId, updated);
+        notifyNotification();
 
         retryCache.addRetry(
                 currentTask.albumId,
@@ -172,14 +192,17 @@ public final class UploadManager {
             );
         }
 
-        while (!queue.isEmpty()) {
-            UploadTask t = queue.poll();
+        UploadTask t;
+        while ((t = queue.poll()) != null) {
             retryCache.addRetry(t.albumId, t.selection);
         }
 
         currentTask = null;
+
+        notifyNotification();
         emitFinalSnapshots();
     }
+
 
     private void emitFinalSnapshots() {
         for (UploadSnapshot s : uploadCache.getAllSnapshots().values()) {

@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- ================= Permissions ================= -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- ================= Network ================= -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Foreground service (install-time, API 28+) -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Notifications (runtime, API 33+) -->
+    <!-- ================= Foreground Service ================= -->
+    <!-- Android 14+ typed foreground service permission -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- ================= Notifications ================= -->
+    <!-- Runtime permission on API 33+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
 
     <application
         android:allowBackup="true"
@@ -21,34 +24,45 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.VaultSpace"
         tools:targetApi="31">
+
+        <!-- ================= Demo ================= -->
         <activity
             android:name=".activities.DemoActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
-            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"/>
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
+
+        <!-- ================= Album ================= -->
         <activity
             android:name=".activities.AlbumActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
-            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" /> <!-- ================= Main (Launcher) ================= -->
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
+
+        <!-- ================= Main (Launcher) ================= -->
         <activity
             android:name=".activities.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> <!-- ================= Auth ================= -->
+        </activity>
+
+        <!-- ================= Auth ================= -->
         <activity
             android:name=".activities.LoginActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" /> <!-- ================= Dashboard ================= -->
+            android:exported="false" />
+
+        <!-- ================= Dashboard ================= -->
         <activity
             android:name=".activities.DashboardActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
+
+        <!-- ================= Upload Foreground Service ================= -->
         <service
             android:name=".album.upload.UploadForegroundService"
             android:exported="false"

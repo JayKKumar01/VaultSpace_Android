@@ -9,25 +9,7 @@ import androidx.core.content.ContextCompat;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 
-/**
- * AlbumUploadOrchestrator
- *
- * Android-aware bridge between UI and UploadManager.
- *
- * Responsibilities:
- * - Start / stop ForegroundService
- * - Forward UI intents to UploadManager
- * - Keep UploadManager Android-free
- *
- * Non-responsibilities:
- * - Upload execution
- * - Retry logic
- * - Snapshot inspection
- * - Notification state decisions
- */
 public final class AlbumUploadOrchestrator {
-    private static AlbumUploadOrchestrator INSTANCE;
-
 
     private final Context appContext;
     private final UploadManager uploadManager;
@@ -44,24 +26,17 @@ public final class AlbumUploadOrchestrator {
         this.uploadManager = uploadManager;
         this.uploadCache = uploadCache;
 
-        INSTANCE = this;
+        this.uploadManager.attachOrchestrator(this);
     }
 
-    static AlbumUploadOrchestrator getInstance() {
-        return INSTANCE;
-    }
-
-
-    /* ==========================================================
-     * UI-facing APIs
-     * ========================================================== */
+    /* ================= UI-facing ================= */
 
     public void enqueue(
             @NonNull String albumId,
             @NonNull Iterable<MediaSelection> selections
     ) {
         uploadManager.enqueue(albumId, selections);
-        ensureForegroundServiceRunning();
+        // service lifecycle is driven ONLY by state changes
     }
 
     public void registerObserver(
@@ -77,28 +52,29 @@ public final class AlbumUploadOrchestrator {
 
     public void cancelAllUploads() {
         uploadManager.cancelAllByUser();
-        stopForegroundServiceIfIdle();
     }
 
-    /* ==========================================================
-     * UploadManager → Orchestrator hooks
-     * ========================================================== */
+    /* ================= UploadManager callback ================= */
 
-    /**
-     * Called by UploadManager when uploads reach a terminal state
-     * (queue empty + no current task).
-     */
-    void onUploadsTerminated() {
-        stopForegroundServiceIfIdle();
+    void onUploadStateChanged() {
+
+        if (!serviceRunning) {
+            startForegroundService();
+            return;
+        }
+
+        // service already running → nudge only
+        Intent intent = new Intent(appContext, UploadForegroundService.class);
+        appContext.startService(intent);
+
+        if (!uploadCache.hasAnyActiveUploads()) {
+            stopForegroundServiceIfIdle();
+        }
     }
 
-    /* ==========================================================
-     * Foreground service control
-     * ========================================================== */
+    /* ================= Foreground service ================= */
 
-    private void ensureForegroundServiceRunning() {
-        if (serviceRunning) return;
-
+    private void startForegroundService() {
         Intent intent = new Intent(
                 appContext,
                 UploadForegroundService.class
@@ -110,7 +86,6 @@ public final class AlbumUploadOrchestrator {
 
     private void stopForegroundServiceIfIdle() {
         if (!serviceRunning) return;
-
         if (uploadCache.hasAnyActiveUploads()) return;
 
         Intent intent = new Intent(

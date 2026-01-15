@@ -13,29 +13,20 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 
-/**
- * UploadForegroundService
- *
- * Dumb lifecycle holder for uploads.
- *
- * Responsibilities:
- * - Keep process alive
- * - Show cancel action
- *
- * Non-responsibilities:
- * - Upload logic
- * - Cache access
- * - Retry logic
- * - State decisions
- */
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 public final class UploadForegroundService extends Service {
 
     private static final String CHANNEL_ID = "vaultspace_uploads";
     private static final int NOTIFICATION_ID = 1001;
 
-    private static final String ACTION_CANCEL =
-            "com.github.jaykkumar01.vaultspace.upload.CANCEL";
+    public static final String ACTION_CANCEL =
+            "vaultspace.upload.CANCEL";
 
     private boolean isForeground;
 
@@ -49,16 +40,29 @@ public final class UploadForegroundService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
 
         if (intent != null && ACTION_CANCEL.equals(intent.getAction())) {
-            handleCancel();
+            // Forward cancel to orchestrator (authoritative)
+            AlbumUploadOrchestrator orchestrator =
+                    AlbumUploadOrchestratorHolder.get();
+
+            if (orchestrator != null) {
+                orchestrator.cancelAllUploads();
+            }
+
+            stopSelf();
             return START_NOT_STICKY;
         }
 
+        Notification notification = buildNotification();
+
         if (!isForeground) {
-            startForeground(
-                    NOTIFICATION_ID,
-                    buildInitialNotification()
-            );
+            startForeground(NOTIFICATION_ID, notification);
             isForeground = true;
+        } else {
+            NotificationManager nm =
+                    (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(NOTIFICATION_ID, notification);
+            }
         }
 
         return START_STICKY;
@@ -73,52 +77,163 @@ public final class UploadForegroundService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null; // not a bound service
+        return null;
     }
 
     /* ==========================================================
-     * Cancel handling
+     * Notification building
      * ========================================================== */
 
-    private void handleCancel() {
-        AlbumUploadOrchestrator orchestrator =
-                AlbumUploadOrchestrator.getInstance();
+    private Notification buildNotification() {
 
-        if (orchestrator != null) {
-            orchestrator.cancelAllUploads();
-        }
-    }
+        UserSession session = new UserSession(getApplicationContext());
+        UploadCache cache = session.getVaultCache().uploadCache;
 
-    /* ==========================================================
-     * Notification
-     * ========================================================== */
+        Map<String, UploadSnapshot> snapshots = cache.getAllSnapshots();
+        UploadCache.StopReason stopReason = cache.getStopReason();
 
-    private Notification buildInitialNotification() {
+        NotificationState state = deriveState(snapshots, stopReason);
 
-        PendingIntent cancelIntent = PendingIntent.getService(
-                this,
-                0,
-                new Intent(this, UploadForegroundService.class)
-                        .setAction(ACTION_CANCEL),
-                PendingIntent.FLAG_UPDATE_CURRENT
-                        | PendingIntent.FLAG_IMMUTABLE
-        );
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_upload)
+                        .setOnlyAlertOnce(true)
+                        .setOngoing(state == NotificationState.UPLOADING);
 
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_upload) // your icon
-                .setContentTitle("Uploading media")
-                .setContentText("Uploads in progress")
-                .setOngoing(true)
-                .addAction(
+        switch (state) {
+
+            case UPLOADING:
+                builder.setContentTitle("Uploading media");
+                builder.setContentText(buildUploadingText(snapshots));
+                builder.addAction(
                         R.drawable.ic_cancel,
                         "Cancel uploads",
-                        cancelIntent
-                )
-                .build();
+                        buildCancelIntent()
+                );
+                break;
+
+            case FINISHED_SUCCESS:
+                builder.setContentTitle("Upload complete");
+                builder.setContentText("Media added successfully");
+                break;
+
+            case FINISHED_WITH_ISSUES:
+                builder.setContentTitle("Upload finished with issues");
+                builder.setContentText(
+                        countFailedAlbums(snapshots) + " albums need attention"
+                );
+                break;
+
+            case STOPPED_USER:
+                builder.setContentTitle("Upload stopped");
+                builder.setContentText("Some items were not uploaded");
+                break;
+
+            case STOPPED_SYSTEM:
+                builder.setContentTitle("Upload stopped");
+                builder.setContentText("Uploads couldn’t continue");
+                break;
+        }
+
+        return builder.build();
     }
 
     /* ==========================================================
-     * Notification channel
+     * State derivation
+     * ========================================================== */
+
+    private NotificationState deriveState(
+            Map<String, UploadSnapshot> snapshots,
+            UploadCache.StopReason stopReason
+    ) {
+        if (snapshots.isEmpty()) {
+            return NotificationState.UPLOADING;
+        }
+
+        for (UploadSnapshot s : snapshots.values()) {
+            if (s.isInProgress()) {
+                return NotificationState.UPLOADING;
+            }
+        }
+
+        if (stopReason == UploadCache.StopReason.USER) {
+            return NotificationState.STOPPED_USER;
+        }
+
+        if (stopReason == UploadCache.StopReason.SYSTEM) {
+            return NotificationState.STOPPED_SYSTEM;
+        }
+
+        for (UploadSnapshot s : snapshots.values()) {
+            if (s.hasFailures()) {
+                return NotificationState.FINISHED_WITH_ISSUES;
+            }
+        }
+
+        return NotificationState.FINISHED_SUCCESS;
+    }
+
+    /* ==========================================================
+     * Helpers
+     * ========================================================== */
+
+    private PendingIntent buildCancelIntent() {
+        Intent intent = new Intent(this, UploadForegroundService.class);
+        intent.setAction(ACTION_CANCEL);
+
+        return PendingIntent.getService(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private String buildUploadingText(
+            Map<String, UploadSnapshot> snapshots
+    ) {
+        if (snapshots.isEmpty()) {
+            return "Preparing uploads…";
+        }
+
+        List<UploadSnapshot> list =
+                new ArrayList<>(snapshots.values());
+
+        StringBuilder sb = new StringBuilder();
+
+        int shown = Math.min(2, list.size());
+        for (int i = 0; i < shown; i++) {
+            UploadSnapshot s = list.get(i);
+            sb.append(s.albumId)
+              .append(" · ")
+              .append(s.uploaded)
+              .append(" of ")
+              .append(s.total);
+
+            if (i < shown - 1) sb.append("\n");
+        }
+
+        if (list.size() > 2) {
+            sb.append("\n+ ")
+              .append(list.size() - 2)
+              .append(" more album");
+        }
+
+        return sb.toString();
+    }
+
+    private int countFailedAlbums(
+            Map<String, UploadSnapshot> snapshots
+    ) {
+        int count = 0;
+        for (UploadSnapshot s : snapshots.values()) {
+            if (s.hasFailures()) count++;
+        }
+        return count;
+    }
+
+    /* ==========================================================
+     * Channel
      * ========================================================== */
 
     private void createNotificationChannel() {
@@ -130,12 +245,24 @@ public final class UploadForegroundService extends Service {
                 NotificationManager.IMPORTANCE_LOW
         );
 
-        channel.setDescription("Foreground service for media uploads");
         channel.setShowBadge(false);
 
-        NotificationManager nm = getSystemService(NotificationManager.class);
+        NotificationManager nm =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm != null) {
             nm.createNotificationChannel(channel);
         }
+    }
+
+    /* ==========================================================
+     * Internal enums
+     * ========================================================== */
+
+    private enum NotificationState {
+        UPLOADING,
+        FINISHED_SUCCESS,
+        FINISHED_WITH_ISSUES,
+        STOPPED_USER,
+        STOPPED_SYSTEM
     }
 }
