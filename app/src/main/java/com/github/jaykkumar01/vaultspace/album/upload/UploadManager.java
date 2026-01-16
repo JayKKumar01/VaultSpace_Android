@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.album.upload;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -14,6 +16,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 public final class UploadManager {
 
@@ -29,6 +32,10 @@ public final class UploadManager {
     private boolean stopped;
 
     private AlbumUploadOrchestrator orchestrator;
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Random random = new Random();
+
 
     public UploadManager(
             @NonNull UploadCache uploadCache,
@@ -155,9 +162,34 @@ public final class UploadManager {
     }
 
     private void executeCurrent() {
-        // real upload logic will go here
-        Log.d(TAG, "executeCurrent(): started");
+        if (currentTask == null || stopped) return;
+
+        final UploadTask task = currentTask;
+
+        Log.d(TAG, "executeCurrent(): dummy upload started for albumId=" + task.albumId);
+
+        // Simulate 1 second upload
+        handler.postDelayed(() -> {
+
+            // Guard: upload cancelled or task changed
+            if (stopped || currentTask != task) {
+                Log.d(TAG, "executeCurrent(): aborted (cancelled or replaced)");
+                return;
+            }
+
+            boolean success = random.nextBoolean(); // 50/50
+
+            if (success) {
+                Log.d(TAG, "executeCurrent(): dummy SUCCESS");
+                onUploadSuccess();
+            } else {
+                Log.d(TAG, "executeCurrent(): dummy FAILURE");
+                onUploadFailure();
+            }
+
+        }, 1000);
     }
+
 
     void onUploadSuccess() {
         if (currentTask == null) return;

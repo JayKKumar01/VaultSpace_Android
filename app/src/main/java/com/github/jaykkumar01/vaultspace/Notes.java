@@ -25,4 +25,15 @@ public class Notes {
     //after logout service should stop
 
     //2 issue: hashmap , ondestroy not called by user dismiss
+    // a seperate ui for upload
+
+    // album activity null observer issue
+
+    // two things> stop on dismissed, stop on exit if no uploads is in progress
+
+    // remove the progress for the completed albums... let others render
+
+    // use two colors in the progess bar to show successful and failed upload
+
+    // ondestory inform orchestrator > remove the handler that will call stop self if it gets start command meanwhile
 }

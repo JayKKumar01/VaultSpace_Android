@@ -118,8 +118,16 @@ public final class AlbumUploadOrchestrator {
         // 2️⃣ Force-stop foreground service (defensive)
         Intent intent = new Intent(appContext, UploadForegroundService.class);
         appContext.stopService(intent);
+    }
 
-        // 3️⃣ Reset orchestrator state
+    public void cancelUploads(String albumId) {
+    }
+
+    public void retryUploads(String albumId) {
+
+    }
+
+    void onServiceDestroyed() {
         serviceRunning = false;
     }
 

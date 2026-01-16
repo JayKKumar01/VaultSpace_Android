@@ -2,11 +2,9 @@ package com.github.jaykkumar01.vaultspace.activities;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
@@ -22,10 +20,12 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumUploadStatusController;
 import com.github.jaykkumar01.vaultspace.album.upload.AlbumUploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.album.upload.UploadObserver;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
+import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
@@ -51,6 +51,7 @@ public class AlbumActivity extends AppCompatActivity {
     private ImageView btnBack;
     private FrameLayout contentContainer;
     private AlbumMetaInfoView albumMetaInfo;
+    private UploadStatusView uploadStatusView;
     private SwipeRefreshLayout swipeRefresh;
 
     private AlbumUiController albumUiController;
@@ -62,6 +63,8 @@ public class AlbumActivity extends AppCompatActivity {
 
     private final List<AlbumMedia> visibleMedia = new ArrayList<>();
     private AlbumUploadOrchestrator uploadOrchestrator;
+
+    private AlbumUploadStatusController uploadStatusController;
 
 
     private final AlbumLoader.Callback loaderCallback = new AlbumLoader.Callback() {
@@ -111,7 +114,26 @@ public class AlbumActivity extends AppCompatActivity {
                         + " total=" + snapshot.total
                         + " inProgress=" + snapshot.isInProgress()
         );
+        uploadStatusController.onSnapshot(snapshot);
     };
+
+    private final AlbumUploadStatusController.Callback uploadStatusCallback = new AlbumUploadStatusController.Callback() {
+        @Override
+        public void onCancelRequested() {
+            albumModalHandler.showCancelConfirm(() -> uploadOrchestrator.cancelUploads(albumId));
+        }
+
+        @Override
+        public void onRetryRequested() {
+            uploadOrchestrator.retryUploads(albumId);
+        }
+
+        @Override
+        public void onAcknowledge() {
+            //TODO
+        }
+    };
+
 
 
 
@@ -141,14 +163,12 @@ public class AlbumActivity extends AppCompatActivity {
         albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
         actionCoordinator = new AlbumActionCoordinator(this,actionCallback);
 
+
+        uploadStatusController =
+                new AlbumUploadStatusController(uploadStatusView, uploadStatusCallback);
+
         uploadOrchestrator = AlbumUploadOrchestrator.getInstance(this);
         uploadOrchestrator.registerObserver(albumId, uploadObserver);
-
-
-        findViewById(R.id.tvPhilosophy).setOnClickListener(v -> {
-            Toast.makeText(this, "Cancelled!", Toast.LENGTH_SHORT).show();
-            uploadOrchestrator.cancelAllUploads();
-        });
 
 
         loadAlbum();
@@ -269,6 +289,7 @@ public class AlbumActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBack);
         contentContainer = findViewById(R.id.stateContainer);
         albumMetaInfo = findViewById(R.id.albumMetaInfo);
+        uploadStatusView = findViewById(R.id.uploadStatusView);
         swipeRefresh = findViewById(R.id.swipeRefresh);
     }
 

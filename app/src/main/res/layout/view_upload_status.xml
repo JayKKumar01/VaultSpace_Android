@@ -68,10 +68,14 @@
 
             <View
                 android:id="@+id/uploadProgressFill"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@color/vs_accent_primary"/>
+                android:background="@color/vs_accent_primary"
+                android:scaleX="0"/>
         </FrameLayout>
+
+
+
 
         <!-- Line 3 -->
         <TextView
@@ -109,20 +113,29 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <TextView
-            android:id="@+id/tvCancelUpload"
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/tvAction"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
+            android:minHeight="36dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:text="Cancel"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:textColor="@color/vs_brand_text"
+            android:textColor="@color/vs_console_bg"
+            android:background="@drawable/bg_upload_action_cancel"
             android:gravity="center"
-            android:background="@drawable/bg_cancel_soft"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"
             android:clickable="true"
-            android:focusable="true"/>
+            android:focusable="true"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

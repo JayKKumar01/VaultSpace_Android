@@ -6,6 +6,7 @@ import com.github.jaykkumar01.vaultspace.album.upload.UploadSnapshot;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -33,7 +34,7 @@ public final class UploadCache extends VaultCache {
      * ========================================================== */
 
     private final Map<String, UploadSnapshot> snapshotsByAlbumId =
-            new HashMap<>();
+            new LinkedHashMap<>();
 
     private StopReason stopReason = StopReason.NONE;
 
