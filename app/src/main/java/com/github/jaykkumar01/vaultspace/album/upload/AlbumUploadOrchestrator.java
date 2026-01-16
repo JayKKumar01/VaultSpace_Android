@@ -86,8 +86,13 @@ public final class AlbumUploadOrchestrator {
 
     public void cancelAllUploads() {
         Log.d(TAG, "cancelAllUploads()");
+
         uploadManager.cancelAllUploads();
+
+        // 🔥 USER CANCEL → STOP SERVICE HARD
+        stopForegroundServiceImmediately();
     }
+
 
     public void cancelUploads(String albumId) {
         Log.d(TAG, "cancelUploads(): albumId=" + albumId);
@@ -171,4 +176,15 @@ public final class AlbumUploadOrchestrator {
         serviceState = ServiceState.IDLE;
         Log.d(TAG, "State reset → IDLE");
     }
+
+    private void stopForegroundServiceImmediately() {
+        Log.d(TAG, "Stopping foreground service immediately (user cancel)");
+
+        Intent intent = new Intent(appContext, UploadForegroundService.class);
+        appContext.stopService(intent);
+
+        serviceState = ServiceState.IDLE;
+        Log.d(TAG, "ServiceState reset → IDLE");
+    }
+
 }
