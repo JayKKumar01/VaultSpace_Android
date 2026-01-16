@@ -1,31 +1,34 @@
 package com.github.jaykkumar01.vaultspace.views.creative;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Rect;
+import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
+import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.TouchDelegate;
 import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.AppCompatButton;
-import androidx.cardview.widget.CardView;
+import androidx.core.content.ContextCompat;
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 
 import com.github.jaykkumar01.vaultspace.R;
 
-public class UploadStatusView extends CardView {
+public class UploadStatusView extends FrameLayout {
 
     /* ================= Upload Headline Texts ================= */
 
     private static final String TEXT_STARTING = "Just getting started";
-
     private static final String TEXT_PROGRESS_LOW = "Making progress";
-
     private static final String TEXT_PROGRESS_HALF = "More than halfway";
-
     private static final String TEXT_ALMOST_DONE = "Almost there";
-
     private static final String TEXT_ONE_LEFT = "Just one more to go";
-
     private static final String TEXT_COMPLETED = "All memories are safe";
 
     /* ================= Action Labels ================= */
@@ -39,8 +42,8 @@ public class UploadStatusView extends CardView {
     private static final String MEDIA_SEPARATOR = " photos · ";
     private static final String MEDIA_SUFFIX = " videos";
     private static final String RATIO_SEPARATOR = " / ";
-    private String textUploading;
 
+    private String textUploading;
 
     /* ================= Internal State ================= */
 
@@ -50,6 +53,11 @@ public class UploadStatusView extends CardView {
         COMPLETED
     }
 
+    /* ================= Root Containers ================= */
+
+    private FrameLayout cardContainer;   // actual card UI
+    private ImageView ivDismiss;          // overlay dismiss
+
     /* ================= Views ================= */
 
     private TextView tvMediaInfo;
@@ -57,7 +65,9 @@ public class UploadStatusView extends CardView {
     private View ivWarning;
 
     private View progressBar;
-    private View progressFill;
+    private View progressSuccessFill;
+    private View progressFailedFill;
+
     private TextView tvUploadRatio;
     private TextView tvUploadingState;
 
@@ -70,10 +80,16 @@ public class UploadStatusView extends CardView {
     private int totalCount;
     private int uploadedCount;
     private int failedCount;
+    private int dismissOverlap;
 
-    private float progressFraction;
-    private boolean progressBarReady;
 
+    private float uploadedFraction;
+    private float failedFraction;
+
+    private float animatedUploaded;
+    private float animatedFailed;
+
+    private ValueAnimator progressAnimator;
 
     /* ================= Constructors ================= */
 
@@ -86,40 +102,141 @@ public class UploadStatusView extends CardView {
         init();
     }
 
-    private void init() {
-        setRadius(dp(8));
-        setCardElevation(dp(6));
-        setUseCompatPadding(true);
-        setCardBackgroundColor(
-                getContext().getColor(R.color.vs_surface_soft_translucent)
-        );
+    /* ================= Init ================= */
 
+    private void init() {
+
+        // Root must allow overlay
+        setClipChildren(false);
+        setClipToPadding(false);
+
+        // ---------------- CARD CONTAINER ----------------
+
+        cardContainer = new FrameLayout(getContext());
+        cardContainer.setClipChildren(false);
+        cardContainer.setClipToPadding(false);
+        cardContainer.setElevation(dp(6));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(8));
+        bg.setColor(
+                ContextCompat.getColor(
+                        getContext(),
+                        R.color.vs_surface_soft_translucent
+                )
+        );
+        cardContainer.setBackground(bg);
+
+        dismissOverlap = (int) dp(14);
+
+        LayoutParams cardLp = new LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+        );
+        cardLp.topMargin = 0; // start flush
+        cardContainer.setLayoutParams(cardLp);
+
+        // Inflate existing XML INTO cardContainer
         LayoutInflater.from(getContext())
-                .inflate(R.layout.view_upload_status, this, true);
+                .inflate(R.layout.view_upload_status, cardContainer, true);
+
+        addView(cardContainer);
+
+        // ---------------- DISMISS BUTTON ----------------
+
+        ivDismiss = createDismissImage();
 
         bindViews();
-
         hide();
     }
 
+    private void updateCardOffsets(boolean dismissVisible) {
+
+        LayoutParams lp = (LayoutParams) cardContainer.getLayoutParams();
+
+        int target = dismissVisible ? dismissOverlap : 0;
+
+        boolean changed = false;
+
+        if (lp.topMargin != target) {
+            lp.topMargin = target;
+            changed = true;
+        }
+
+        if (lp.rightMargin != target) {
+            lp.rightMargin = target;
+            changed = true;
+        }
+
+        if (changed) {
+            cardContainer.setLayoutParams(lp);
+        }
+    }
+
+
+
+    /* ================= View Binding ================= */
 
     private void bindViews() {
-        tvMediaInfo = findViewById(R.id.tvUploadMediaInfo);
-        tvFailedCount = findViewById(R.id.tvFailedCount);
-        ivWarning = findViewById(R.id.ivUploadWarning);
 
-        progressBar = findViewById(R.id.uploadProgressBar);
-        progressFill = findViewById(R.id.uploadProgressFill);
-        tvUploadRatio = findViewById(R.id.tvUploadRatio);
-        tvUploadingState = findViewById(R.id.tvUploadingState);
+        tvMediaInfo = cardContainer.findViewById(R.id.tvUploadMediaInfo);
+        tvFailedCount = cardContainer.findViewById(R.id.tvFailedCount);
+        ivWarning = cardContainer.findViewById(R.id.ivUploadWarning);
 
-        btnAction = findViewById(R.id.tvAction);
+        progressBar = cardContainer.findViewById(R.id.uploadProgressBar);
+        progressSuccessFill = cardContainer.findViewById(R.id.uploadProgressSuccessFill);
+        progressFailedFill = cardContainer.findViewById(R.id.uploadProgressFailedFill);
 
-        progressFill.post(() -> {
-            progressFill.setPivotX(0f);
-            progressFill.setPivotY(progressFill.getHeight() / 2f);
+        tvUploadRatio = cardContainer.findViewById(R.id.tvUploadRatio);
+        tvUploadingState = cardContainer.findViewById(R.id.tvUploadingState);
+
+        btnAction = cardContainer.findViewById(R.id.tvAction);
+
+        // Progress pivots
+        progressSuccessFill.post(() -> {
+            progressSuccessFill.setPivotX(0f);
+            progressSuccessFill.setPivotY(progressSuccessFill.getHeight() / 2f);
         });
 
+        progressFailedFill.post(() -> {
+            progressFailedFill.setPivotX(0f);
+            progressFailedFill.setPivotY(progressFailedFill.getHeight() / 2f);
+        });
+    }
+
+    /* ================= Dismiss Button ================= */
+
+    private ImageView createDismissImage() {
+
+        ImageView iv = new ImageView(getContext());
+        iv.setImageResource(R.drawable.ic_close);
+        iv.setVisibility(GONE);
+        iv.setClickable(true);
+        iv.setFocusable(true);
+
+        iv.setBackground(
+                ContextCompat.getDrawable(
+                        getContext(),
+                        R.drawable.bg_dismiss_circle
+                )
+        );
+
+        iv.setElevation(dp(10));
+
+        int padding = (int) dp(6);
+        iv.setPadding(padding, padding, padding, padding);
+
+        int size = (int) dp(36);
+        LayoutParams lp = new LayoutParams(size, size);
+        lp.gravity = Gravity.TOP | Gravity.END;
+
+        iv.setLayoutParams(lp);
+        iv.setOnClickListener(v -> hide());
+
+        addView(iv);
+        expandTouchArea(iv, 16); // expands to ~60–64dp touch target
+
+        return iv;
     }
 
     /* ================= Visibility ================= */
@@ -153,9 +270,10 @@ public class UploadStatusView extends CardView {
     public void setFailedCount(int failed) {
         failedCount = Math.max(0, failed);
         renderFailures();
+        updateProgress();
     }
 
-    /* ================= State Rendering APIs ================= */
+    /* ================= State Rendering ================= */
 
     public void renderUploading(OnClickListener onAction, int completed, int total) {
         textUploading = resolveProgressText(completed, total);
@@ -174,50 +292,37 @@ public class UploadStatusView extends CardView {
     }
 
     private String resolveProgressText(int completed, int total) {
-
-        if (total <= 0) {
-            return TEXT_STARTING;
-        }
-
-        if (completed <= 0) {
-            return TEXT_STARTING;
-        }
+        if (total <= 0 || completed <= 0) return TEXT_STARTING;
 
         int remaining = total - completed;
-
-        if (remaining == 1) {
-            return TEXT_ONE_LEFT;
-        }
+        if (remaining == 1) return TEXT_ONE_LEFT;
 
         float fraction = completed / (float) total;
-
-        if (fraction >= 0.8f) {
-            return TEXT_ALMOST_DONE;
-        }
-
-        if (fraction >= 0.5f) {
-            return TEXT_PROGRESS_HALF;
-        }
+        if (fraction >= 0.8f) return TEXT_ALMOST_DONE;
+        if (fraction >= 0.5f) return TEXT_PROGRESS_HALF;
 
         return TEXT_PROGRESS_LOW;
     }
 
+    private void setState(State state) {
+        switch (state) {
 
-    /* ================= Internal Rendering ================= */
-
-    private void setState(State newState) {
-
-        switch (newState) {
             case UPLOADING:
                 tvUploadingState.setText(textUploading);
+                ivDismiss.setVisibility(GONE);
+                updateCardOffsets(false);
                 break;
 
             case FAILED:
                 tvUploadingState.setText(TEXT_ALMOST_DONE);
+                ivDismiss.setVisibility(VISIBLE);
+                updateCardOffsets(true);
                 break;
 
             case COMPLETED:
                 tvUploadingState.setText(TEXT_COMPLETED);
+                ivDismiss.setVisibility(GONE);
+                updateCardOffsets(false);
                 break;
         }
 
@@ -226,13 +331,16 @@ public class UploadStatusView extends CardView {
         updateProgress();
     }
 
+
+    /* ================= Rendering ================= */
+
     private void configureAction(
             String text,
-            int backgroundRes,
+            int bg,
             @Nullable OnClickListener action
     ) {
         btnAction.setText(text);
-        btnAction.setBackgroundResource(backgroundRes);
+        btnAction.setBackgroundResource(bg);
         btnAction.setOnClickListener(action);
     }
 
@@ -243,33 +351,94 @@ public class UploadStatusView extends CardView {
 
     private void renderFailures() {
         boolean show = failedCount > 0;
-
         ivWarning.setVisibility(show ? VISIBLE : GONE);
         tvFailedCount.setVisibility(show ? VISIBLE : GONE);
-
-        if (show) {
-            tvFailedCount.setText(String.valueOf(failedCount));
-        }
+        if (show) tvFailedCount.setText(String.valueOf(failedCount));
     }
 
     /* ================= Progress ================= */
 
     private void updateProgress() {
-        progressFraction = totalCount <= 0
-                ? 0f
-                : clamp01(uploadedCount / (float) totalCount);
 
-        String uploadRatio = uploadedCount + RATIO_SEPARATOR + totalCount;
-        tvUploadRatio.setText(uploadRatio);
-        applyProgress();
+        if (totalCount <= 0) {
+            uploadedFraction = 0f;
+            failedFraction = 0f;
+        } else {
+            uploadedFraction = clamp01(uploadedCount / (float) totalCount);
+            failedFraction = clamp01(failedCount / (float) totalCount);
+            failedFraction = Math.min(failedFraction, 1f - uploadedFraction);
+        }
+
+        String ratio = uploadedCount + RATIO_SEPARATOR + totalCount;
+        tvUploadRatio.setText(ratio);
+
+        animateProgress();
     }
 
-    private void applyProgress() {
-        progressFill.setScaleX(progressFraction);
+    private void animateProgress() {
+
+        if (progressBar.getWidth() == 0) {
+            progressBar.post(this::animateProgress);
+            return;
+        }
+
+        if (progressAnimator != null) {
+            progressAnimator.cancel();
+        }
+
+        float startUploaded = animatedUploaded;
+        float startFailed = animatedFailed;
+
+        progressAnimator = ValueAnimator.ofFloat(0f, 1f);
+        progressAnimator.setDuration(180);
+        progressAnimator.setInterpolator(new FastOutSlowInInterpolator());
+
+        progressAnimator.addUpdateListener(anim -> {
+            float t = (float) anim.getAnimatedValue();
+            animatedUploaded = lerp(startUploaded, uploadedFraction, t);
+            animatedFailed = lerp(startFailed, failedFraction, t);
+            renderAnimatedProgress();
+        });
+
+        progressAnimator.start();
+    }
+
+    private void renderAnimatedProgress() {
+
+        float barWidth = progressBar.getWidth();
+        float uploadedWidth = barWidth * animatedUploaded;
+
+        progressSuccessFill.setScaleX(animatedUploaded);
+        progressSuccessFill.setTranslationX(0f);
+
+        progressFailedFill.setScaleX(animatedFailed);
+        progressFailedFill.setTranslationX(uploadedWidth);
+    }
+
+    private void expandTouchArea(final View view, final int extraDp) {
+        final View parent = (View) view.getParent();
+        if (parent == null) return;
+
+        parent.post(() -> {
+            Rect rect = new Rect();
+            view.getHitRect(rect);
+
+            int extra = (int) dp(extraDp);
+            rect.top -= extra;
+            rect.bottom += extra;
+            rect.left -= extra;
+            rect.right += extra;
+
+            parent.setTouchDelegate(new TouchDelegate(rect, view));
+        });
     }
 
 
     /* ================= Utils ================= */
+
+    private float lerp(float s, float e, float t) {
+        return s + (e - s) * t;
+    }
 
     private float clamp01(float v) {
         return Math.max(0f, Math.min(1f, v));
