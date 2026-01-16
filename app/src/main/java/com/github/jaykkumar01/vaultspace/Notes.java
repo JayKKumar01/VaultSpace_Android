@@ -36,4 +36,7 @@ public class Notes {
     // use two colors in the progess bar to show successful and failed upload
 
     // ondestory inform orchestrator > remove the handler that will call stop self if it gets start command meanwhile
+
+
+    // on network connection drop in dashboard it does not reconnect sometimes, fix that
 }
