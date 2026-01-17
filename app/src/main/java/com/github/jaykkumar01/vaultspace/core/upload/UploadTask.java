@@ -2,7 +2,7 @@ package com.github.jaykkumar01.vaultspace.core.upload;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.models.MediaSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 
 /**
  * UploadTask
@@ -15,16 +15,16 @@ import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 final class UploadTask {
 
     @NonNull
-    final String albumId;
+    final String groupId;
 
     @NonNull
-    final MediaSelection selection;
+    final UploadSelection selection;
 
     UploadTask(
-            @NonNull String albumId,
-            @NonNull MediaSelection selection
+            @NonNull String groupId,
+            @NonNull UploadSelection selection
     ) {
-        this.albumId = albumId;
+        this.groupId = groupId;
         this.selection = selection;
     }
 }

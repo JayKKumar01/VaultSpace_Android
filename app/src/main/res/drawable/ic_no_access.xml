@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Outer circle -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="
+            M12,2
+            A10,10 0 1,1 12,22
+            A10,10 0 1,1 12,2"/>
+
+    <!-- Perfectly centered diagonal bar -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="
+            M4.93,16.97
+            L16.97,4.93
+            L19.07,7.03
+            L7.03,19.07
+            Z"/>
+</vector>

@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * UploadCache
  *
- * Session-scoped cache holding per-album upload snapshots
+ * Session-scoped cache holding per-group upload snapshots
  * and global stop context.
  *
  * Info-only. No execution. No callbacks.
@@ -32,7 +32,7 @@ public final class UploadCache extends VaultCache {
      * Storage
      * ========================================================== */
 
-    private final Map<String, UploadSnapshot> snapshotsByAlbumId =
+    private final Map<String, UploadSnapshot> snapshotsByGroupId =
             new LinkedHashMap<>();
 
     private StopReason stopReason = StopReason.NONE;
@@ -42,9 +42,9 @@ public final class UploadCache extends VaultCache {
      * ========================================================== */
 
     @Nullable
-    public UploadSnapshot getSnapshot(String albumId) {
-        if (!isInitialized() || albumId == null) return null;
-        return snapshotsByAlbumId.get(albumId);
+    public UploadSnapshot getSnapshot(String groupId) {
+        if (!isInitialized() || groupId == null) return null;
+        return snapshotsByGroupId.get(groupId);
     }
 
     /**
@@ -53,13 +53,13 @@ public final class UploadCache extends VaultCache {
      */
     public Map<String, UploadSnapshot> getAllSnapshots() {
         if (!isInitialized()) return Collections.emptyMap();
-        return Collections.unmodifiableMap(snapshotsByAlbumId);
+        return Collections.unmodifiableMap(snapshotsByGroupId);
     }
 
     public boolean hasAnyActiveUploads() {
         if (!isInitialized()) return false;
 
-        for (UploadSnapshot s : snapshotsByAlbumId.values()) {
+        for (UploadSnapshot s : snapshotsByGroupId.values()) {
             if (s.isInProgress()) return true;
         }
         return false;
@@ -68,22 +68,22 @@ public final class UploadCache extends VaultCache {
     public boolean hasFailures() {
         if (!isInitialized()) return false;
 
-        for (UploadSnapshot s : snapshotsByAlbumId.values()) {
+        for (UploadSnapshot s : snapshotsByGroupId.values()) {
             if (s.hasFailures()) return true;
         }
         return false;
     }
 
-    public boolean albumNeedsAttention(String albumId) {
-        UploadSnapshot s = getSnapshot(albumId);
+    public boolean groupNeedsAttention(String groupId) {
+        UploadSnapshot s = getSnapshot(groupId);
         return s != null && s.hasFailures();
     }
 
-    public int getAlbumsNeedingAttentionCount() {
+    public int getGroupsNeedingAttentionCount() {
         if (!isInitialized()) return 0;
 
         int count = 0;
-        for (UploadSnapshot s : snapshotsByAlbumId.values()) {
+        for (UploadSnapshot s : snapshotsByGroupId.values()) {
             if (s.hasFailures()) count++;
         }
         return count;
@@ -104,12 +104,12 @@ public final class UploadCache extends VaultCache {
             markInitialized();
         }
 
-        snapshotsByAlbumId.put(snapshot.groupId, snapshot);
+        snapshotsByGroupId.put(snapshot.groupId, snapshot);
     }
 
-    public void removeSnapshot(String albumId) {
-        if (!isInitialized() || albumId == null) return;
-        snapshotsByAlbumId.remove(albumId);
+    public void removeSnapshot(String groupId) {
+        if (!isInitialized() || groupId == null) return;
+        snapshotsByGroupId.remove(groupId);
     }
 
     public void markStopped(StopReason reason) {
@@ -126,7 +126,7 @@ public final class UploadCache extends VaultCache {
 
     @Override
     protected void onClear() {
-        snapshotsByAlbumId.clear();
+        snapshotsByGroupId.clear();
         stopReason = StopReason.NONE;
     }
 }

@@ -28,8 +28,15 @@ public final class UploadOrchestrator {
     private static UploadOrchestrator INSTANCE;
 
     private final Context appContext;
-    private final UploadManagerOld uploadManagerOld;
+    private final UploadManager uploadManager;
     private final UploadCache uploadCache;
+
+    public void removeSnapshotFromCache(String groupId) {
+        uploadManager.removeSnapshotFromCache(groupId);
+    }
+    public void removeSnapshotFromStore(String groupId) {
+        uploadManager.removeSnapshotFromStore(groupId);
+    }
 
     /* ================= Service State ================= */
 
@@ -58,13 +65,9 @@ public final class UploadOrchestrator {
         UserSession session = new UserSession(appContext);
 
         this.uploadCache = session.getVaultCache().uploadCache;
-        this.uploadManagerOld = new UploadManagerOld(
-                appContext,
-                uploadCache,
-                session.getUploadRetryStore()
-        );
+        this.uploadManager = new UploadManager(appContext);
 
-        this.uploadManagerOld.attachOrchestrator(this);
+        this.uploadManager.attachOrchestrator(this);
 
         Log.d(TAG, "Initialized. serviceState=IDLE");
     }
@@ -76,12 +79,7 @@ public final class UploadOrchestrator {
             @NonNull String groupLabel,
             @NonNull List<? extends UploadSelection> selections
     ) {
-        Log.d(TAG,
-                "enqueue(): groupId=" + groupId +
-                        ", items=" + selections.size()
-        );
-
-        uploadManagerOld.enqueue(groupId, groupLabel, selections);
+        uploadManager.enqueue(groupId, groupLabel, selections);
     }
 
     public void registerObserver(
@@ -91,22 +89,22 @@ public final class UploadOrchestrator {
     ) {
         Log.d(TAG, "registerObserver(): groupId=" + groupId);
 
-        uploadManagerOld.registerObserver(groupId, groupLabel, observer);
+        uploadManager.registerObserver(groupId, groupLabel, observer);
     }
 
     public void unregisterObserver(@NonNull String groupId) {
         Log.d(TAG, "unregisterObserver(): groupId=" + groupId);
-        uploadManagerOld.unregisterObserver(groupId);
+        uploadManager.unregisterObserver(groupId);
     }
 
     public void cancelUploads(@NonNull String groupId) {
         Log.d(TAG, "cancelUploads(): groupId=" + groupId);
-        uploadManagerOld.cancelUploads(groupId);
+        uploadManager.cancelUploads(groupId);
     }
 
     public void cancelAllUploads() {
         Log.d(TAG, "cancelAllUploads()");
-        uploadManagerOld.cancelAllUploads();
+        uploadManager.cancelAllUploads();
     }
 
     public void retryUploads(@NonNull String groupId) {
@@ -178,7 +176,7 @@ public final class UploadOrchestrator {
 
         Log.d(TAG, "onSessionCleared(): cancelling uploads + stopping service");
 
-        uploadManagerOld.cancelAllUploads();
+        uploadManager.cancelAllUploads();
 
         Intent intent = new Intent(appContext, UploadForegroundService.class);
         appContext.stopService(intent);

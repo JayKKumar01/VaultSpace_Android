@@ -20,11 +20,11 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
-import com.github.jaykkumar01.vaultspace.album.helper.AlbumUploadStatusController;
+import com.github.jaykkumar01.vaultspace.core.upload.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
-import com.github.jaykkumar01.vaultspace.models.MediaSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
@@ -65,7 +65,7 @@ public class AlbumActivity extends AppCompatActivity {
     private final List<AlbumMedia> visibleMedia = new ArrayList<>();
     private UploadOrchestrator uploadOrchestrator;
 
-    private AlbumUploadStatusController uploadStatusController;
+    private UploadStatusController uploadStatusController;
 
 
     private final AlbumLoader.Callback loaderCallback = new AlbumLoader.Callback() {
@@ -85,7 +85,7 @@ public class AlbumActivity extends AppCompatActivity {
 
     private final AlbumActionCoordinator.Callback actionCallback = new AlbumActionCoordinator.Callback() {
         @Override
-        public void onMediaSelected(List<MediaSelection> selections) {
+        public void onMediaSelected(List<UploadSelection> selections) {
             uploadOrchestrator.enqueue(albumId,albumName,selections);
         }
     };
@@ -126,7 +126,7 @@ public class AlbumActivity extends AppCompatActivity {
         }
     };
 
-    private final AlbumUploadStatusController.Callback uploadStatusCallback = new AlbumUploadStatusController.Callback() {
+    private final UploadStatusController.Callback uploadStatusCallback = new UploadStatusController.Callback() {
         @Override
         public void onCancelRequested() {
             albumModalHandler.showCancelConfirm(() -> uploadOrchestrator.cancelUploads(albumId));
@@ -139,12 +139,12 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onAcknowledge() {
-            //TODO
+            uploadOrchestrator.removeSnapshotFromCache(albumId);
         }
 
         @Override
         public void onNoAccessInfo() {
-
+            uploadOrchestrator.removeSnapshotFromStore(albumId);
         }
     };
 
@@ -179,7 +179,7 @@ public class AlbumActivity extends AppCompatActivity {
 
 
         uploadStatusController =
-                new AlbumUploadStatusController(uploadStatusView, uploadStatusCallback);
+                new UploadStatusController(uploadStatusView, uploadStatusCallback);
 
         uploadOrchestrator = UploadOrchestrator.getInstance(this);
         uploadOrchestrator.registerObserver(albumId, albumName, uploadObserver);

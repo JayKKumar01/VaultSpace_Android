@@ -4,21 +4,22 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 
-import com.github.jaykkumar01.vaultspace.models.MediaSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 
-public final class MediaSelectionResolver {
+public final class UploadSelectionResolver {
 
     private final ContentResolver resolver;
 
-    public MediaSelectionResolver(Context context) {
+    public UploadSelectionResolver(Context context) {
         this.resolver = context.getContentResolver();
     }
 
-    public MediaSelection resolve(Uri uri) {
+    public UploadSelection resolve(Uri uri) {
         String mimeType = resolver.getType(uri);
 
         assert mimeType != null;
-        return new MediaSelection(
+
+        return new UploadSelection(
                 uri,
                 mimeType
         );

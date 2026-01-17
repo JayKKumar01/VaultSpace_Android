@@ -6,7 +6,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.picker.AlbumMediaPicker;
-import com.github.jaykkumar01.vaultspace.models.MediaSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 
 import java.util.List;
 
@@ -18,7 +18,7 @@ public final class AlbumActionCoordinator {
      * ============================================================ */
 
     public interface Callback {
-        void onMediaSelected(List<MediaSelection> selections);
+        void onMediaSelected(List<UploadSelection> selections);
     }
 
     /* ============================================================
@@ -38,7 +38,7 @@ public final class AlbumActionCoordinator {
         AlbumMediaPicker.Callback pickerCallback = new AlbumMediaPicker.Callback() {
 
             @Override
-            public void onMediaPicked(List<MediaSelection> selections) {
+            public void onMediaPicked(List<UploadSelection> selections) {
                 if (released) return;
 
                 if (!selections.isEmpty()) {

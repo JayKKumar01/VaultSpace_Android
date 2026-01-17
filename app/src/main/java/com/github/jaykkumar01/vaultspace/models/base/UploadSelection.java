@@ -4,45 +4,28 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 
-public abstract class UploadSelection {
+public final class UploadSelection {
 
     @NonNull
     public final Uri uri;
-
     @NonNull
     public final String mimeType;
-
     @NonNull
     private final UploadType type;
 
-    protected UploadSelection(
-            @NonNull Uri uri,
-            @NonNull String mimeType
-    ) {
+    public UploadSelection(@NonNull Uri uri, @NonNull String mimeType) {
         this.uri = uri;
         this.mimeType = mimeType;
         this.type = UploadType.fromMime(mimeType);
     }
 
     @NonNull
-    public final UploadType getType() {
+    public UploadType getType() {
         return type;
     }
 
-    public final boolean isPhoto() {
-        return type == UploadType.PHOTO;
-    }
-
-    public final boolean isVideo() {
-        return type == UploadType.VIDEO;
-    }
-
-    public final boolean isFile() {
-        return type == UploadType.FILE;
-    }
-
-    @NonNull
     @Override
+    @NonNull
     public String toString() {
         return "UploadSelection{" +
                 "uri=" + uri +

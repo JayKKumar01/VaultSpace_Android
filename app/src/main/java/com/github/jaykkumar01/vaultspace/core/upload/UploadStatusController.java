@@ -1,8 +1,7 @@
-package com.github.jaykkumar01.vaultspace.album.helper;
+package com.github.jaykkumar01.vaultspace.core.upload;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 
 /**
@@ -11,7 +10,7 @@ import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
  * Interprets UploadSnapshot and renders UploadStatusView.
  * Owns upload meaning, not upload execution.
  */
-public final class AlbumUploadStatusController {
+public final class UploadStatusController {
 
     /* ================= Callback ================= */
 
@@ -29,7 +28,7 @@ public final class AlbumUploadStatusController {
 
     /* ================= Constructor ================= */
 
-    public AlbumUploadStatusController(
+    public UploadStatusController(
             @NonNull UploadStatusView statusView,
             @NonNull Callback callback
     ) {

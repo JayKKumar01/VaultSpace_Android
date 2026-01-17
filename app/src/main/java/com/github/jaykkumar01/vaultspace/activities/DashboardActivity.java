@@ -27,8 +27,8 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelpe
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 
-import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
+import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
@@ -254,7 +254,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void logUploadRetries() {
-        Map<String, List<MediaSelection>> retries =
+        Map<String, List<UploadSelection>> retries =
                 userSession.getUploadRetryStore().getAllRetries();
 
         if (retries.isEmpty()) {
@@ -264,17 +264,17 @@ public class DashboardActivity extends AppCompatActivity {
 
         Log.d(TAG, "UploadRetryStore: total albums with retry = " + retries.size());
 
-        for (Map.Entry<String, List<MediaSelection>> entry
+        for (Map.Entry<String, List<UploadSelection>> entry
                 : retries.entrySet()) {
 
             String albumId = entry.getKey();
-            List<MediaSelection> list = entry.getValue();
+            List<UploadSelection> list = entry.getValue();
 
             Log.d(TAG,
                     "UploadRetryStore: groupId=" + albumId +
                             ", retryCount=" + list.size());
 
-            for (MediaSelection s : list) {
+            for (UploadSelection s : list) {
                 Log.d(TAG, "  ↳ " + s);
             }
         }
