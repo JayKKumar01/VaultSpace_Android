@@ -62,10 +62,11 @@ public class UserSession {
 
     public UploadRetryStore getUploadRetryStore() {
         if (uploadRetryStore == null) {
-            uploadRetryStore = new UploadRetryStore(prefs);
+            uploadRetryStore = new UploadRetryStore(appContext);
         }
         return uploadRetryStore;
     }
+
 
     /* ---------------- Session ---------------- */
 

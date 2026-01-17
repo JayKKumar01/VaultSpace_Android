@@ -34,6 +34,8 @@ import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
@@ -254,31 +256,36 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void logUploadRetries() {
-        Map<String, List<UploadSelection>> retries =
-                userSession.getUploadRetryStore().getAllRetries();
+        Executor executor = Executors.newSingleThreadExecutor();
 
-        if (retries.isEmpty()) {
-            Log.d(TAG, "UploadRetryStore: no retry entries");
-            return;
-        }
+        executor.execute(() -> {
+            Map<String, List<UploadSelection>> retries =
+                    userSession.getUploadRetryStore().getAllRetries();
 
-        Log.d(TAG, "UploadRetryStore: total albums with retry = " + retries.size());
-
-        for (Map.Entry<String, List<UploadSelection>> entry
-                : retries.entrySet()) {
-
-            String albumId = entry.getKey();
-            List<UploadSelection> list = entry.getValue();
-
-            Log.d(TAG,
-                    "UploadRetryStore: groupId=" + albumId +
-                            ", retryCount=" + list.size());
-
-            for (UploadSelection s : list) {
-                Log.d(TAG, "  ↳ " + s);
+            if (retries.isEmpty()) {
+                Log.d(TAG, "UploadRetryStore: no retry entries");
+                return;
             }
-        }
+
+            Log.d(TAG, "UploadRetryStore: total albums with retry = " + retries.size());
+
+            for (Map.Entry<String, List<UploadSelection>> entry : retries.entrySet()) {
+                String albumId = entry.getKey();
+                List<UploadSelection> list = entry.getValue();
+
+                Log.d(
+                        TAG,
+                        "UploadRetryStore: groupId=" + albumId +
+                                ", retryCount=" + list.size()
+                );
+
+                for (UploadSelection s : list) {
+                    Log.d(TAG, "  ↳ " + s);
+                }
+            }
+        });
     }
+
 
 
     /* ==========================================================

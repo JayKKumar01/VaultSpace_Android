@@ -1,160 +1,91 @@
 package com.github.jaykkumar01.vaultspace.core.session;
 
-import android.content.SharedPreferences;
+import android.content.Context;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDao;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDatabase;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
+import com.github.jaykkumar01.vaultspace.models.base.UploadType;
 
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * UploadRetryStore
- *
- * Persistent store for retryable UploadSelections.
- * Session-independent. Healed on restore.
- */
 public final class UploadRetryStore {
 
-    private static final String KEY_RETRY="upload_retry_map_v2";
+    private final UploadRetryDao dao;
 
-    private static final Type MAP_TYPE=
-            new TypeToken<Map<String,List<UploadSelection>>>(){}.getType();
-
-    private final SharedPreferences prefs;
-    private final Gson gson;
-
-    private Map<String,List<UploadSelection>> map;
-    private boolean dirty;
-
-    UploadRetryStore(@NonNull SharedPreferences prefs){
-        this.prefs=prefs;
-        this.gson=new GsonBuilder()
-                .registerTypeAdapter(
-                        Uri.class,
-                        (com.google.gson.JsonSerializer<Uri>)
-                                (src,t,ctx)->ctx.serialize(src.toString()))
-                .registerTypeAdapter(
-                        Uri.class,
-                        (com.google.gson.JsonDeserializer<Uri>)
-                                (json,t,ctx)->Uri.parse(json.getAsString()))
-                .create();
-    }
-
-    /* ================= Load ================= */
-
-    private Map<String,List<UploadSelection>> ensureLoaded(){
-        if(map!=null) return map;
-        String json=prefs.getString(KEY_RETRY,null);
-        if(json==null) map=new HashMap<>();
-        else{
-            Map<String,List<UploadSelection>> parsed=gson.fromJson(json,MAP_TYPE);
-            map=parsed!=null?parsed:new HashMap<>();
-        }
-        return map;
+    public UploadRetryStore(@NonNull Context context){
+        this.dao = UploadRetryDatabase.get(context).dao();
     }
 
     /* ================= Write ================= */
 
-    public void addRetry(@NonNull String groupId,@NonNull UploadSelection selection){
-        List<UploadSelection> list =
-                ensureLoaded().computeIfAbsent(groupId,k->new ArrayList<>());
-        if (!list.contains(selection)) {
-            list.add(selection);
-            dirty = true;
-        }
+    public void addRetry(@NonNull String groupId,@NonNull UploadSelection s){
+        dao.insert(toEntity(groupId, s));
     }
 
-    public void addRetryBatch(@NonNull String groupId,@NonNull List<? extends UploadSelection> selections){
-        if(selections.isEmpty()) return;
-
-        List<UploadSelection> list =
-                ensureLoaded().computeIfAbsent(groupId,k->new ArrayList<>());
-
-        boolean changed = false;
-        for (UploadSelection s : selections) {
-            if (!list.contains(s)) {
-                list.add(s);
-                changed = true;
-            }
-        }
-
-        if (changed) dirty = true;
+    public void addRetryBatch(
+            @NonNull String groupId,
+            @NonNull List<UploadSelection> selections
+    ){
+        if (selections.isEmpty()) return;
+        List<UploadRetryEntity> list = new ArrayList<>(selections.size());
+        for (UploadSelection s : selections)
+            list.add(toEntity(groupId, s));
+        dao.insertAll(list);
     }
 
-
-    public void removeRetry(@NonNull String groupId,@NonNull UploadSelection selection){
-        List<UploadSelection> list = ensureLoaded().get(groupId);
-        if (list == null) return;
-        list.remove(selection);
-        if (list.isEmpty()) ensureLoaded().remove(groupId);
-        dirty = true;
+    public void removeRetry(@NonNull String groupId,@NonNull UploadSelection s){
+        dao.delete(groupId, s.uri.toString(), s.getType().name());
     }
-
 
     /* ================= Read ================= */
 
     @NonNull
     public Map<String,List<UploadSelection>> getAllRetries(){
-        Map<String,List<UploadSelection>> src = ensureLoaded();
-        Map<String,List<UploadSelection>> copy = new HashMap<>(src.size());
-        for (Map.Entry<String,List<UploadSelection>> e : src.entrySet()) {
-            copy.put(e.getKey(), new ArrayList<>(e.getValue()));
+        List<UploadRetryEntity> rows = dao.getAll();
+        Map<String,List<UploadSelection>> map = new HashMap<>();
+        for (UploadRetryEntity e : rows) {
+            map.computeIfAbsent(e.groupId, k -> new ArrayList<>())
+               .add(fromEntity(e));
         }
-        return copy;
+        return map;
     }
-
 
     /* ================= Clear ================= */
 
     public void clearGroup(@NonNull String groupId){
-        ensureLoaded().remove(groupId);
-        dirty=true;
+        dao.deleteGroup(groupId);
     }
 
     public void clearAll(){
-        map=null;
-        dirty=false;
-        prefs.edit().remove(KEY_RETRY).apply();
+        dao.deleteAll();
     }
 
-    /* ================= Persist ================= */
+    /* ================= Mapping ================= */
 
-    public void flush(){
-        if(!dirty||map==null) return;
-        prefs.edit().putString(KEY_RETRY,gson.toJson(map)).apply();
-        dirty=false;
-    }
-
-    /* ================= Atomic Helpers ================= */
-
-    public void addRetryBatchAndFlush(
+    private static UploadRetryEntity toEntity(
             @NonNull String groupId,
-            @NonNull List<? extends UploadSelection> selections
+            @NonNull UploadSelection s
     ){
-        addRetryBatch(groupId, selections);
-        flush();
+        return new UploadRetryEntity(
+                groupId,
+                s.uri.toString(),
+                s.mimeType,
+                s.getType().name()
+        );
     }
 
-    public void removeRetryAndFlush(
-            @NonNull String groupId,
-            @NonNull UploadSelection selection
-    ){
-        removeRetry(groupId, selection);
-        flush();
+    private static UploadSelection fromEntity(@NonNull UploadRetryEntity e){
+        return new UploadSelection(
+                Uri.parse(e.uri),
+                e.mimeType
+        );
     }
-
-    public void clearGroupAndFlush(@NonNull String groupId){
-        clearGroup(groupId);
-        flush();
-    }
-
 }

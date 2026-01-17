@@ -77,7 +77,7 @@ public final class UploadOrchestrator {
     public void enqueue(
             @NonNull String groupId,
             @NonNull String groupLabel,
-            @NonNull List<? extends UploadSelection> selections
+            @NonNull List<UploadSelection> selections
     ) {
         uploadManager.enqueue(groupId, groupLabel, selections);
     }

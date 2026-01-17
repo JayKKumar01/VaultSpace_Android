@@ -75,9 +75,9 @@ public final class UploadManager {
 
     /* ================= Enqueue ================= */
 
-    public void enqueue(@NonNull String groupId,@NonNull String groupName,@NonNull List<? extends UploadSelection> selections) {
+    public void enqueue(@NonNull String groupId,@NonNull String groupName,@NonNull List<UploadSelection> selections) {
         controlExecutor.execute(() -> {
-            retryStore.addRetryBatchAndFlush(groupId, selections);
+            retryStore.addRetryBatch(groupId, selections);
 
             UploadSnapshot snapshot = mergeSnapshot(groupId, groupName, selections);
             uploadCache.putSnapshot(snapshot);
@@ -142,7 +142,7 @@ public final class UploadManager {
         UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
         if (old == null) { current = null; processQueue(); return; }
 
-        retryStore.removeRetryAndFlush(task.groupId, task.selection);
+        retryStore.removeRetry(task.groupId, task.selection);
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
@@ -170,7 +170,7 @@ public final class UploadManager {
 
         if (!retryable) {
             // ❌ non-retryable → remove permanently
-            retryStore.removeRetryAndFlush(task.groupId, task.selection);
+            retryStore.removeRetry(task.groupId, task.selection);
             updated.nonRetryableFailed++;
         }
         finalizeStep(task.groupId, updated);
@@ -234,7 +234,7 @@ public final class UploadManager {
             }
 
             uploadCache.removeSnapshot(groupId);
-            retryStore.clearGroupAndFlush(groupId);
+            retryStore.clearGroup(groupId);
 
             emitCancelled(groupId);
             processQueue();
@@ -262,9 +262,6 @@ public final class UploadManager {
                 uploadCache.removeSnapshot(groupId);
                 retryStore.clearGroup(groupId);
             }
-
-            // 4️⃣ Persist once (batch write)
-            retryStore.flush();
 
             // 5️⃣ Mark system state
             uploadCache.markStopped(UploadCache.StopReason.USER);
@@ -317,6 +314,6 @@ public final class UploadManager {
 
     public void removeSnapshotFromStore(String groupId) {
         uploadCache.removeSnapshot(groupId);
-        retryStore.clearGroupAndFlush(groupId);
+        retryStore.clearGroup(groupId);
     }
 }
