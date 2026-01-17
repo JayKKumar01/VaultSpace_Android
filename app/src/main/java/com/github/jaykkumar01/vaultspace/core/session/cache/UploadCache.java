@@ -2,10 +2,9 @@ package com.github.jaykkumar01.vaultspace.core.session.cache;
 
 import androidx.annotation.Nullable;
 
-import com.github.jaykkumar01.vaultspace.album.upload.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -105,7 +104,7 @@ public final class UploadCache extends VaultCache {
             markInitialized();
         }
 
-        snapshotsByAlbumId.put(snapshot.albumId, snapshot);
+        snapshotsByAlbumId.put(snapshot.groupId, snapshot);
     }
 
     public void removeSnapshot(String albumId) {

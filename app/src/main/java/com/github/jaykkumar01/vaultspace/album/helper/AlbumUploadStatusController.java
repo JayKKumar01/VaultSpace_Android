@@ -1,9 +1,8 @@
 package com.github.jaykkumar01.vaultspace.album.helper;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
-import com.github.jaykkumar01.vaultspace.album.upload.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 
 /**
@@ -20,6 +19,7 @@ public final class AlbumUploadStatusController {
         void onCancelRequested();
         void onRetryRequested();
         void onAcknowledge();
+        void onNoAccessInfo();
     }
 
     /* ================= Fields ================= */
@@ -45,52 +45,49 @@ public final class AlbumUploadStatusController {
      * Called repeatedly from UploadObserver.
      */
     public void onSnapshot(UploadSnapshot snapshot) {
-
         if (snapshot == null) {
             statusView.hide();
             return;
         }
 
-        /* ---------- Common data ---------- */
-
-        statusView.setMediaCounts(
-                snapshot.photos,
-                snapshot.videos
-        );
-
+        statusView.setMediaCounts(snapshot.photos, snapshot.videos);
         statusView.setTotalCount(snapshot.total);
         statusView.setUploadedCount(snapshot.uploaded);
         statusView.setFailedCount(snapshot.failed);
+        statusView.setNoAccessCount(snapshot.nonRetryableFailed);
 
-        /* ---------- State resolution ---------- */
+        statusView.show();
 
         if (snapshot.isInProgress()) {
-
-            statusView.show();
             statusView.renderUploading(
                     v -> callback.onCancelRequested(),
                     snapshot.uploaded + snapshot.failed,
                     snapshot.total
             );
+            return;
+        }
 
-        } else if (snapshot.hasFailures()) {
-
-            statusView.show();
+        if (snapshot.hasRetryableFailures()) {
             statusView.renderFailed(
                     v -> callback.onRetryRequested()
             );
-
-        } else {
-
-            statusView.show();
-            statusView.renderCompleted(
-                    v -> {
-                        callback.onAcknowledge();
-                        statusView.hide();
-                    }
-            );
+            return;
         }
+
+        if (snapshot.hasOnlyNonRetryableFailures()) {
+            statusView.renderNoAccess(v -> {
+                statusView.hide();
+                callback.onNoAccessInfo();
+            });
+            return;
+        }
+
+        statusView.renderCompleted(v -> {
+            statusView.hide();
+            callback.onAcknowledge();
+        });
     }
+
 
     public void onCancelled() {
         statusView.hide();

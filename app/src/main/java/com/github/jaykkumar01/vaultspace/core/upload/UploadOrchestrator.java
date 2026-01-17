@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album.upload;
+package com.github.jaykkumar01.vaultspace.core.upload;
 
 import android.content.Context;
 import android.content.Intent;
@@ -9,18 +9,26 @@ import androidx.core.content.ContextCompat;
 
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
-import com.github.jaykkumar01.vaultspace.models.MediaSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 
 import java.util.List;
 
-public final class AlbumUploadOrchestrator {
+/**
+ * UploadOrchestrator
+ *
+ * UI-facing facade that:
+ * - wires UploadManager
+ * - controls foreground service lifecycle
+ * - is agnostic of upload source (album, files, future)
+ */
+public final class UploadOrchestrator {
 
-    private static final String TAG = "VaultSpace:ForegroundAndOrchestrator";
+    private static final String TAG = "VaultSpace:UploadOrchestrator";
 
-    private static AlbumUploadOrchestrator INSTANCE;
+    private static UploadOrchestrator INSTANCE;
 
     private final Context appContext;
-    private final UploadManager uploadManager;
+    private final UploadManagerOld uploadManagerOld;
     private final UploadCache uploadCache;
 
     /* ================= Service State ================= */
@@ -35,75 +43,75 @@ public final class AlbumUploadOrchestrator {
 
     /* ================= Singleton ================= */
 
-    public static synchronized AlbumUploadOrchestrator getInstance(
+    public static synchronized UploadOrchestrator getInstance(
             @NonNull Context context
     ) {
         if (INSTANCE == null) {
-            INSTANCE = new AlbumUploadOrchestrator(context);
+            INSTANCE = new UploadOrchestrator(context);
         }
         return INSTANCE;
     }
 
-    private AlbumUploadOrchestrator(@NonNull Context context) {
+    private UploadOrchestrator(@NonNull Context context) {
         this.appContext = context.getApplicationContext();
 
         UserSession session = new UserSession(appContext);
 
         this.uploadCache = session.getVaultCache().uploadCache;
-        this.uploadManager = new UploadManager(
-                context,
+        this.uploadManagerOld = new UploadManagerOld(
+                appContext,
                 uploadCache,
                 session.getUploadRetryStore()
         );
 
-        this.uploadManager.attachOrchestrator(this);
+        this.uploadManagerOld.attachOrchestrator(this);
 
         Log.d(TAG, "Initialized. serviceState=IDLE");
     }
 
-    /* ================= UI-facing ================= */
+    /* ================= UI-facing API ================= */
 
     public void enqueue(
-            @NonNull String albumId,
-            @NonNull String albumName,
-            @NonNull List<MediaSelection> selections
+            @NonNull String groupId,
+            @NonNull String groupLabel,
+            @NonNull List<? extends UploadSelection> selections
     ) {
-        Log.d(TAG, "enqueue(): albumId=" + albumId + ", items=" + selections.size());
-        uploadManager.enqueue(albumId, albumName, selections);
+        Log.d(TAG,
+                "enqueue(): groupId=" + groupId +
+                        ", items=" + selections.size()
+        );
+
+        uploadManagerOld.enqueue(groupId, groupLabel, selections);
     }
 
     public void registerObserver(
-            @NonNull String albumId,
-            @NonNull String albumName,
+            @NonNull String groupId,
+            @NonNull String groupLabel,
             @NonNull UploadObserver observer
     ) {
-        Log.d(TAG, "registerObserver(): albumId=" + albumId);
-        uploadManager.registerObserver(albumId, albumName, observer);
+        Log.d(TAG, "registerObserver(): groupId=" + groupId);
+
+        uploadManagerOld.registerObserver(groupId, groupLabel, observer);
     }
 
-    public void unregisterObserver(@NonNull String albumId) {
-        Log.d(TAG, "unregisterObserver(): albumId=" + albumId);
-        uploadManager.unregisterObserver(albumId);
+    public void unregisterObserver(@NonNull String groupId) {
+        Log.d(TAG, "unregisterObserver(): groupId=" + groupId);
+        uploadManagerOld.unregisterObserver(groupId);
+    }
+
+    public void cancelUploads(@NonNull String groupId) {
+        Log.d(TAG, "cancelUploads(): groupId=" + groupId);
+        uploadManagerOld.cancelUploads(groupId);
     }
 
     public void cancelAllUploads() {
         Log.d(TAG, "cancelAllUploads()");
-
-        uploadManager.cancelAllUploads();
-
-        // 🔥 USER CANCEL → STOP SERVICE HARD
-//        stopForegroundServiceImmediately();
+        uploadManagerOld.cancelAllUploads();
     }
 
-
-    public void cancelUploads(String albumId) {
-        Log.d(TAG, "cancelUploads(): albumId=" + albumId);
-        uploadManager.cancelUploads(albumId);
-    }
-
-    public void retryUploads(String albumId) {
-        Log.d(TAG, "retryUploads(): albumId=" + albumId);
-        // to be implemented later
+    public void retryUploads(@NonNull String groupId) {
+        Log.d(TAG, "retryUploads(): groupId=" + groupId);
+        // implemented later
     }
 
     /* ================= UploadManager callback ================= */
@@ -120,16 +128,18 @@ public final class AlbumUploadOrchestrator {
         switch (serviceState) {
 
             case IDLE:
-                Log.d(TAG, "State=IDLE → starting foreground service");
-                startForegroundService();
-                serviceState = ServiceState.RUNNING;
-                Log.d(TAG, "State changed → RUNNING");
+                if (hasActive) {
+                    Log.d(TAG, "State=IDLE → starting foreground service");
+                    startForegroundService();
+                    serviceState = ServiceState.RUNNING;
+                    Log.d(TAG, "State changed → RUNNING");
+                }
                 return;
 
             case RUNNING:
-                // 🔑 ALWAYS nudge service
+                // Always nudge to keep notification in sync
                 Log.d(TAG, "State=RUNNING → nudging service");
-                nudgeService();
+                nudgeForegroundService();
                 return;
 
             case FINALIZING:
@@ -141,13 +151,11 @@ public final class AlbumUploadOrchestrator {
     /* ================= Foreground service control ================= */
 
     private void startForegroundService() {
-        Log.d(TAG, "startForegroundService()");
         Intent intent = new Intent(appContext, UploadForegroundService.class);
         ContextCompat.startForegroundService(appContext, intent);
     }
 
-    private void nudgeService() {
-        Log.d(TAG, "nudgeService()");
+    private void nudgeForegroundService() {
         Intent intent = new Intent(appContext, UploadForegroundService.class);
         appContext.startService(intent);
     }
@@ -170,7 +178,7 @@ public final class AlbumUploadOrchestrator {
 
         Log.d(TAG, "onSessionCleared(): cancelling uploads + stopping service");
 
-        uploadManager.cancelAllUploads();
+        uploadManagerOld.cancelAllUploads();
 
         Intent intent = new Intent(appContext, UploadForegroundService.class);
         appContext.stopService(intent);

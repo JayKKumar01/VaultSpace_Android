@@ -3,7 +3,7 @@ package com.github.jaykkumar01.vaultspace.core.session;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import com.github.jaykkumar01.vaultspace.album.upload.AlbumUploadOrchestrator;
+import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 
 public class UserSession {
 
@@ -90,6 +90,6 @@ public class UserSession {
         }
 
         PrimaryUserCoordinator.clearSavedProfilePhoto(appContext);
-        AlbumUploadOrchestrator.getInstance(appContext).onSessionCleared();
+        UploadOrchestrator.getInstance(appContext).onSessionCleared();
     }
 }

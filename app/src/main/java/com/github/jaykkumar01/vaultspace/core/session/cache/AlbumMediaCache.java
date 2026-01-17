@@ -9,7 +9,7 @@ import java.util.Map;
  * AlbumMediaCache
  *
  * Session-scoped cache for album media.
- * Routes media access by albumId.
+ * Routes media access by groupId.
  *
  * Responsibilities:
  * - Manage per-album media entries
@@ -41,7 +41,7 @@ public final class AlbumMediaCache extends VaultCache {
      */
     public AlbumMediaEntry getOrCreateEntry(String albumId) {
         if (albumId == null) {
-            throw new IllegalArgumentException("albumId == null");
+            throw new IllegalArgumentException("groupId == null");
         }
 
         AlbumMediaEntry entry = entriesByAlbumId.get(albumId);

@@ -16,12 +16,11 @@ public final class MediaSelectionResolver {
 
     public MediaSelection resolve(Uri uri) {
         String mimeType = resolver.getType(uri);
-        boolean isVideo = mimeType != null && mimeType.startsWith("video/");
 
+        assert mimeType != null;
         return new MediaSelection(
                 uri,
-                mimeType,
-                isVideo
+                mimeType
         );
     }
 }

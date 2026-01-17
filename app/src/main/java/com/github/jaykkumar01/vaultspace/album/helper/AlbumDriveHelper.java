@@ -58,7 +58,7 @@ public final class AlbumDriveHelper {
         String email = session.getPrimaryAccountEmail();
         primaryDrive = DriveClientProvider.forAccount(context, email);
 
-        Log.d(TAG, "Initialized albumId=" + albumId + ", account=" + email);
+        Log.d(TAG, "Initialized groupId=" + albumId + ", account=" + email);
     }
 
     /* ==========================================================
@@ -69,7 +69,7 @@ public final class AlbumDriveHelper {
             ExecutorService executor,
             FetchCallback callback
     ) {
-        Log.d(TAG, "fetchAlbumMedia start albumId=" + albumId);
+        Log.d(TAG, "fetchAlbumMedia start groupId=" + albumId);
 
         executor.execute(() -> {
             try {
@@ -96,14 +96,14 @@ public final class AlbumDriveHelper {
 
                 Log.d(
                         TAG,
-                        "fetch success albumId=" + albumId +
+                        "fetch success groupId=" + albumId +
                                 ", itemCount=" + media.size()
                 );
 
                 postResult(callback, media);
 
             } catch (Exception e) {
-                Log.e(TAG, "fetchAlbumMedia failed albumId=" + albumId, e);
+                Log.e(TAG, "fetchAlbumMedia failed groupId=" + albumId, e);
                 postError(callback, e);
             }
         });
@@ -141,12 +141,12 @@ public final class AlbumDriveHelper {
      * ========================================================== */
 
     private void postResult(FetchCallback cb, List<AlbumMedia> items) {
-        Log.d(TAG, "postResult → main thread albumId=" + albumId);
+        Log.d(TAG, "postResult → main thread groupId=" + albumId);
         mainHandler.post(() -> cb.onResult(items));
     }
 
     private void postError(FetchCallback cb, Exception e) {
-        Log.d(TAG, "postError → main thread albumId=" + albumId);
+        Log.d(TAG, "postError → main thread groupId=" + albumId);
         mainHandler.post(() -> cb.onError(e));
     }
 }

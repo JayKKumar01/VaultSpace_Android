@@ -8,20 +8,19 @@ import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.models.base.UploadType;
 
 /**
- * Photos & videos only.
+ * Non-media files.
  */
-public final class MediaSelection extends UploadSelection {
+public final class FileSelection extends UploadSelection {
 
-    public MediaSelection(
+    public FileSelection(
             @NonNull Uri uri,
             @NonNull String mimeType
     ) {
         super(uri, mimeType);
 
-        UploadType type = getType();
-        if (type != UploadType.PHOTO && type != UploadType.VIDEO) {
+        if (getType() != UploadType.FILE) {
             throw new IllegalArgumentException(
-                    "MediaSelection must be image/* or video/*, got: " + mimeType
+                    "FileSelection cannot be image/* or video/*, got: " + mimeType
             );
         }
     }

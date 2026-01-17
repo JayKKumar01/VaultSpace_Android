@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album.upload;
+package com.github.jaykkumar01.vaultspace.core.upload;
 
 import android.app.Notification;
 import android.app.Service;
@@ -79,7 +79,7 @@ public final class UploadForegroundService extends Service {
         /* ---------- Cancel ---------- */
         if (intent != null && ACTION_CANCEL.equals(intent.getAction())) {
             Log.d(TAG, "ACTION_CANCEL");
-            AlbumUploadOrchestrator.getInstance(getApplicationContext())
+            UploadOrchestrator.getInstance(getApplicationContext())
                     .cancelAllUploads();
             return START_NOT_STICKY;
         }
@@ -123,7 +123,7 @@ public final class UploadForegroundService extends Service {
         Log.d(TAG, "FINALIZATION: " + state);
         finalizationPending = true;
 
-        AlbumUploadOrchestrator.getInstance(getApplicationContext())
+        UploadOrchestrator.getInstance(getApplicationContext())
                 .onServiceFinalizing();
 
         stopForeground(false);
@@ -146,7 +146,7 @@ public final class UploadForegroundService extends Service {
         Log.d(TAG, "onDestroy()");
         cancelPendingStop();
 
-        AlbumUploadOrchestrator.getInstance(getApplicationContext())
+        UploadOrchestrator.getInstance(getApplicationContext())
                 .onServiceDestroyed();
 
         isForeground = false;

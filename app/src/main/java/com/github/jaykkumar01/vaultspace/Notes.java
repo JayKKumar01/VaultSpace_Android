@@ -58,4 +58,5 @@ public class Notes {
     //add retry to all retries
 
     // extra reties are getting added
+    //add one more red warning for permanently failed uploads, show the details button if all failed are permanent
 }

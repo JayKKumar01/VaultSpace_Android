@@ -30,12 +30,16 @@ public class UploadStatusView extends FrameLayout {
     private static final String TEXT_ALMOST_DONE = "Almost there";
     private static final String TEXT_ONE_LEFT = "Just one more to go";
     private static final String TEXT_COMPLETED = "All memories are safe";
+    private static final String TEXT_NO_ACCESS = "Some items need access permission";
+
 
     /* ================= Action Labels ================= */
 
     private static final String ACTION_CANCEL = "Stop";
     private static final String ACTION_RETRY = "Try Again";
     private static final String ACTION_OK = "Done";
+    private static final String ACTION_INFO = "See Info";
+
 
     /* ================= Formatting ================= */
 
@@ -49,7 +53,8 @@ public class UploadStatusView extends FrameLayout {
 
     private enum State {
         UPLOADING,
-        FAILED,
+        FAILED_RETRYABLE,
+        FAILED_NO_ACCESS,
         COMPLETED
     }
 
@@ -63,6 +68,9 @@ public class UploadStatusView extends FrameLayout {
     private TextView tvMediaInfo;
     private TextView tvFailedCount;
     private View ivWarning;
+    private TextView tvNoAccessCount;
+    private View ivNoAccessWarning;
+
 
     private View progressBar;
     private View progressSuccessFill;
@@ -80,6 +88,8 @@ public class UploadStatusView extends FrameLayout {
     private int totalCount;
     private int uploadedCount;
     private int failedCount;
+    private int noAccessCount;
+
     private int dismissOverlap;
 
 
@@ -182,6 +192,9 @@ public class UploadStatusView extends FrameLayout {
         tvMediaInfo = cardContainer.findViewById(R.id.tvUploadMediaInfo);
         tvFailedCount = cardContainer.findViewById(R.id.tvFailedCount);
         ivWarning = cardContainer.findViewById(R.id.ivUploadWarning);
+        tvNoAccessCount=cardContainer.findViewById(R.id.tvNoAccessCount);
+        ivNoAccessWarning=cardContainer.findViewById(R.id.ivNoAccessWarning);
+
 
         progressBar = cardContainer.findViewById(R.id.uploadProgressBar);
         progressSuccessFill = cardContainer.findViewById(R.id.uploadProgressSuccessFill);
@@ -273,6 +286,13 @@ public class UploadStatusView extends FrameLayout {
         updateProgress();
     }
 
+    public void setNoAccessCount(int noAccess){
+        noAccessCount = Math.max(0, noAccess);
+        renderNoAccessBadge();
+    }
+
+
+
     /* ================= State Rendering ================= */
 
     public void renderUploading(OnClickListener onAction, int completed, int total) {
@@ -282,9 +302,15 @@ public class UploadStatusView extends FrameLayout {
     }
 
     public void renderFailed(OnClickListener onAction) {
-        setState(State.FAILED);
+        setState(State.FAILED_RETRYABLE);
         configureAction(ACTION_RETRY, R.drawable.bg_upload_action_retry, onAction);
     }
+
+    public void renderNoAccess(OnClickListener onAction){
+        setState(State.FAILED_NO_ACCESS);
+        configureAction(ACTION_INFO, R.drawable.bg_upload_action_info, onAction);
+    }
+
 
     public void renderCompleted(OnClickListener onAction) {
         setState(State.COMPLETED);
@@ -313,12 +339,16 @@ public class UploadStatusView extends FrameLayout {
                 updateCardOffsets(false);
                 break;
 
-            case FAILED:
+            case FAILED_RETRYABLE:
                 tvUploadingState.setText(TEXT_ALMOST_DONE);
                 ivDismiss.setVisibility(VISIBLE);
                 updateCardOffsets(true);
                 break;
-
+            case FAILED_NO_ACCESS:
+                tvUploadingState.setText(TEXT_NO_ACCESS);
+                ivDismiss.setVisibility(GONE);
+                updateCardOffsets(false);
+                break;
             case COMPLETED:
                 tvUploadingState.setText(TEXT_COMPLETED);
                 ivDismiss.setVisibility(GONE);
@@ -328,7 +358,7 @@ public class UploadStatusView extends FrameLayout {
 
         btnAction.setVisibility(VISIBLE);
         renderFailures();
-        updateProgress();
+        renderNoAccessBadge();
     }
 
 
@@ -350,11 +380,20 @@ public class UploadStatusView extends FrameLayout {
     }
 
     private void renderFailures() {
-        boolean show = failedCount > 0;
+        boolean show = failedCount > 0 && failedCount > noAccessCount;
         ivWarning.setVisibility(show ? VISIBLE : GONE);
         tvFailedCount.setVisibility(show ? VISIBLE : GONE);
-        if (show) tvFailedCount.setText(String.valueOf(failedCount));
+        if (show) tvFailedCount.setText(String.valueOf(failedCount - noAccessCount));
     }
+
+
+    private void renderNoAccessBadge(){
+        boolean show=noAccessCount>0;
+        ivNoAccessWarning.setVisibility(show?VISIBLE:GONE);
+        tvNoAccessCount.setVisibility(show?VISIBLE:GONE);
+        if(show)tvNoAccessCount.setText(String.valueOf(noAccessCount));
+    }
+
 
     /* ================= Progress ================= */
 

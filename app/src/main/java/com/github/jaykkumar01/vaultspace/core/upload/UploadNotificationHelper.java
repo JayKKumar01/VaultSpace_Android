@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album.upload;
+package com.github.jaykkumar01.vaultspace.core.upload;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -12,7 +12,6 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 
 import java.util.Map;
 
@@ -147,7 +146,7 @@ final class UploadNotificationHelper {
         }
 
         StringBuilder sb = new StringBuilder(64);
-        sb.append(primary.albumName)
+        sb.append(primary.groupName)
                 .append(" · ")
                 .append(primary.uploaded)
                 .append(" of ")

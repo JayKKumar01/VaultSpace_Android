@@ -271,7 +271,7 @@ public class DashboardActivity extends AppCompatActivity {
             List<MediaSelection> list = entry.getValue();
 
             Log.d(TAG,
-                    "UploadRetryStore: albumId=" + albumId +
+                    "UploadRetryStore: groupId=" + albumId +
                             ", retryCount=" + list.size());
 
             for (MediaSelection s : list) {

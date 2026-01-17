@@ -11,8 +11,8 @@ import java.util.Map;
  * AlbumsCache
  *
  * Guarantees:
- * - O(1) lookup by albumId
- * - O(1) lookup by albumName
+ * - O(1) lookup by groupId
+ * - O(1) lookup by groupName
  * - O(1) add / remove / replace / rename
  * - O(1) reorder (move-to-top)
  * - O(n) ONLY during initialization
@@ -26,7 +26,7 @@ public final class AlbumsCache extends VaultCache {
      * ========================================================== */
 
     /**
-     * albumId -> AlbumInfo
+     * groupId -> AlbumInfo
      *
      * accessOrder = true enables O(1) reordering when accessed.
      */
@@ -34,7 +34,7 @@ public final class AlbumsCache extends VaultCache {
             new LinkedHashMap<>(16, 0.75f, true);
 
     /**
-     * albumName -> albumId
+     * groupName -> groupId
      */
     private final Map<String, String> albumIdByName = new HashMap<>();
 

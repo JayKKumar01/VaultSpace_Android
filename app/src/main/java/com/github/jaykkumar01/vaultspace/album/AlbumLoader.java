@@ -58,7 +58,7 @@ public final class AlbumLoader {
         this.executor = Executors.newSingleThreadExecutor();
         this.driveHelper = new AlbumDriveHelper(context, albumId);
 
-        Log.d(TAG, "Initialized for albumId=" + albumId);
+        Log.d(TAG, "Initialized for groupId=" + albumId);
     }
 
     /* ==========================================================
@@ -105,7 +105,7 @@ public final class AlbumLoader {
                     public void onError(Exception e) {
                         if (released) return;
 
-                        Log.e(TAG, "fetch failed albumId=" + albumId, e);
+                        Log.e(TAG, "fetch failed groupId=" + albumId, e);
                         callback.onError(e);
                     }
                 }
@@ -141,6 +141,6 @@ public final class AlbumLoader {
     public void release() {
         released = true;
         executor.shutdownNow();
-        Log.d(TAG, "Released albumId=" + albumId);
+        Log.d(TAG, "Released groupId=" + albumId);
     }
 }
