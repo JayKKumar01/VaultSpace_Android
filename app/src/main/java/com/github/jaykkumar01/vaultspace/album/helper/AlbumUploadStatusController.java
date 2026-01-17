@@ -44,7 +44,7 @@ public final class AlbumUploadStatusController {
     /**
      * Called repeatedly from UploadObserver.
      */
-    public void onSnapshot(@Nullable UploadSnapshot snapshot) {
+    public void onSnapshot(UploadSnapshot snapshot) {
 
         if (snapshot == null) {
             statusView.hide();
@@ -90,5 +90,9 @@ public final class AlbumUploadStatusController {
                     }
             );
         }
+    }
+
+    public void onCancelled() {
+        statusView.hide();
     }
 }

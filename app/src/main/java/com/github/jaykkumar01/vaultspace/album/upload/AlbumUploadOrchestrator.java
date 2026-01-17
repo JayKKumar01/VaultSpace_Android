@@ -51,6 +51,7 @@ public final class AlbumUploadOrchestrator {
 
         this.uploadCache = session.getVaultCache().uploadCache;
         this.uploadManager = new UploadManager(
+                context,
                 uploadCache,
                 session.getUploadRetryStore()
         );
@@ -73,10 +74,11 @@ public final class AlbumUploadOrchestrator {
 
     public void registerObserver(
             @NonNull String albumId,
+            @NonNull String albumName,
             @NonNull UploadObserver observer
     ) {
         Log.d(TAG, "registerObserver(): albumId=" + albumId);
-        uploadManager.registerObserver(albumId, observer);
+        uploadManager.registerObserver(albumId, albumName, observer);
     }
 
     public void unregisterObserver(@NonNull String albumId) {
@@ -90,13 +92,13 @@ public final class AlbumUploadOrchestrator {
         uploadManager.cancelAllUploads();
 
         // 🔥 USER CANCEL → STOP SERVICE HARD
-        stopForegroundServiceImmediately();
+//        stopForegroundServiceImmediately();
     }
 
 
     public void cancelUploads(String albumId) {
         Log.d(TAG, "cancelUploads(): albumId=" + albumId);
-        // to be implemented later
+        uploadManager.cancelUploads(albumId);
     }
 
     public void retryUploads(String albumId) {

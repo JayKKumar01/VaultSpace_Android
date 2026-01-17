@@ -185,7 +185,7 @@ public final class UploadForegroundService extends Service {
             UploadCache.StopReason stopReason
     ) {
 
-        if (stopReason == UploadCache.StopReason.USER)
+        if (stopReason == UploadCache.StopReason.USER || snapshots.isEmpty())
             return NotificationState.STOPPED_USER;
 
         if (stopReason == UploadCache.StopReason.SYSTEM)
@@ -201,9 +201,6 @@ public final class UploadForegroundService extends Service {
                 return NotificationState.FINISHED_WITH_ISSUES;
         }
 
-        if (!snapshots.isEmpty())
-            return NotificationState.FINISHED_SUCCESS;
-
-        return NotificationState.UPLOADING;
+        return NotificationState.FINISHED_SUCCESS;
     }
 }

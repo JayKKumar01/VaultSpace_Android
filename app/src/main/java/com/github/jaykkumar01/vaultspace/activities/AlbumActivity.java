@@ -23,6 +23,7 @@ import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUploadStatusController;
 import com.github.jaykkumar01.vaultspace.album.upload.AlbumUploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.album.upload.UploadObserver;
+import com.github.jaykkumar01.vaultspace.album.upload.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.models.MediaSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
@@ -105,16 +106,24 @@ public class AlbumActivity extends AppCompatActivity {
         }
     };
 
-    private final UploadObserver uploadObserver = snapshot -> {
-        Log.d(
-                TAG,
-                "Upload snapshot → album=" + snapshot.albumId
-                        + " uploaded=" + snapshot.uploaded
-                        + " failed=" + snapshot.failed
-                        + " total=" + snapshot.total
-                        + " inProgress=" + snapshot.isInProgress()
-        );
-        uploadStatusController.onSnapshot(snapshot);
+    private final UploadObserver uploadObserver = new UploadObserver() {
+        @Override
+        public void onSnapshot(UploadSnapshot snapshot) {
+            Log.d(
+                    TAG,
+                    "Upload snapshot → album=" + snapshot.albumId
+                            + " uploaded=" + snapshot.uploaded
+                            + " failed=" + snapshot.failed
+                            + " total=" + snapshot.total
+                            + " inProgress=" + snapshot.isInProgress()
+            );
+            uploadStatusController.onSnapshot(snapshot);
+        }
+
+        @Override
+        public void onCancelled() {
+            uploadStatusController.onCancelled();
+        }
     };
 
     private final AlbumUploadStatusController.Callback uploadStatusCallback = new AlbumUploadStatusController.Callback() {
@@ -168,7 +177,7 @@ public class AlbumActivity extends AppCompatActivity {
                 new AlbumUploadStatusController(uploadStatusView, uploadStatusCallback);
 
         uploadOrchestrator = AlbumUploadOrchestrator.getInstance(this);
-        uploadOrchestrator.registerObserver(albumId, uploadObserver);
+        uploadOrchestrator.registerObserver(albumId, albumName, uploadObserver);
 
 
         loadAlbum();

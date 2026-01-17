@@ -39,4 +39,23 @@ public class Notes {
 
 
     // on network connection drop in dashboard it does not reconnect sometimes, fix that
+
+    // on netwrok problem need to fix the failed retry adding.
+    //should not remove the cache till session, on retry just enqueu the retries once user clicks ok then only remove the cache or sometime later auto\
+    // on restart check if upload cache is there otherwise show only the retries
+    // need to do something on just hide (dismissed from right top corner)
+    // handle indivisual cancel notification
+
+    // debug with just one album
+
+    //don't clear cache on in the session... to track previous uploads, until user cancels it or hides it using that popup
+
+    // indivisual cancells are working but the finalize notification is skipped, there is no way of informing the notification in the middle
+    // debug for one album
+
+    // on logout handle everything... no notification needed just immediate stop it
+    // check the uri if accesible then only include
+    //add retry to all retries
+
+    // extra reties are getting added
 }

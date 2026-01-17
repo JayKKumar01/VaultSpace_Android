@@ -19,4 +19,5 @@ public interface UploadObserver {
      * snapshot is replaced.
      */
     void onSnapshot(UploadSnapshot snapshot);
+    void onCancelled();
 }

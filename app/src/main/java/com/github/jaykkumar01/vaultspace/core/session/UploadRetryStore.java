@@ -21,8 +21,8 @@ import java.util.Map;
  *
  * Optimized for bulk mutation:
  * - load once
- * - add many
- * - save once
+ * - mutate many
+ * - flush once
  */
 public final class UploadRetryStore {
 
@@ -37,13 +37,15 @@ public final class UploadRetryStore {
     private Map<String, List<MediaSelection>> map;
     private boolean dirty;
 
-    UploadRetryStore(SharedPreferences prefs) {
+    UploadRetryStore(@NonNull SharedPreferences prefs) {
         this.prefs = prefs;
         this.gson = new GsonBuilder()
-                .registerTypeAdapter(Uri.class,
+                .registerTypeAdapter(
+                        Uri.class,
                         (com.google.gson.JsonSerializer<Uri>)
                                 (src, t, ctx) -> ctx.serialize(src.toString()))
-                .registerTypeAdapter(Uri.class,
+                .registerTypeAdapter(
+                        Uri.class,
                         (com.google.gson.JsonDeserializer<Uri>)
                                 (json, t, ctx) -> Uri.parse(json.getAsString()))
                 .create();
@@ -79,7 +81,7 @@ public final class UploadRetryStore {
         dirty = true;
     }
 
-    /** 🔥 BULK ADD — this is what UploadManager really needs */
+    /** Bulk add */
     public void addRetryBatch(
             @NonNull String albumId,
             @NonNull List<MediaSelection> selections
@@ -95,7 +97,6 @@ public final class UploadRetryStore {
 
     /* ================= READ ================= */
 
-    /** Bulk read — you already said this is how you’ll consume it */
     @NonNull
     public Map<String, List<MediaSelection>> getAllRetries() {
         return ensureLoaded();
@@ -114,9 +115,27 @@ public final class UploadRetryStore {
         prefs.edit().remove(KEY_RETRY).apply();
     }
 
+    /* ================= HEAL / REPLACE ================= */
+
+    public void replaceAlbumRetries(
+            @NonNull String albumId,
+            @NonNull List<MediaSelection> validSelections
+    ) {
+        Map<String, List<MediaSelection>> m = ensureLoaded();
+
+        if (validSelections.isEmpty()) {
+            m.remove(albumId);
+        } else {
+            // Defensive copy to avoid external mutation
+            m.put(albumId, new ArrayList<>(validSelections));
+        }
+
+        dirty = true;
+    }
+
     /* ================= PERSIST ================= */
 
-    /** Call ONCE after loops */
+    /** Call ONCE after bulk mutation */
     public void flush() {
         if (!dirty || map == null) return;
 
