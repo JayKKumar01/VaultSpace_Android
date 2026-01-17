@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * UploadOrchestrator
- *
+ * <p>
  * UI-facing facade that:
  * - wires UploadManager
  * - controls foreground service lifecycle
@@ -34,9 +34,23 @@ public final class UploadOrchestrator {
     public void removeSnapshotFromCache(String groupId) {
         uploadManager.removeSnapshotFromCache(groupId);
     }
+
     public void removeSnapshotFromStore(String groupId) {
         uploadManager.removeSnapshotFromStore(groupId);
     }
+
+    public interface NoAccessCallback {
+        void onList(List<UploadFailureMetadata> uploadFailureMetadataList);
+    }
+
+    public void getNoAccessInfo(@NonNull String groupId, @NonNull NoAccessCallback callback) {
+//        uploadManager.getNonRetryableFailures(groupId, list -> {
+//                    callback.onList(list);
+//                    uploadManager.clearUploadFailures(groupId);
+//                }
+//        );
+    }
+
 
     /* ================= Service State ================= */
 

@@ -20,6 +20,7 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
+import com.github.jaykkumar01.vaultspace.core.upload.UploadFailureMetadata;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadObserver;
@@ -30,6 +31,7 @@ import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class AlbumActivity extends AppCompatActivity {
@@ -144,7 +146,14 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onNoAccessInfo() {
-            uploadOrchestrator.removeSnapshotFromStore(albumId);
+            uploadOrchestrator.getNoAccessInfo(albumId, new UploadOrchestrator.NoAccessCallback() {
+                @Override
+                public void onList(List<UploadFailureMetadata> uploadFailureMetadataList) {
+                    uploadOrchestrator.removeSnapshotFromStore(albumId);
+//                    uploadOrchestrator.removeUploadFailureMetadata(albumId);
+
+                }
+            });
         }
     };
 

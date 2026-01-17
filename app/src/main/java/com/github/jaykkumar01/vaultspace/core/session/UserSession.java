@@ -20,6 +20,10 @@ public class UserSession {
 
     // Session-scoped retry store (persisted)
     private UploadRetryStore uploadRetryStore;
+    private UploadFailureStore uploadFailureStore;
+
+
+
 
     public UserSession(Context context) {
         this.appContext = context.getApplicationContext();
@@ -67,6 +71,13 @@ public class UserSession {
         return uploadRetryStore;
     }
 
+    public UploadFailureStore getUploadFailureStore() {
+        if (uploadFailureStore == null) {
+            uploadFailureStore = new UploadFailureStore(appContext);
+        }
+        return uploadFailureStore;
+    }
+
 
     /* ---------------- Session ---------------- */
 
@@ -83,6 +94,12 @@ public class UserSession {
             uploadRetryStore.clearAll();
             uploadRetryStore = null;
         }
+
+        if (uploadFailureStore != null) {
+            uploadFailureStore.clearAll();
+            uploadFailureStore = null;
+        }
+
 
         // clear in-memory vault cache
         if (vaultCache != null) {

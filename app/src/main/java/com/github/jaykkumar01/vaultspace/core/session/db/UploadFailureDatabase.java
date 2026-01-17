@@ -7,27 +7,24 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
 @Database(
-        entities = {
-                UploadRetryEntity.class,
-                UploadFailureEntity.class
-        },
-        version = 2,
+        entities = { UploadFailureEntity.class },
+        version = 1,
         exportSchema = false
 )
-public abstract class UploadRetryDatabase extends RoomDatabase {
+public abstract class UploadFailureDatabase extends RoomDatabase {
 
-    private static volatile UploadRetryDatabase INSTANCE;
+    private static volatile UploadFailureDatabase INSTANCE;
 
-    public abstract UploadRetryDao dao();
+    public abstract UploadFailureDao dao();
 
-    public static UploadRetryDatabase get(Context context){
+    public static UploadFailureDatabase get(Context context){
         if (INSTANCE == null) {
-            synchronized (UploadRetryDatabase.class) {
+            synchronized (UploadFailureDatabase.class) {
                 if (INSTANCE == null) {
                     INSTANCE = Room.databaseBuilder(
                             context.getApplicationContext(),
-                            UploadRetryDatabase.class,
-                            "upload_retry.db"
+                            UploadFailureDatabase.class,
+                            "upload_failure.db"
                     ).build();
                 }
             }

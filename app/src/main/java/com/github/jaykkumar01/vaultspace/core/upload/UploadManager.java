@@ -7,12 +7,18 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureReason;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.utils.UploadMetadataResolver;
+import com.github.jaykkumar01.vaultspace.utils.UploadThumbnailGenerator;
 import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 
+import java.io.File;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -36,17 +42,22 @@ public final class UploadManager {
     private final Map<String, UploadObserver> observers = new ConcurrentHashMap<>();
     private final UploadCache uploadCache;
     private final UploadRetryStore retryStore;
+    private final UploadFailureStore failureStore;
+    private final File thumbDir;
 
     private final Deque<UploadTask> queue = new ArrayDeque<>();
     private UploadTask current;
     private UploadOrchestrator orchestrator;
     private Future<?> runningUpload;
 
+
     public UploadManager(@NonNull Context context) {
         appContext = context.getApplicationContext();
         UserSession session = new UserSession(appContext);
         uploadCache = session.getVaultCache().uploadCache;
         retryStore = session.getUploadRetryStore();
+        failureStore = session.getUploadFailureStore();
+        thumbDir = new File(appContext.getFilesDir(), "upload_failures/thumbs");
     }
 
     public void attachOrchestrator(@NonNull UploadOrchestrator orchestrator) {
@@ -60,7 +71,7 @@ public final class UploadManager {
 
     /* ================= Observer ================= */
 
-    public void registerObserver(@NonNull String groupId,@NonNull String groupName,@NonNull UploadObserver observer) {
+    public void registerObserver(@NonNull String groupId, @NonNull String groupName, @NonNull UploadObserver observer) {
         controlExecutor.execute(() -> {
             observers.put(groupId, observer);
             UploadSnapshot snapshot = uploadCache.getSnapshot(groupId);
@@ -75,8 +86,31 @@ public final class UploadManager {
 
     /* ================= Enqueue ================= */
 
-    public void enqueue(@NonNull String groupId,@NonNull String groupName,@NonNull List<UploadSelection> selections) {
+    public void enqueue(@NonNull String groupId, @NonNull String groupName, @NonNull List<UploadSelection> selections) {
         controlExecutor.execute(() -> {
+            //noinspection ResultOfMethodCallIgnored
+            thumbDir.mkdirs();
+
+            List<UploadFailureEntity> failureRows = new ArrayList<>(selections.size());
+
+            for (UploadSelection s : selections) {
+                String name = UploadMetadataResolver.resolveDisplayName(appContext, s.uri);
+                String thumb = UploadThumbnailGenerator.generate(
+                        appContext, s.uri, s.getType(), thumbDir
+                );
+                failureRows.add(new UploadFailureEntity(
+                        0L,
+                        groupId,
+                        s.uri.toString(),
+                        name,
+                        s.getType().name(),
+                        thumb,
+                        UploadFailureReason.UNKNOWN.name()
+                ));
+            }
+
+            failureStore.addFailures(failureRows);
+
             retryStore.addRetryBatch(groupId, selections);
 
             UploadSnapshot snapshot = mergeSnapshot(groupId, groupName, selections);
@@ -134,15 +168,18 @@ public final class UploadManager {
     }
 
 
-
-
     private void handleSuccess(UploadTask task) {
         if (current != task) return;
 
         UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
-        if (old == null) { current = null; processQueue(); return; }
+        if (old == null) {
+            current = null;
+            processQueue();
+            return;
+        }
 
         retryStore.removeRetry(task.groupId, task.selection);
+        failureStore.removeFailure(task.groupId,task.selection.uri.toString(),task.selection.getType().name());
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
@@ -157,7 +194,11 @@ public final class UploadManager {
         if (current != task) return;
 
         UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
-        if (old == null) { current = null; processQueue(); return; }
+        if (old == null) {
+            current = null;
+            processQueue();
+            return;
+        }
 
         boolean retryable = UriUtils.isUriAccessible(appContext, task.selection.uri);
 
@@ -169,15 +210,10 @@ public final class UploadManager {
         updated.nonRetryableFailed = old.nonRetryableFailed;
 
         if (!retryable) {
-            // ❌ non-retryable → remove permanently
-            retryStore.removeRetry(task.groupId, task.selection);
             updated.nonRetryableFailed++;
         }
         finalizeStep(task.groupId, updated);
     }
-
-
-
 
 
     private void finalizeStep(String groupId, UploadSnapshot snapshot) {
@@ -193,7 +229,7 @@ public final class UploadManager {
 
     /* ================= Restore ================= */
 
-    private void restoreFromRetry(String groupId,String groupName) {
+    private void restoreFromRetry(String groupId, String groupName) {
         List<UploadSelection> list = retryStore.getAllRetries().get(groupId);
         if (list == null || list.isEmpty()) return;
 
@@ -242,7 +278,7 @@ public final class UploadManager {
         });
     }
 
-    public void cancelAllUploads(){
+    public void cancelAllUploads() {
         controlExecutor.execute(() -> {
             // 1️⃣ Stop execution
             queue.clear();
@@ -276,7 +312,7 @@ public final class UploadManager {
 
     /* ================= Utils ================= */
 
-    private UploadSnapshot mergeSnapshot(String groupId,String groupName,List<? extends UploadSelection> selections) {
+    private UploadSnapshot mergeSnapshot(String groupId, String groupName, List<UploadSelection> selections) {
         int photos = 0, videos = 0, others = 0;
         for (UploadSelection s : selections) {
             switch (s.getType()) {
@@ -299,7 +335,7 @@ public final class UploadManager {
         return new UploadSnapshot(groupId, groupName, photos, videos, others, uploaded, failed);
     }
 
-    private void emitSnapshot(String groupId,UploadSnapshot snapshot) {
+    private void emitSnapshot(String groupId, UploadSnapshot snapshot) {
         UploadObserver o = observers.get(groupId);
         if (o != null) mainHandler.post(() -> o.onSnapshot(snapshot));
     }
@@ -308,6 +344,7 @@ public final class UploadManager {
         UploadObserver o = observers.get(groupId);
         if (o != null) mainHandler.post(o::onCancelled);
     }
+
     public void removeSnapshotFromCache(String groupId) {
         uploadCache.removeSnapshot(groupId);
     }
@@ -315,5 +352,15 @@ public final class UploadManager {
     public void removeSnapshotFromStore(String groupId) {
         uploadCache.removeSnapshot(groupId);
         retryStore.clearGroup(groupId);
+    }
+
+    public void removeUploadFailureMetadata(String groupId) {
+        uploadCache.removeSnapshot(groupId);
+        retryStore.clearGroup(groupId);
+        failureStore.clearGroup(groupId);
+        // also remove the thumnails from disk
+    }
+
+    public void getNonRetryableFailures(String groupId, Object o) {
     }
 }
