@@ -24,7 +24,10 @@ import java.util.concurrent.Executors;
 public final class UploadManager {
 
     private final Context appContext;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService uploadExecutor = Executors.newSingleThreadExecutor();
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private final Map<String, UploadObserver> observers = new ConcurrentHashMap<>();
@@ -36,10 +39,10 @@ public final class UploadManager {
     private UploadOrchestrator orchestrator;
 
     public UploadManager(@NonNull Context context) {
-        this.appContext = context.getApplicationContext();
+        appContext = context.getApplicationContext();
         UserSession session = new UserSession(appContext);
-        this.uploadCache = session.getVaultCache().uploadCache;
-        this.retryStore = session.getUploadRetryStore();
+        uploadCache = session.getVaultCache().uploadCache;
+        retryStore = session.getUploadRetryStore();
     }
 
     public void attachOrchestrator(@NonNull UploadOrchestrator orchestrator) {
@@ -47,121 +50,130 @@ public final class UploadManager {
     }
 
     private void notifyStateChanged() {
-        if (orchestrator != null) mainHandler.post(orchestrator::onUploadStateChanged);
+        if (orchestrator != null)
+            mainHandler.post(orchestrator::onUploadStateChanged);
     }
 
     /* ================= Observer ================= */
 
-    public void registerObserver(@NonNull String groupId, @NonNull String groupName, @NonNull UploadObserver observer) {
-        executor.execute(() -> {
+    public void registerObserver(@NonNull String groupId,@NonNull String groupName,@NonNull UploadObserver observer) {
+        controlExecutor.execute(() -> {
             observers.put(groupId, observer);
-
             UploadSnapshot snapshot = uploadCache.getSnapshot(groupId);
-            if (snapshot != null) {
-                emitSnapshot(groupId, snapshot);
-                return;
-            }
-
-            restoreFromRetry(groupId, groupName);
+            if (snapshot != null) emitSnapshot(groupId, snapshot);
+            else restoreFromRetry(groupId, groupName);
         });
     }
 
     public void unregisterObserver(@NonNull String groupId) {
-        executor.execute(() -> observers.remove(groupId));
+        controlExecutor.execute(() -> observers.remove(groupId));
     }
 
     /* ================= Enqueue ================= */
 
-    public void enqueue(@NonNull String groupId, @NonNull String groupName, @NonNull List<? extends UploadSelection> selections) {
-        executor.execute(() -> {
+    public void enqueue(@NonNull String groupId,@NonNull String groupName,@NonNull List<? extends UploadSelection> selections) {
+        controlExecutor.execute(() -> {
             UploadSnapshot snapshot = mergeSnapshot(groupId, groupName, selections);
             uploadCache.putSnapshot(snapshot);
             emitSnapshot(groupId, snapshot);
 
-            for (UploadSelection s : selections) queue.add(new UploadTask(groupId, s));
-            if (current == null) startNext();
+            for (UploadSelection s : selections)
+                queue.add(new UploadTask(groupId, s));
 
+            processQueue();
             notifyStateChanged();
         });
     }
 
     /* ================= Execution ================= */
 
-    private void startNext() {
+    private void processQueue() {
+        if (current != null) return;
         if (queue.isEmpty()) {
-            current = null;
             notifyStateChanged();
             return;
         }
+
         current = queue.poll();
-        performUpload(current);
+        UploadTask task = current;
+
+        uploadExecutor.execute(() -> performUpload(task));
     }
 
-    private void performUpload(UploadTask task){
-        executor.execute(() -> {
-            try{ Thread.sleep(2000); }
-            catch(InterruptedException ignored){}
-            if(Math.random()>0.5) handleSuccess(task);
-            else handleFailure(task);
-        });
+
+    private void performUpload(UploadTask task) {
+        try {
+            Thread.sleep(2000); // simulate upload
+            if (Math.random() > 0.5)
+                controlExecutor.execute(() -> handleSuccess(task));
+            else
+                controlExecutor.execute(() -> handleFailure(task));
+        } catch (InterruptedException e) {
+            // upload was cancelled
+            controlExecutor.execute(() -> handleCancelled(task));
+        }
     }
 
-    private void handleSuccess(UploadTask task){
-        UploadSnapshot old=uploadCache.getSnapshot(task.groupId);
-        if(old==null){ startNext(); return; }
+    private void handleCancelled(UploadTask task) {
+        // task was force-cancelled
+        // nothing to update except moving on
+        current = null;
+        processQueue();
+    }
 
-        UploadSnapshot updated=new UploadSnapshot(
-                old.groupId,old.groupName,
-                old.photos,old.videos,old.others,
-                old.uploaded+1,old.failed
+
+
+    private void handleSuccess(UploadTask task) {
+        UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
+        if (old == null) { current = null; processQueue(); return; }
+
+        UploadSnapshot updated = new UploadSnapshot(
+                old.groupId, old.groupName,
+                old.photos, old.videos, old.others,
+                old.uploaded + 1, old.failed
         );
-        updated.nonRetryableFailed=old.nonRetryableFailed;
-
-        finalizeStep(task.groupId,updated);
+        updated.nonRetryableFailed = old.nonRetryableFailed;
+        finalizeStep(task.groupId, updated);
     }
 
-    private void handleFailure(UploadTask task){
-        UploadSnapshot old=uploadCache.getSnapshot(task.groupId);
-        if(old==null){ startNext(); return; }
+    private void handleFailure(UploadTask task) {
+        UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
+        if (old == null) { current = null; processQueue(); return; }
 
-        boolean retryable=UriUtils.isUriAccessible(appContext,task.selection.uri);
+        boolean retryable = UriUtils.isUriAccessible(appContext, task.selection.uri);
 
-        UploadSnapshot updated=new UploadSnapshot(
-                old.groupId,old.groupName,
-                old.photos,old.videos,old.others,
-                old.uploaded,old.failed+1
+        UploadSnapshot updated = new UploadSnapshot(
+                old.groupId, old.groupName,
+                old.photos, old.videos, old.others,
+                old.uploaded, old.failed + 1
         );
-        updated.nonRetryableFailed=old.nonRetryableFailed;
+        updated.nonRetryableFailed = old.nonRetryableFailed;
 
-        if(retryable) retryStore.addRetry(task.groupId,task.selection);
+        if (retryable) retryStore.addRetry(task.groupId, task.selection);
         else updated.nonRetryableFailed++;
 
         retryStore.flush();
-        finalizeStep(task.groupId,updated);
+        finalizeStep(task.groupId, updated);
     }
 
-    private void finalizeStep(String groupId,UploadSnapshot snapshot){
+    private void finalizeStep(String groupId, UploadSnapshot snapshot) {
         uploadCache.putSnapshot(snapshot);
-        emitSnapshot(groupId,snapshot);
+        emitSnapshot(groupId, snapshot);
         notifyStateChanged();
-
-        current=null;
-
-        startNext();
+        current = null;
+        processQueue();
     }
 
     /* ================= Restore ================= */
 
-    private void restoreFromRetry(String groupId, String groupName) {
+    private void restoreFromRetry(String groupId,String groupName) {
         List<UploadSelection> list = retryStore.getAllRetries().get(groupId);
         if (list == null || list.isEmpty()) return;
 
-        List<UploadSelection> valid = new ArrayList<>();
         int nonRetryable = 0, photos = 0, videos = 0, others = 0;
 
         for (UploadSelection s : list) {
-            if (UriUtils.isUriAccessible(appContext, s.uri)) valid.add(s);
-            else nonRetryable++;
+            if (!UriUtils.isUriAccessible(appContext, s.uri)) nonRetryable++;
 
             switch (s.getType()) {
                 case PHOTO -> photos++;
@@ -170,16 +182,12 @@ public final class UploadManager {
             }
         }
 
-//        retryStore.replaceGroupRetries(groupId, valid);
-//        retryStore.flush();
-
         UploadSnapshot snapshot = new UploadSnapshot(
                 groupId, groupName,
                 photos, videos, others,
                 0, photos + videos + others
         );
         snapshot.nonRetryableFailed = nonRetryable;
-
         uploadCache.putSnapshot(snapshot);
         emitSnapshot(groupId, snapshot);
     }
@@ -187,22 +195,24 @@ public final class UploadManager {
     /* ================= Cancel ================= */
 
     public void cancelUploads(@NonNull String groupId) {
-        executor.execute(() -> {
+
+        controlExecutor.execute(() -> {
             queue.removeIf(t -> t.groupId.equals(groupId));
-            if (current != null && current.groupId.equals(groupId)) current = null;
+            if (current != null && current.groupId.equals(groupId))
+                current = null;
 
             uploadCache.removeSnapshot(groupId);
             retryStore.clearGroup(groupId);
             retryStore.flush();
 
             emitCancelled(groupId);
-            startNext();
+            processQueue();
             notifyStateChanged();
         });
     }
 
     public void cancelAllUploads() {
-        executor.execute(() -> {
+        controlExecutor.execute(() -> {
             queue.clear();
             current = null;
 
@@ -219,14 +229,14 @@ public final class UploadManager {
     }
 
     public void shutdown() {
-        executor.shutdownNow();
+        controlExecutor.shutdownNow();
+        uploadExecutor.shutdownNow();
     }
 
     /* ================= Utils ================= */
 
-    private UploadSnapshot mergeSnapshot(String groupId, String groupName, List<? extends UploadSelection> selections) {
+    private UploadSnapshot mergeSnapshot(String groupId,String groupName,List<? extends UploadSelection> selections) {
         int photos = 0, videos = 0, others = 0;
-
         for (UploadSelection s : selections) {
             switch (s.getType()) {
                 case PHOTO -> photos++;
@@ -248,7 +258,7 @@ public final class UploadManager {
         return new UploadSnapshot(groupId, groupName, photos, videos, others, uploaded, failed);
     }
 
-    private void emitSnapshot(String groupId, UploadSnapshot snapshot) {
+    private void emitSnapshot(String groupId,UploadSnapshot snapshot) {
         UploadObserver o = observers.get(groupId);
         if (o != null) mainHandler.post(() -> o.onSnapshot(snapshot));
     }
@@ -257,18 +267,13 @@ public final class UploadManager {
         UploadObserver o = observers.get(groupId);
         if (o != null) mainHandler.post(o::onCancelled);
     }
-
     public void removeSnapshotFromCache(String groupId) {
         uploadCache.removeSnapshot(groupId);
     }
 
-    public void removeSnapshotFromStore(String groupId){
+    public void removeSnapshotFromStore(String groupId) {
         uploadCache.removeSnapshot(groupId);
         retryStore.clearGroup(groupId);
         retryStore.flush();
     }
-
-
-
-
 }

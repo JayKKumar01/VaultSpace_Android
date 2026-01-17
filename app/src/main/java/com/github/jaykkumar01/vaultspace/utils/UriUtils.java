@@ -21,19 +21,17 @@ public final class UriUtils {
             @NonNull Uri uri
     ) {
         ContentResolver resolver = context.getContentResolver();
-        Cursor cursor = null;
 
-        try {
-            cursor = resolver.query(
-                    uri,
-                    new String[]{
-                            OpenableColumns.SIZE,
-                            OpenableColumns.DISPLAY_NAME
-                    },
-                    null,
-                    null,
-                    null
-            );
+        try (Cursor cursor = resolver.query(
+                uri,
+                new String[]{
+                        OpenableColumns.SIZE,
+                        OpenableColumns.DISPLAY_NAME
+                },
+                null,
+                null,
+                null
+        )) {
 
             // If provider is dead / permission revoked
             if (cursor == null || !cursor.moveToFirst()) {
@@ -55,10 +53,6 @@ public final class UriUtils {
         } catch (Exception e) {
             // Provider failure / invalid Uri
             return false;
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
         }
     }
 }
