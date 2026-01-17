@@ -77,6 +77,8 @@ public final class UploadManager {
 
     public void enqueue(@NonNull String groupId,@NonNull String groupName,@NonNull List<? extends UploadSelection> selections) {
         controlExecutor.execute(() -> {
+            retryStore.addRetryBatchAndFlush(groupId, selections);
+
             UploadSnapshot snapshot = mergeSnapshot(groupId, groupName, selections);
             uploadCache.putSnapshot(snapshot);
             emitSnapshot(groupId, snapshot);
@@ -140,6 +142,8 @@ public final class UploadManager {
         UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
         if (old == null) { current = null; processQueue(); return; }
 
+        retryStore.removeRetryAndFlush(task.groupId, task.selection);
+
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
                 old.photos, old.videos, old.others,
@@ -148,7 +152,6 @@ public final class UploadManager {
         updated.nonRetryableFailed = old.nonRetryableFailed;
         finalizeStep(task.groupId, updated);
     }
-
 
     private void handleFailure(UploadTask task) {
         if (current != task) return;
@@ -165,12 +168,17 @@ public final class UploadManager {
         );
         updated.nonRetryableFailed = old.nonRetryableFailed;
 
-        if (retryable) retryStore.addRetry(task.groupId, task.selection);
-        else updated.nonRetryableFailed++;
-
-        retryStore.flush();
+        if (!retryable) {
+            // ❌ non-retryable → remove permanently
+            retryStore.removeRetryAndFlush(task.groupId, task.selection);
+            updated.nonRetryableFailed++;
+        }
         finalizeStep(task.groupId, updated);
     }
+
+
+
+
 
     private void finalizeStep(String groupId, UploadSnapshot snapshot) {
         uploadCache.putSnapshot(snapshot);
@@ -226,8 +234,7 @@ public final class UploadManager {
             }
 
             uploadCache.removeSnapshot(groupId);
-            retryStore.clearGroup(groupId);
-            retryStore.flush();
+            retryStore.clearGroupAndFlush(groupId);
 
             emitCancelled(groupId);
             processQueue();
@@ -235,8 +242,9 @@ public final class UploadManager {
         });
     }
 
-    public void cancelAllUploads() {
+    public void cancelAllUploads(){
         controlExecutor.execute(() -> {
+            // 1️⃣ Stop execution
             queue.clear();
             if (runningUpload != null) {
                 runningUpload.cancel(true);
@@ -244,13 +252,21 @@ public final class UploadManager {
             }
             current = null;
 
-            for (String groupId : uploadCache.getAllSnapshots().keySet()) {
+            // 2️⃣ Snapshot groupIds defensively
+            List<String> groupIds =
+                    new ArrayList<>(uploadCache.getAllSnapshots().keySet());
+
+            // 3️⃣ Cancel + clear per group
+            for (String groupId : groupIds) {
                 emitCancelled(groupId);
                 uploadCache.removeSnapshot(groupId);
                 retryStore.clearGroup(groupId);
             }
 
+            // 4️⃣ Persist once (batch write)
             retryStore.flush();
+
+            // 5️⃣ Mark system state
             uploadCache.markStopped(UploadCache.StopReason.USER);
             notifyStateChanged();
         });
@@ -301,7 +317,6 @@ public final class UploadManager {
 
     public void removeSnapshotFromStore(String groupId) {
         uploadCache.removeSnapshot(groupId);
-        retryStore.clearGroup(groupId);
-        retryStore.flush();
+        retryStore.clearGroupAndFlush(groupId);
     }
 }

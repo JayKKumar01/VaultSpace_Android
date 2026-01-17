@@ -64,4 +64,13 @@ public class Notes {
 
     // app can be stopped in the middle somehow so store all the info in the start only, on success just mark it done... or else mark pending... or keep it marked pending on finalized
 
+    // retries list is there already then picked... enqueue new selections right
+
+
+
+
+
+
+
+
 }

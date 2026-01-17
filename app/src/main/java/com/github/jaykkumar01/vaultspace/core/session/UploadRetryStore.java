@@ -65,26 +65,53 @@ public final class UploadRetryStore {
     /* ================= Write ================= */
 
     public void addRetry(@NonNull String groupId,@NonNull UploadSelection selection){
-        List<UploadSelection> list=
+        List<UploadSelection> list =
                 ensureLoaded().computeIfAbsent(groupId,k->new ArrayList<>());
-        list.add(selection);
-        dirty=true;
+        if (!list.contains(selection)) {
+            list.add(selection);
+            dirty = true;
+        }
     }
 
     public void addRetryBatch(@NonNull String groupId,@NonNull List<? extends UploadSelection> selections){
         if(selections.isEmpty()) return;
-        List<UploadSelection> list=
+
+        List<UploadSelection> list =
                 ensureLoaded().computeIfAbsent(groupId,k->new ArrayList<>());
-        list.addAll(selections);
-        dirty=true;
+
+        boolean changed = false;
+        for (UploadSelection s : selections) {
+            if (!list.contains(s)) {
+                list.add(s);
+                changed = true;
+            }
+        }
+
+        if (changed) dirty = true;
     }
+
+
+    public void removeRetry(@NonNull String groupId,@NonNull UploadSelection selection){
+        List<UploadSelection> list = ensureLoaded().get(groupId);
+        if (list == null) return;
+        list.remove(selection);
+        if (list.isEmpty()) ensureLoaded().remove(groupId);
+        dirty = true;
+    }
+
 
     /* ================= Read ================= */
 
     @NonNull
     public Map<String,List<UploadSelection>> getAllRetries(){
-        return ensureLoaded();
+        Map<String,List<UploadSelection>> src = ensureLoaded();
+        Map<String,List<UploadSelection>> copy = new HashMap<>(src.size());
+        for (Map.Entry<String,List<UploadSelection>> e : src.entrySet()) {
+            copy.put(e.getKey(), new ArrayList<>(e.getValue()));
+        }
+        return copy;
     }
+
 
     /* ================= Clear ================= */
 
@@ -99,15 +126,6 @@ public final class UploadRetryStore {
         prefs.edit().remove(KEY_RETRY).apply();
     }
 
-    /* ================= Heal / Replace ================= */
-
-    public void replaceGroupRetries(@NonNull String groupId,@NonNull List<? extends UploadSelection> validSelections){
-        Map<String,List<UploadSelection>> m=ensureLoaded();
-        if(validSelections.isEmpty()) m.remove(groupId);
-        else m.put(groupId,new ArrayList<>(validSelections));
-        dirty=true;
-    }
-
     /* ================= Persist ================= */
 
     public void flush(){
@@ -115,4 +133,28 @@ public final class UploadRetryStore {
         prefs.edit().putString(KEY_RETRY,gson.toJson(map)).apply();
         dirty=false;
     }
+
+    /* ================= Atomic Helpers ================= */
+
+    public void addRetryBatchAndFlush(
+            @NonNull String groupId,
+            @NonNull List<? extends UploadSelection> selections
+    ){
+        addRetryBatch(groupId, selections);
+        flush();
+    }
+
+    public void removeRetryAndFlush(
+            @NonNull String groupId,
+            @NonNull UploadSelection selection
+    ){
+        removeRetry(groupId, selection);
+        flush();
+    }
+
+    public void clearGroupAndFlush(@NonNull String groupId){
+        clearGroup(groupId);
+        flush();
+    }
+
 }
