@@ -59,4 +59,6 @@ public class Notes {
 
     // extra reties are getting added
     //add one more red warning for permanently failed uploads, show the details button if all failed are permanent
+
+    // get a permanent solution of how will you upload properly... maybe take the permission in foreground and run the upload also on foreground always
 }

@@ -3,6 +3,7 @@ package com.github.jaykkumar01.vaultspace.core.upload;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -22,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class UploadManager {
+    private static final String TAG = "VaultSpace:UploadManager";
 
     private final Context appContext;
 
@@ -135,6 +137,7 @@ public final class UploadManager {
         updated.nonRetryableFailed = old.nonRetryableFailed;
         finalizeStep(task.groupId, updated);
     }
+
 
     private void handleFailure(UploadTask task) {
         UploadSnapshot old = uploadCache.getSnapshot(task.groupId);

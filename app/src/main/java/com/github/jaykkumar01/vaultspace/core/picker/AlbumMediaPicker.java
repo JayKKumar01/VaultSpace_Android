@@ -1,9 +1,10 @@
 package com.github.jaykkumar01.vaultspace.core.picker;
 
+import android.content.ContentResolver;
+import android.content.Intent;
 import android.net.Uri;
 
 import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -24,28 +25,35 @@ public class AlbumMediaPicker {
     private final Callback callback;
     private final UploadSelectionResolver resolver;
 
-    private ActivityResultLauncher<PickVisualMediaRequest> pickerLauncher;
+    private ActivityResultLauncher<String[]> pickerLauncher;
 
     public AlbumMediaPicker(AppCompatActivity activity, Callback callback) {
         this.activity = activity;
         this.callback = callback;
         this.resolver = new UploadSelectionResolver(activity);
-
         registerPicker();
     }
 
     private void registerPicker() {
         pickerLauncher = activity.registerForActivityResult(
-                new ActivityResultContracts.PickMultipleVisualMedia(),
+                new ActivityResultContracts.OpenMultipleDocuments(),
                 uris -> {
                     if (uris == null || uris.isEmpty()) {
                         callback.onPickCancelled();
                         return;
                     }
 
+                    ContentResolver resolver = activity.getContentResolver();
                     List<UploadSelection> selections = new ArrayList<>();
+
                     for (Uri uri : uris) {
-                        selections.add(resolver.resolve(uri));
+                        // ✅ Persist permission (THIS is the fix)
+                        resolver.takePersistableUriPermission(
+                                uri,
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        );
+
+                        selections.add(this.resolver.resolve(uri));
                     }
 
                     callback.onMediaPicked(selections);
@@ -54,13 +62,9 @@ public class AlbumMediaPicker {
     }
 
     public void launchPicker() {
-        pickerLauncher.launch(
-                new PickVisualMediaRequest.Builder()
-                        .setMediaType(ActivityResultContracts.PickVisualMedia.ImageAndVideo.INSTANCE)
-                        .build()
-        );
-
-
+        pickerLauncher.launch(new String[]{
+                "image/*",
+                "video/*"
+        });
     }
-
 }
