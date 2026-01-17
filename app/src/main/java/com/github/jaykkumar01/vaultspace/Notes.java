@@ -61,4 +61,7 @@ public class Notes {
     //add one more red warning for permanently failed uploads, show the details button if all failed are permanent
 
     // get a permanent solution of how will you upload properly... maybe take the permission in foreground and run the upload also on foreground always
+
+    // app can be stopped in the middle somehow so store all the info in the start only, on success just mark it done... or else mark pending... or keep it marked pending on finalized
+
 }

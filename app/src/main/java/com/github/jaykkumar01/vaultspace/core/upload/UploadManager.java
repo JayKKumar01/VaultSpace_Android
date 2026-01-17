@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public final class UploadManager {
     private static final String TAG = "VaultSpace:UploadManager";
@@ -39,6 +40,7 @@ public final class UploadManager {
     private final Deque<UploadTask> queue = new ArrayDeque<>();
     private UploadTask current;
     private UploadOrchestrator orchestrator;
+    private Future<?> runningUpload;
 
     public UploadManager(@NonNull Context context) {
         appContext = context.getApplicationContext();
@@ -99,13 +101,14 @@ public final class UploadManager {
         current = queue.poll();
         UploadTask task = current;
 
-        uploadExecutor.execute(() -> performUpload(task));
+        runningUpload = uploadExecutor.submit(() -> performUpload(task));
+
     }
 
 
     private void performUpload(UploadTask task) {
         try {
-            Thread.sleep(2000); // simulate upload
+            Thread.sleep(1000); // simulate upload
             if (Math.random() > 0.5)
                 controlExecutor.execute(() -> handleSuccess(task));
             else
@@ -117,15 +120,23 @@ public final class UploadManager {
     }
 
     private void handleCancelled(UploadTask task) {
-        // task was force-cancelled
-        // nothing to update except moving on
+        // Ignore stale cancellation
+        if (current != task) {
+            Log.w(TAG, "Ignoring stale cancellation for " + task);
+            return;
+        }
+
+        runningUpload = null;
         current = null;
         processQueue();
     }
 
 
 
+
     private void handleSuccess(UploadTask task) {
+        if (current != task) return;
+
         UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
         if (old == null) { current = null; processQueue(); return; }
 
@@ -140,6 +151,8 @@ public final class UploadManager {
 
 
     private void handleFailure(UploadTask task) {
+        if (current != task) return;
+
         UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
         if (old == null) { current = null; processQueue(); return; }
 
@@ -163,9 +176,12 @@ public final class UploadManager {
         uploadCache.putSnapshot(snapshot);
         emitSnapshot(groupId, snapshot);
         notifyStateChanged();
+
+        runningUpload = null;   // ✅ ADD THIS LINE
         current = null;
         processQueue();
     }
+
 
     /* ================= Restore ================= */
 
@@ -201,8 +217,13 @@ public final class UploadManager {
 
         controlExecutor.execute(() -> {
             queue.removeIf(t -> t.groupId.equals(groupId));
-            if (current != null && current.groupId.equals(groupId))
+            if (current != null && current.groupId.equals(groupId)) {
+                if (runningUpload != null) {
+                    runningUpload.cancel(true); // 🔴 THIS interrupts sleep / IO
+                    runningUpload = null;
+                }
                 current = null;
+            }
 
             uploadCache.removeSnapshot(groupId);
             retryStore.clearGroup(groupId);
@@ -217,6 +238,10 @@ public final class UploadManager {
     public void cancelAllUploads() {
         controlExecutor.execute(() -> {
             queue.clear();
+            if (runningUpload != null) {
+                runningUpload.cancel(true);
+                runningUpload = null;
+            }
             current = null;
 
             for (String groupId : uploadCache.getAllSnapshots().keySet()) {
