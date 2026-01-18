@@ -17,7 +17,7 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 public final class MultiSegmentProgressBar extends View {
 
     private static final long DEFAULT_DURATION = 180L;
-    private static final long SWEEP_DURATION = 1000L;
+    private static final long SWEEP_DURATION = 2000L;
 
     private static final int SWEEP_COLOR_INITIAL = 0x99FFFFFF; // greyed white
     private static final int SWEEP_COLOR_FINAL = 0xFFFFFFFF; // pure white

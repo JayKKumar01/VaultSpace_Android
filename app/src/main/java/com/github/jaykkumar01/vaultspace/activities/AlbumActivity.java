@@ -153,23 +153,26 @@ public class AlbumActivity extends AppCompatActivity {
                     return;
                 }
 
-                Log.d(TAG, "onNoAccessInfo(): groupId=" + albumId + ", totalFailures=" + failures.size());
 
-                for (UploadFailureEntity f : failures) {
-                    boolean accessible = UriUtils.isUriAccessible(AlbumActivity.this, Uri.parse(f.uri));
+                albumModalHandler.showUploadFailures(failures, () -> {
+                    Log.d(TAG, "onNoAccessInfo(): groupId=" + albumId + ", totalFailures=" + failures.size());
 
-                    Log.d(TAG,
-                            "Failure → " +
-                                    "uri=" + f.uri +
-                                    ", type=" + f.type +
-                                    ", name=" + f.displayName +
-                                    ", reason=" + f.failureReason +
-                                    ", retryable=" + accessible +
-                                    ", thumb=" + f.thumbnailPath
-                    );
-                }
+                    for (UploadFailureEntity f : failures) {
+                        boolean accessible = UriUtils.isUriAccessible(AlbumActivity.this, Uri.parse(f.uri));
 
-                uploadOrchestrator.clearGroup(albumId);
+                        Log.d(TAG,
+                                "Failure → " +
+                                        "uri=" + f.uri +
+                                        ", type=" + f.type +
+                                        ", name=" + f.displayName +
+                                        ", reason=" + f.failureReason +
+                                        ", retryable=" + accessible +
+                                        ", thumb=" + f.thumbnailPath
+                        );
+                    }
+
+                    uploadOrchestrator.clearGroup(albumId);
+                });
             });
         }
 

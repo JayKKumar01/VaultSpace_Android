@@ -2,14 +2,18 @@ package com.github.jaykkumar01.vaultspace.album.helper;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.DismissResult;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.uploadfailures.UploadFailureListSpec;
+
+import java.util.List;
 
 /**
  * AlbumModalHandler
- *
+ * <p>
  * Coordinates album-related modal decisions.
  * Does NOT handle loading, error classification, or UI state.
  */
@@ -19,12 +23,15 @@ public final class AlbumModalHandler {
 
     private final ConfirmSpec retryLoadSpec;
     private final ConfirmSpec cancelUploadSpec;
+    private final UploadFailureListSpec uploadFailureSpec;
 
     public AlbumModalHandler(@NonNull ModalHost modalHost) {
         this.modalHost = modalHost;
 
         retryLoadSpec = createRetryLoadSpec();
         cancelUploadSpec = createCancelUploadSpec();
+        uploadFailureSpec = createUploadFailureSpec();
+
     }
 
     /* ---------- Public API ---------- */
@@ -40,9 +47,25 @@ public final class AlbumModalHandler {
         modalHost.request(cancelUploadSpec);
     }
 
+    public void showUploadFailures(@NonNull List<UploadFailureEntity> failures, @NonNull Runnable onOk) {
+        int count = failures.size();
+
+        String title = count == 1
+                ? "1 upload failed"
+                : count + " uploads failed";
+
+        uploadFailureSpec.setTitle(title);
+        uploadFailureSpec.setFailures(failures);
+        uploadFailureSpec.setOnOk(onOk);
+
+        modalHost.request(uploadFailureSpec);
+    }
+
+
     public void dismissAll() {
         modalHost.dismiss(retryLoadSpec, DismissResult.SYSTEM);
         modalHost.dismiss(cancelUploadSpec, DismissResult.SYSTEM);
+        modalHost.dismiss(uploadFailureSpec,DismissResult.SYSTEM);
     }
 
     /* ---------- Spec Builders ---------- */
@@ -74,5 +97,9 @@ public final class AlbumModalHandler {
         spec.setPositiveText("Cancel");
         spec.setNegativeText("Continue");
         return spec;
+    }
+
+    private static UploadFailureListSpec createUploadFailureSpec() {
+        return new UploadFailureListSpec();
     }
 }
