@@ -9,36 +9,39 @@ import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureDatabase;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 
 public final class UploadFailureStore {
 
     private final UploadFailureDao dao;
-    private final Executor executor = Executors.newSingleThreadExecutor();
 
-    public UploadFailureStore(@NonNull Context context){
+    public UploadFailureStore(@NonNull Context context) {
         this.dao = UploadFailureDatabase.get(context).dao();
     }
 
     /* ================= Write ================= */
 
-    public void addFailure(@NonNull UploadFailureEntity entity){
-        executor.execute(() -> dao.insert(entity));
+    public void addFailure(@NonNull UploadFailureEntity e) {
+        dao.insert(e);
     }
 
-    public void addFailures(@NonNull List<UploadFailureEntity> entities){
-        executor.execute(() -> dao.insertAll(entities));
+    public void addFailures(@NonNull List<UploadFailureEntity> list) {
+        if (list.isEmpty()) return;
+        dao.insertAll(list);
     }
 
     /* ================= Read ================= */
 
-    public void getFailuresForGroup(
+    public List<UploadFailureEntity> getFailuresForGroup(@NonNull String groupId) {
+        return dao.getByGroup(groupId);
+    }
+
+    public boolean contains(
             @NonNull String groupId,
-            @NonNull Consumer<List<UploadFailureEntity>> callback
-    ){
-        executor.execute(() -> callback.accept(dao.getByGroup(groupId)));
+            @NonNull String uri,
+            @NonNull String type
+    ) {
+        return dao.contains(groupId, uri, type);
     }
 
     /* ================= Delete ================= */
@@ -47,22 +50,27 @@ public final class UploadFailureStore {
             @NonNull String groupId,
             @NonNull String uri,
             @NonNull String type
-    ){
-        executor.execute(() -> dao.delete(groupId, uri, type));
+    ) {
+        dao.delete(groupId, uri, type);
     }
 
     public void removeFailuresByUris(
             @NonNull String groupId,
             @NonNull List<String> uris
-    ){
-        executor.execute(() -> dao.deleteByUris(groupId, uris));
+    ) {
+        if (uris.isEmpty()) return;
+        dao.deleteByUris(groupId, uris);
     }
 
-    public void clearGroup(@NonNull String groupId){
-        executor.execute(() -> dao.deleteByGroup(groupId));
+    public void clearGroup(@NonNull String groupId) {
+        dao.deleteByGroup(groupId);
     }
 
-    public void clearAll(){
-        executor.execute(dao::deleteAll);
+    public void clearAll() {
+        dao.deleteAll();
+    }
+
+    public void onSessionCleared() {
+        Executors.newSingleThreadExecutor().execute(dao::deleteAll);
     }
 }

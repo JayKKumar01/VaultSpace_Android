@@ -91,12 +91,12 @@ public class UserSession {
 
         // clear retry store
         if (uploadRetryStore != null) {
-            uploadRetryStore.clearAll();
+            uploadRetryStore.onSessionCleared();
             uploadRetryStore = null;
         }
 
         if (uploadFailureStore != null) {
-            uploadFailureStore.clearAll();
+            uploadFailureStore.onSessionCleared();
             uploadFailureStore = null;
         }
 

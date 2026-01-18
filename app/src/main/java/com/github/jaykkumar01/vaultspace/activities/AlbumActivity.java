@@ -1,10 +1,12 @@
 package com.github.jaykkumar01.vaultspace.activities;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
@@ -20,18 +22,19 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadFailureMetadata;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class AlbumActivity extends AppCompatActivity {
@@ -146,15 +149,30 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onNoAccessInfo() {
-            uploadOrchestrator.getNoAccessInfo(albumId, new UploadOrchestrator.NoAccessCallback() {
-                @Override
-                public void onList(List<UploadFailureMetadata> uploadFailureMetadataList) {
-                    uploadOrchestrator.removeSnapshotFromStore(albumId);
-//                    uploadOrchestrator.removeUploadFailureMetadata(albumId);
+            uploadOrchestrator.getFailuresForGroup(albumId, failures -> {
+                if (failures == null || failures.isEmpty()) {
+                    Log.d(TAG, "onNoAccessInfo(): no failures for groupId=" + albumId);
+                    return;
+                }
 
+                Log.d(TAG, "onNoAccessInfo(): groupId=" + albumId + ", totalFailures=" + failures.size());
+
+                for (UploadFailureEntity f : failures) {
+                    boolean accessible = UriUtils.isUriAccessible(AlbumActivity.this, Uri.parse(f.uri));
+
+                    Log.d(TAG,
+                            "Failure → " +
+                                    "uri=" + f.uri +
+                                    ", type=" + f.type +
+                                    ", name=" + f.displayName +
+                                    ", reason=" + f.failureReason +
+                                    ", retryable=" + accessible +
+                                    ", thumb=" + f.thumbnailPath
+                    );
                 }
             });
         }
+
     };
 
 

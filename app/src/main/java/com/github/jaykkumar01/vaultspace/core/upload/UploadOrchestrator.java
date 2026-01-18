@@ -9,9 +9,11 @@ import androidx.core.content.ContextCompat;
 
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * UploadOrchestrator
@@ -35,21 +37,17 @@ public final class UploadOrchestrator {
         uploadManager.removeSnapshotFromCache(groupId);
     }
 
-    public void removeSnapshotFromStore(String groupId) {
-        uploadManager.removeSnapshotFromStore(groupId);
+    public void removeRetriesFromStore(String groupId) {
+        uploadManager.removeRetriesFromStore(groupId);
     }
 
-    public interface NoAccessCallback {
-        void onList(List<UploadFailureMetadata> uploadFailureMetadataList);
+    public void removeFailuresFromStore(String groupId){
+        uploadManager.removeFailuresFromStore(groupId);
+    }
+    public void getFailuresForGroup(@NonNull String groupId, @NonNull Consumer<List<UploadFailureEntity>> cb){
+        uploadManager.getFailuresForGroup(groupId, cb);
     }
 
-    public void getNoAccessInfo(@NonNull String groupId, @NonNull NoAccessCallback callback) {
-//        uploadManager.getNonRetryableFailures(groupId, list -> {
-//                    callback.onList(list);
-//                    uploadManager.clearUploadFailures(groupId);
-//                }
-//        );
-    }
 
 
     /* ================= Service State ================= */

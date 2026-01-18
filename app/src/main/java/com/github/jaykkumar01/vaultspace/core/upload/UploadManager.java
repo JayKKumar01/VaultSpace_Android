@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 public final class UploadManager {
     private static final String TAG = "VaultSpace:UploadManager";
@@ -91,27 +92,11 @@ public final class UploadManager {
             //noinspection ResultOfMethodCallIgnored
             thumbDir.mkdirs();
 
-            List<UploadFailureEntity> failureRows = new ArrayList<>(selections.size());
+            List<UploadFailureEntity> failures = buildMissingFailures(groupId, selections);
+            List<UploadSelection> retries = filterMissingRetries(groupId, selections);
 
-            for (UploadSelection s : selections) {
-                String name = UploadMetadataResolver.resolveDisplayName(appContext, s.uri);
-                String thumb = UploadThumbnailGenerator.generate(
-                        appContext, s.uri, s.getType(), thumbDir
-                );
-                failureRows.add(new UploadFailureEntity(
-                        0L,
-                        groupId,
-                        s.uri.toString(),
-                        name,
-                        s.getType().name(),
-                        thumb,
-                        UploadFailureReason.UNKNOWN.name()
-                ));
-            }
-
-            failureStore.addFailures(failureRows);
-
-            retryStore.addRetryBatch(groupId, selections);
+            if (!failures.isEmpty()) failureStore.addFailures(failures);
+            if (!retries.isEmpty()) retryStore.addRetryBatch(groupId, retries);
 
             UploadSnapshot snapshot = mergeSnapshot(groupId, groupName, selections);
             uploadCache.putSnapshot(snapshot);
@@ -124,6 +109,75 @@ public final class UploadManager {
             notifyStateChanged();
         });
     }
+
+    private List<UploadFailureEntity> buildMissingFailures(String groupId, List<UploadSelection> selections) {
+        List<UploadFailureEntity> out = new ArrayList<>();
+        for (UploadSelection s : selections) {
+            if (failureStore.contains(groupId, s.uri.toString(), s.getType().name())) continue;
+            String name = UploadMetadataResolver.resolveDisplayName(appContext, s.uri);
+            String thumb = UploadThumbnailGenerator.generate(appContext, s.uri, s.getType(), thumbDir);
+            out.add(new UploadFailureEntity(
+                    0L, groupId, s.uri.toString(),
+                    name, s.getType().name(),
+                    thumb, UploadFailureReason.UNKNOWN.name()
+            ));
+        }
+        return out;
+    }
+
+    private List<UploadSelection> filterMissingRetries(String groupId, List<UploadSelection> selections) {
+        List<UploadSelection> out = new ArrayList<>();
+        for (UploadSelection s : selections)
+            if (!retryStore.contains(groupId, s)) out.add(s);
+        return out;
+    }
+
+    /* ================= Retry ================= */
+
+    /* ================= Retry ================= */
+
+    public void retry(@NonNull String groupId, @NonNull String groupName) {
+        controlExecutor.execute(() -> {
+            List<UploadSelection> all = retryStore.getAllRetries().get(groupId);
+            if (all == null || all.isEmpty()) return;
+
+            uploadCache.removeSnapshot(groupId);
+
+            int nonRetryable = 0;
+            int photos = 0, videos = 0, others = 0;
+            List<UploadSelection> retryable = new ArrayList<>();
+
+            for (UploadSelection s : all) {
+                boolean accessible = UriUtils.isUriAccessible(appContext, s.uri);
+                if (accessible) {
+                    retryable.add(s);
+                } else {
+                    nonRetryable++;
+                    switch (s.getType()) {
+                        case PHOTO -> photos++;
+                        case VIDEO -> videos++;
+                        case FILE -> others++;
+                    }
+                }
+            }
+
+            if (nonRetryable > 0) {
+                UploadSnapshot snapshot = new UploadSnapshot(
+                        groupId, groupName,
+                        photos, videos, others,
+                        0, nonRetryable
+                );
+                snapshot.nonRetryableFailed = nonRetryable;
+                uploadCache.putSnapshot(snapshot);
+            }
+
+            if (!retryable.isEmpty())
+                enqueue(groupId, groupName, retryable);
+        });
+    }
+
+
+
 
     /* ================= Execution ================= */
 
@@ -179,7 +233,7 @@ public final class UploadManager {
         }
 
         retryStore.removeRetry(task.groupId, task.selection);
-        failureStore.removeFailure(task.groupId,task.selection.uri.toString(),task.selection.getType().name());
+        failureStore.removeFailure(task.groupId, task.selection.uri.toString(), task.selection.getType().name());
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
@@ -349,18 +403,31 @@ public final class UploadManager {
         uploadCache.removeSnapshot(groupId);
     }
 
-    public void removeSnapshotFromStore(String groupId) {
-        uploadCache.removeSnapshot(groupId);
+    public void removeRetriesFromStore(String groupId) {
         retryStore.clearGroup(groupId);
     }
 
-    public void removeUploadFailureMetadata(String groupId) {
-        uploadCache.removeSnapshot(groupId);
-        retryStore.clearGroup(groupId);
-        failureStore.clearGroup(groupId);
-        // also remove the thumnails from disk
+    public void removeFailuresFromStore(@NonNull String groupId) {
+        controlExecutor.execute(() -> {
+            List<UploadFailureEntity> rows = failureStore.getFailuresForGroup(groupId);
+            if (rows != null) {
+                for (UploadFailureEntity e : rows) {
+                    if (e.thumbnailPath == null) continue;
+                    File f = new File(e.thumbnailPath);
+                    if (f.exists() && !f.delete())
+                        Log.w(TAG, "Failed to delete thumb: " + f.getAbsolutePath());
+                }
+            }
+            failureStore.clearGroup(groupId);
+        });
     }
 
-    public void getNonRetryableFailures(String groupId, Object o) {
+    public void getFailuresForGroup(@NonNull String groupId, @NonNull Consumer<List<UploadFailureEntity>> cb) {
+        controlExecutor.execute(() -> {
+            List<UploadFailureEntity> list = failureStore.getFailuresForGroup(groupId);
+            mainHandler.post(() -> cb.accept(list));
+        });
     }
+
+
 }
