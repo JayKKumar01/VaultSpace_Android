@@ -29,6 +29,8 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService uploadExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService thumbExecutor = Executors.newFixedThreadPool(2);
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private final Map<String, UploadObserver> observers = new ConcurrentHashMap<>();
@@ -106,7 +108,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
             //noinspection ResultOfMethodCallIgnored
             thumbDir.mkdirs();
-            failureCoordinator.recordFailuresIfMissing(groupId, selections);
+            failureCoordinator.recordFailuresIfMissingAsync(groupId, selections,thumbExecutor);
             failureCoordinator.recordRetriesIfMissing(groupId, selections);
 
             queueEngine.enqueue(groupId, selections);
@@ -203,5 +205,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     public void shutdown() {
         controlExecutor.shutdownNow();
         uploadExecutor.shutdownNow();
+        thumbExecutor.shutdownNow();
     }
+
 }

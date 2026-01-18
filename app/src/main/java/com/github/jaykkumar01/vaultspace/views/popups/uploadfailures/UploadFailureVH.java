@@ -60,7 +60,7 @@ public final class UploadFailureVH extends RecyclerView.ViewHolder {
         thumbWrap.setClipToOutline(true);
 
         thumbnail = new ImageView(c);
-        thumbnail.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        thumbnail.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         thumbnail.setLayoutParams(
                 new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,

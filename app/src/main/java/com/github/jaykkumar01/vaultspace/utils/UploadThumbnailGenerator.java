@@ -7,7 +7,6 @@ import android.graphics.ImageDecoder;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
-import android.util.Size;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,7 +20,8 @@ import java.util.UUID;
 
 public final class UploadThumbnailGenerator {
 
-    private static final int THUMB_SIZE = 256;
+    // Stable, memory-safe size for batch processing
+    private static final int THUMB_SIZE = 128;
 
     @Nullable
     public static String generate(
@@ -33,37 +33,34 @@ public final class UploadThumbnailGenerator {
         Bitmap bmp = null;
 
         try {
-            if (type == UploadType.PHOTO) {
-                bmp = decodeImage(context, uri);
-            } else if (type == UploadType.VIDEO) {
+            if (type == UploadType.VIDEO) {
                 bmp = decodeVideo(context, uri);
+            } else {
+                bmp = decodeImage(context, uri);
             }
 
             if (bmp == null) return null;
 
             File out = new File(
                     outputDir,
-                    UUID.randomUUID().toString() + ".webp"
+                    UUID.randomUUID().toString() + ".jpg"
             );
 
             try (FileOutputStream fos = new FileOutputStream(out)) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    bmp.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, fos);
-                } else {
-                    bmp.compress(Bitmap.CompressFormat.WEBP, 90, fos);
-                }
+                // JPEG is fastest + lowest overhead in loops
+                bmp.compress(Bitmap.CompressFormat.JPEG, 75, fos);
             }
 
             return out.getAbsolutePath();
 
-        } catch (Throwable t) {
-            return null; // fail-soft by design
+        } catch (Throwable ignored) {
+            return null; // fail-soft, never crash batch
         } finally {
             if (bmp != null) bmp.recycle();
         }
     }
 
-    /* ================= Image ================= */
+    /* ================= IMAGE ================= */
 
     @Nullable
     private static Bitmap decodeImage(
@@ -71,28 +68,37 @@ public final class UploadThumbnailGenerator {
             @NonNull Uri uri
     ) throws Exception {
 
+        // Modern Android (9+): fastest + safest
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             return ImageDecoder.decodeBitmap(
-                    ImageDecoder.createSource(context.getContentResolver(), uri),
+                    ImageDecoder.createSource(
+                            context.getContentResolver(),
+                            uri
+                    ),
                     (decoder, info, src) -> {
-                        decoder.setTargetSize(THUMB_SIZE, THUMB_SIZE);
                         decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+                        decoder.setTargetSampleSize(
+                                calculateSampleSize(
+                                        info.getSize().getWidth(),
+                                        info.getSize().getHeight()
+                                )
+                        );
                     }
             );
         }
 
-        // API 24–27 fallback
-        try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+        // Legacy fallback (API 24–27)
+        try (InputStream is =
+                     context.getContentResolver().openInputStream(uri)) {
+
             if (is == null) return null;
 
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inJustDecodeBounds = true;
             BitmapFactory.decodeStream(is, null, opts);
 
-            opts.inSampleSize = calculateInSampleSize(
-                    opts.outWidth,
-                    opts.outHeight
-            );
+            opts.inSampleSize =
+                    calculateSampleSize(opts.outWidth, opts.outHeight);
             opts.inJustDecodeBounds = false;
 
             try (InputStream is2 =
@@ -102,56 +108,36 @@ public final class UploadThumbnailGenerator {
         }
     }
 
-    /* ================= Video ================= */
+    /* ================= VIDEO ================= */
 
     @Nullable
     private static Bitmap decodeVideo(
             @NonNull Context context,
             @NonNull Uri uri
     ) {
-        // API 29+ fast path
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                return context.getContentResolver().loadThumbnail(
-                        uri,
-                        new Size(THUMB_SIZE, THUMB_SIZE),
-                        null
-                );
-            } catch (Throwable ignored) {}
-        }
 
-        // Universal fallback
+        // Most reliable across all Android versions
         try (MediaMetadataRetriever mmr = new MediaMetadataRetriever()) {
             mmr.setDataSource(context, uri);
-            Bitmap frame = mmr.getFrameAtTime(
-                    0,
+            return mmr.getFrameAtTime(
+                    -1,
                     MediaMetadataRetriever.OPTION_CLOSEST_SYNC
             );
-            if (frame == null) return null;
-
-            return Bitmap.createScaledBitmap(
-                    frame,
-                    THUMB_SIZE,
-                    THUMB_SIZE,
-                    true
-            );
-        } catch (Throwable t) {
+        } catch (Throwable ignored) {
             return null;
         }
     }
 
-    /* ================= Utils ================= */
+    /* ================= UTILS ================= */
 
-    private static int calculateInSampleSize(
-            int width,
-            int height
-    ) {
-        int inSampleSize = 1;
-        while ((height / inSampleSize) > UploadThumbnailGenerator.THUMB_SIZE
-                || (width / inSampleSize) > UploadThumbnailGenerator.THUMB_SIZE) {
-            inSampleSize *= 2;
+    // Sampling > resizing (speed + memory)
+    private static int calculateSampleSize(int w, int h) {
+        int size = 1;
+        while ((w / size) > THUMB_SIZE * 2
+                || (h / size) > THUMB_SIZE * 2) {
+            size <<= 1;
         }
-        return inSampleSize;
+        return size;
     }
 
     private UploadThumbnailGenerator() {}
