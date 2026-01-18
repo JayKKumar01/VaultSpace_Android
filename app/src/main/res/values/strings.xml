@@ -9,5 +9,7 @@
     <string name="albums_without_storage_limits">• Albums without storage limits</string>
     <string name="secure_private_yours">Secure • Private • Yours</string>
     <string name="choose_primary_google_drive">Choose Primary Google Drive</string>
-
+    <string name="to_upload_these_please_select_them_again_vaultspace_will_take_it_from_there">To upload these, please select them again. %1$s will take it from there.</string>
+    <string name="got_it">Got it</string>
+    <string name="select_these_items_again_to_continue_uploading">Select these items again to continue uploading.</string>
 </resources>

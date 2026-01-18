@@ -30,7 +30,7 @@ public final class AlbumModalHandler {
 
         retryLoadSpec = createRetryLoadSpec();
         cancelUploadSpec = createCancelUploadSpec();
-        uploadFailureSpec = createUploadFailureSpec();
+        uploadFailureSpec = new UploadFailureListSpec();
 
     }
 
@@ -47,12 +47,14 @@ public final class AlbumModalHandler {
         modalHost.request(cancelUploadSpec);
     }
 
-    public void showUploadFailures(@NonNull List<UploadFailureEntity> failures, @NonNull Runnable onOk) {
-        int count = failures.size();
-
-        String title = count == 1
-                ? "1 upload failed"
-                : count + " uploads failed";
+    public void showUploadFailures(
+            @NonNull List<UploadFailureEntity> failures,
+            @NonNull Runnable onOk
+    ) {
+        String title =
+                failures.size() == 1
+                        ? "This item needs access"
+                        : "Some items need access";
 
         uploadFailureSpec.setTitle(title);
         uploadFailureSpec.setFailures(failures);
@@ -60,6 +62,7 @@ public final class AlbumModalHandler {
 
         modalHost.request(uploadFailureSpec);
     }
+
 
 
     public void dismissAll() {
@@ -97,9 +100,5 @@ public final class AlbumModalHandler {
         spec.setPositiveText("Cancel");
         spec.setNegativeText("Continue");
         return spec;
-    }
-
-    private static UploadFailureListSpec createUploadFailureSpec() {
-        return new UploadFailureListSpec();
     }
 }

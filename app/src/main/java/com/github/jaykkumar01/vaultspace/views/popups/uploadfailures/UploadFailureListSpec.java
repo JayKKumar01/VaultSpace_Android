@@ -15,16 +15,6 @@ public final class UploadFailureListSpec extends ModalSpec {
     public UploadFailureListSpec() {
     }
 
-    public UploadFailureListSpec(
-            String title,
-            List<UploadFailureEntity> failures,
-            Runnable onOk
-    ) {
-        this.title = title;
-        this.failures = failures;
-        this.onOk = onOk;
-    }
-
     @Override
     public Modal createModal() {
         return new UploadFailureListModal(this);

@@ -10,6 +10,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
@@ -18,8 +20,6 @@ import com.google.android.material.button.MaterialButton;
 import java.util.List;
 
 public final class UploadFailureListView extends FrameLayout {
-
-    private LinearLayout card;
 
     public UploadFailureListView(
             @NonNull Context context,
@@ -43,85 +43,147 @@ public final class UploadFailureListView extends FrameLayout {
         setBackgroundColor(0x990D1117);
         setClickable(true);
 
-        card = new LinearLayout(getContext());
+        LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(18), dp(18), dp(16));
+        card.setPadding(dp(20), dp(20), dp(20), dp(18));
         card.setClickable(true);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(getContext().getColor(R.color.vs_surface_soft));
-        bg.setCornerRadius(dp(16));
+        bg.setCornerRadius(dp(18));
         card.setBackground(bg);
 
-        LayoutParams cp = new LayoutParams(dp(320), ViewGroup.LayoutParams.WRAP_CONTENT);
+        LayoutParams cp =
+                new LayoutParams(dp(320), ViewGroup.LayoutParams.WRAP_CONTENT);
         cp.gravity = Gravity.CENTER;
         addView(card, cp);
 
+        /* ---------- Title ---------- */
+
         if (title != null) {
-            TextView tv = titleView(title);
-            card.addView(tv);
-            card.addView(space(12));
+            card.addView(titleView(title));
+            card.addView(space(8));
+            card.addView(subtitleContainer());
+            card.addView(space(16));
         }
 
-        for (UploadFailureEntity e : failures) {
-            card.addView(itemRow(e));
-        }
+        /* ---------- List ---------- */
 
-        card.addView(space(16));
+        RecyclerView recycler = new RecyclerView(getContext());
+        recycler.setLayoutManager(new LinearLayoutManager(getContext()));
+        recycler.setAdapter(new UploadFailureAdapter(failures));
+        recycler.setOverScrollMode(OVER_SCROLL_NEVER);
 
-        MaterialButton ok = new MaterialButton(getContext());
-        ok.setText("OK");
-        ok.setOnClickListener(v -> onOk.run());
-        card.addView(ok);
-    }
-
-    private View itemRow(UploadFailureEntity e) {
-        LinearLayout row = new LinearLayout(getContext());
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(dp(12), dp(10), dp(12), dp(10));
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(getContext().getColor(R.color.vs_surface_soft));
-        bg.setCornerRadius(dp(10));
-        bg.setStroke(dp(1), getContext().getColor(R.color.vs_accent_primary));
-        row.setBackground(bg);
-
-        TextView name = new TextView(getContext());
-        name.setText(e.displayName);
-        name.setTextSize(14);
-        name.setTextColor(getContext().getColor(R.color.vs_text_header));
-
-        TextView type = new TextView(getContext());
-        type.setText(e.type);
-        type.setTextSize(12);
-        type.setTextColor(getContext().getColor(R.color.vs_text_content));
-
-        row.addView(name);
-        row.addView(type);
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+        card.addView(
+                recycler,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
         );
-        lp.topMargin = dp(8);
-        row.setLayoutParams(lp);
 
-        return row;
+        card.addView(space(18));
+
+        /* ---------- Action ---------- */
+
+        MaterialButton action = new MaterialButton(getContext());
+        action.setText(R.string.got_it);
+        action.setTextColor(getContext().getColor(R.color.black));
+        action.setBackgroundTintList(
+                getContext().getColorStateList(R.color.vs_warning)
+        );
+        action.setRippleColorResource(R.color.vs_warning_ripple);
+        action.setOnClickListener(v -> onOk.run());
+
+        LinearLayout.LayoutParams actionLp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        actionLp.gravity = Gravity.END;
+        action.setLayoutParams(actionLp);
+
+        card.addView(action);
     }
+
+    /* ---------------- Adapter ---------------- */
+
+    private static final class UploadFailureAdapter
+            extends RecyclerView.Adapter<UploadFailureVH> {
+
+        private final List<UploadFailureEntity> items;
+
+        UploadFailureAdapter(List<UploadFailureEntity> items) {
+            this.items = items;
+        }
+
+        @NonNull
+        @Override
+        public UploadFailureVH onCreateViewHolder(
+                @NonNull ViewGroup parent,
+                int viewType
+        ) {
+            return new UploadFailureVH(parent);
+        }
+
+        @Override
+        public void onBindViewHolder(
+                @NonNull UploadFailureVH holder,
+                int position
+        ) {
+            holder.bind(items.get(position));
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+    }
+
+    /* ---------------- UI Bits ---------------- */
 
     private TextView titleView(String text) {
         TextView tv = new TextView(getContext());
         tv.setText(text);
-        tv.setTextSize(16);
-        tv.setTextColor(getContext().getColor(R.color.vs_text_header));
+        tv.setTextSize(17);
         tv.setTypeface(tv.getTypeface(), android.graphics.Typeface.BOLD);
+        tv.setTextColor(getContext().getColor(R.color.vs_warning));
         return tv;
     }
 
+    private View subtitleContainer() {
+        LinearLayout wrap = new LinearLayout(getContext());
+        wrap.setOrientation(LinearLayout.HORIZONTAL);
+
+        View accent = new View(getContext());
+        LinearLayout.LayoutParams aLp =
+                new LinearLayout.LayoutParams(dp(3), ViewGroup.LayoutParams.MATCH_PARENT);
+        aLp.rightMargin = dp(8);
+        accent.setLayoutParams(aLp);
+        accent.setBackgroundColor(getContext().getColor(R.color.vs_warning));
+
+        TextView tv = new TextView(getContext());
+        tv.setText(R.string.select_these_items_again_to_continue_uploading);
+        tv.setTextSize(13);
+        tv.setLineSpacing(dp(2), 1f);
+        tv.setTextColor(getContext().getColor(R.color.vs_text_content));
+
+        wrap.addView(accent);
+        wrap.addView(tv);
+
+        return wrap;
+    }
+
+    /* ---------------- Utils ---------------- */
+
     private View space(int dp) {
         View v = new View(getContext());
-        v.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(dp)));
+        v.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(dp)
+                )
+        );
         return v;
     }
 
