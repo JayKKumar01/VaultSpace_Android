@@ -142,9 +142,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onAcknowledge() {
-            uploadOrchestrator.removeSnapshotFromCache(albumId);
-            uploadOrchestrator.removeRetriesFromStore(albumId);
-            uploadOrchestrator.removeFailuresFromStore(albumId);
+            uploadOrchestrator.clearGroup(albumId);
         }
 
         @Override
@@ -171,9 +169,7 @@ public class AlbumActivity extends AppCompatActivity {
                     );
                 }
 
-                uploadOrchestrator.removeSnapshotFromCache(albumId);
-                uploadOrchestrator.removeRetriesFromStore(albumId);
-                uploadOrchestrator.removeFailuresFromStore(albumId);
+                uploadOrchestrator.clearGroup(albumId);
             });
         }
 

@@ -33,20 +33,14 @@ public final class UploadOrchestrator {
     private final UploadManager uploadManager;
     private final UploadCache uploadCache;
 
-    public void removeSnapshotFromCache(String groupId) {
-        uploadManager.removeSnapshotFromCache(groupId);
-    }
-
-    public void removeRetriesFromStore(String groupId) {
-        uploadManager.removeRetriesFromStore(groupId);
-    }
-
-    public void removeFailuresFromStore(String groupId){
-        uploadManager.removeFailuresFromStore(groupId);
+    public void clearGroup(String groupId){
+        uploadManager.clearGroup(groupId);
     }
     public void getFailuresForGroup(@NonNull String groupId, @NonNull Consumer<List<UploadFailureEntity>> cb){
         uploadManager.getFailuresForGroup(groupId, cb);
     }
+
+
 
 
 
@@ -126,7 +120,7 @@ public final class UploadOrchestrator {
 
     /* ================= UploadManager callback ================= */
 
-    void onUploadStateChanged() {
+    public void onUploadStateChanged() {
 
         boolean hasActive = uploadCache.hasAnyActiveUploads();
 

@@ -12,15 +12,15 @@ import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
  *
  * Contains no logic.
  */
-final class UploadTask {
+public final class UploadTask {
 
     @NonNull
-    final String groupId;
+    public final String groupId;
 
     @NonNull
-    final UploadSelection selection;
+    public final UploadSelection selection;
 
-    UploadTask(
+    public UploadTask(
             @NonNull String groupId,
             @NonNull UploadSelection selection
     ) {
