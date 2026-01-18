@@ -74,13 +74,18 @@ public final class UploadFailureListView extends FrameLayout {
         recycler.setAdapter(new UploadFailureAdapter(failures));
         recycler.setOverScrollMode(OVER_SCROLL_NEVER);
 
-        card.addView(
-                recycler,
+        int maxHeight = (int) (screenHeightPx() * 0.45f); // 45% of screen
+
+        LinearLayout.LayoutParams rvLp =
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-        );
+                        maxHeight
+                );
+
+        recycler.setLayoutParams(rvLp);
+
+        card.addView(recycler);
+
 
         card.addView(space(18));
 
@@ -105,6 +110,11 @@ public final class UploadFailureListView extends FrameLayout {
 
         card.addView(action);
     }
+
+    private int screenHeightPx() {
+        return getResources().getDisplayMetrics().heightPixels;
+    }
+
 
     /* ---------------- Adapter ---------------- */
 

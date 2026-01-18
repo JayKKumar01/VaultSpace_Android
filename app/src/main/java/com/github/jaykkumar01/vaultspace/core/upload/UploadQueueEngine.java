@@ -52,7 +52,7 @@ final class UploadQueueEngine {
 
     private void performUpload(UploadTask task) {
         try {
-            Thread.sleep(1000);
+            Thread.sleep(40);
             if (Math.random() > 0.5)
                 controlExecutor.execute(() -> handleSuccess(task));
             else
