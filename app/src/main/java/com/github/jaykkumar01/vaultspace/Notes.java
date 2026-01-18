@@ -82,6 +82,9 @@ public class Notes {
     // without touching the upload manager and all, fix the controller and status view
     // too many renders are causing logic issue
 
+    // add the no access bar also in the progress bar
+
+
 
 
 

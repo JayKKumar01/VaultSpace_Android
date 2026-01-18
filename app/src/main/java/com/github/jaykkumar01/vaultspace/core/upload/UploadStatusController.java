@@ -57,8 +57,6 @@ public final class UploadStatusController {
         statusView.setFailedCount(snapshot.failed);
         statusView.setTotalCount(snapshot.total);
 
-        statusView.show();
-
         if (snapshot.isInProgress()) {
             statusView.renderUploading(
                     v -> callback.onCancelRequested(),
@@ -88,6 +86,7 @@ public final class UploadStatusController {
             callback.onAcknowledge();
         });
     }
+
 
 
     public void onCancelled() {

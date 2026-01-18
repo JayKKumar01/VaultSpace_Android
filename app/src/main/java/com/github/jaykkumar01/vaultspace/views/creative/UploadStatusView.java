@@ -254,7 +254,7 @@ public class UploadStatusView extends FrameLayout {
 
     /* ================= Visibility ================= */
 
-    public void show() {
+    private void show() {
         renderMediaInfo();
         renderFailures();
         renderNoAccessBadge();
@@ -372,6 +372,7 @@ public class UploadStatusView extends FrameLayout {
         btnAction.setText(text);
         btnAction.setBackgroundResource(bg);
         btnAction.setOnClickListener(action);
+        show();
     }
 
     private void renderMediaInfo() {
