@@ -80,7 +80,7 @@
 
 
         <!-- Line 2 -->
-        <FrameLayout
+        <com.github.jaykkumar01.vaultspace.views.creative.MultiSegmentProgressBar
             android:id="@+id/uploadProgressBar"
             android:layout_width="0dp"
             android:layout_height="4dp"
@@ -88,23 +88,8 @@
             android:background="@color/vs_toggle_off"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvUploadMediaInfo">
+            app:layout_constraintTop_toBottomOf="@id/tvUploadMediaInfo"/>
 
-            <View
-                android:id="@+id/uploadProgressSuccessFill"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@color/vs_accent_primary"
-                android:scaleX="0"/>
-
-            <!-- Failed -->
-            <View
-                android:id="@+id/uploadProgressFailedFill"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@color/vs_warning"
-                android:scaleX="0"/>
-        </FrameLayout>
 
 
 

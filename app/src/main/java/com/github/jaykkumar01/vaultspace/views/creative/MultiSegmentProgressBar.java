@@ -17,7 +17,7 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 public final class MultiSegmentProgressBar extends View {
 
     private static final long DEFAULT_DURATION = 180L;
-    private static final long PULSE_DURATION = 260L;
+    private static final long SWEEP_DURATION = 1000L;
 
     private float[] target = new float[0];
     private float[] animated = new float[0];
@@ -26,6 +26,7 @@ public final class MultiSegmentProgressBar extends View {
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sweepPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final Path clipPath = new Path();
     private final RectF rect = new RectF();
@@ -37,16 +38,19 @@ public final class MultiSegmentProgressBar extends View {
     private long animStart;
     private boolean animating;
     private ValueAnimator animator;
+    private ValueAnimator sweepAnimator;
 
-    private float pulseScale = 1f;
-    private boolean pulsePlayed;
+    private float sweepX = Float.NaN;
+    private boolean completionPlayed;
 
     public MultiSegmentProgressBar(Context c) { super(c); init(); }
     public MultiSegmentProgressBar(Context c, @Nullable AttributeSet a) { super(c, a); init(); }
 
     private void init() {
         bgPaint.setStyle(Paint.Style.FILL);
+        sweepPaint.setColor(0xFFFFFFFF);
         cornerRadius = getResources().getDisplayMetrics().density * 2f;
+        syncBackgroundPaint();
     }
 
     /* ================= Public API ================= */
@@ -57,8 +61,7 @@ public final class MultiSegmentProgressBar extends View {
     }
 
     public void setFractions(float[] fractions) {
-        pulsePlayed = false;
-        pulseScale = 1f;
+        resetTransientState();
         ensureCapacity(fractions);
         for (int i = 0; i < fractions.length; i++) {
             target[i] = clamp01(fractions[i]);
@@ -67,8 +70,7 @@ public final class MultiSegmentProgressBar extends View {
     }
 
     public void setFractionsImmediate(float[] fractions) {
-        pulsePlayed = false;
-        pulseScale = 1f;
+        resetTransientState();
         ensureCapacity(fractions);
         for (int i = 0; i < fractions.length; i++) {
             float v = clamp01(fractions[i]);
@@ -76,7 +78,6 @@ public final class MultiSegmentProgressBar extends View {
             animated[i] = v;
             start[i] = v;
         }
-        stopAnimator();
         invalidate();
     }
 
@@ -91,7 +92,6 @@ public final class MultiSegmentProgressBar extends View {
     /* ================= Animation ================= */
 
     private void startAnimationIfNeeded() {
-        if (animating) return;
         boolean diff = false;
         for (int i = 0; i < target.length; i++) {
             if (animated[i] != target[i]) { diff = true; break; }
@@ -127,30 +127,27 @@ public final class MultiSegmentProgressBar extends View {
         if (done) {
             animating = false;
             animator.cancel();
-            maybeStartPulse();
+            maybeStartCompletionSweep();
         }
     }
 
-    private void maybeStartPulse() {
-        if (pulsePlayed) return;
+    private void maybeStartCompletionSweep() {
+        if (completionPlayed) return;
         float sum = 0f;
         for (float v : target) sum += v;
         if (sum < 0.999f) return;
 
-        pulsePlayed = true;
-        ValueAnimator pulseAnimator = ValueAnimator.ofFloat(1f, 1.08f, 1f);
-        pulseAnimator.setDuration(PULSE_DURATION);
-        pulseAnimator.setInterpolator(new FastOutSlowInInterpolator());
-        pulseAnimator.addUpdateListener(a -> {
-            pulseScale = (float) a.getAnimatedValue();
+        completionPlayed = true;
+        sweepX = -getWidth();
+
+        sweepAnimator = ValueAnimator.ofFloat(-getWidth(), getWidth());
+        sweepAnimator.setDuration(SWEEP_DURATION);
+        sweepAnimator.setInterpolator(new FastOutSlowInInterpolator());
+        sweepAnimator.addUpdateListener(a -> {
+            sweepX = (float) a.getAnimatedValue();
             invalidate();
         });
-        pulseAnimator.start();
-    }
-
-    private void stopAnimator() {
-        if (animator != null) animator.cancel();
-        animating = false;
+        sweepAnimator.start();
     }
 
     /* ================= Draw ================= */
@@ -183,17 +180,35 @@ public final class MultiSegmentProgressBar extends View {
             if (x >= w) break;
         }
 
-        c.restoreToCount(save);
-
-        if (pulseScale != 1f) {
-            c.save();
-            c.scale(pulseScale, pulseScale, w / 2f, h / 2f);
-            c.drawRect(0, 0, w, h, bgPaint);
-            c.restore();
+        if (!Float.isNaN(sweepX)) {
+            float sweepWidth = w * 0.45f;
+            c.drawRect(sweepX, 0, sweepX + sweepWidth, h, sweepPaint);
         }
+
+        c.restoreToCount(save);
     }
 
-    /* ================= Helpers ================= */
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        syncBackgroundPaint();
+    }
+
+    /* ================= Reset & Helpers ================= */
+
+    private void resetTransientState() {
+        if (animator != null) animator.cancel();
+        if (sweepAnimator != null) sweepAnimator.cancel();
+        animating = false;
+        completionPlayed = false;
+        sweepX = Float.NaN;
+    }
+
+    private void syncBackgroundPaint() {
+        if (getBackground() instanceof android.graphics.drawable.ColorDrawable) {
+            bgPaint.setColor(((android.graphics.drawable.ColorDrawable) getBackground()).getColor());
+        }
+    }
 
     private void ensureCapacity(float[] f) {
         int n = f != null ? f.length : 0;
