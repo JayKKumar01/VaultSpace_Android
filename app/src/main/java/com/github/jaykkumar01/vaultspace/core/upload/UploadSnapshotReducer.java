@@ -35,16 +35,19 @@ final class UploadSnapshotReducer {
         }
 
         UploadSnapshot old = uploadCache.getSnapshot(groupId);
-        int uploaded = 0, failed = 0;
+        int uploaded = 0, failed = 0, nonRetryableFailed = 0;
         if (old != null) {
             photos += old.photos;
             videos += old.videos;
             others += old.others;
             uploaded = old.uploaded;
             failed = old.failed;
+            nonRetryableFailed = old.nonRetryableFailed;
         }
 
-        return new UploadSnapshot(groupId, groupName, photos, videos, others, uploaded, failed);
+        UploadSnapshot snapshot = new UploadSnapshot(groupId, groupName, photos, videos, others, uploaded, failed);
+        snapshot.nonRetryableFailed = nonRetryableFailed;
+        return snapshot;
     }
 
     UploadSnapshot onSuccess(UploadTask task) {

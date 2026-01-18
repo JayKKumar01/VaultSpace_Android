@@ -13,6 +13,13 @@ public final class UriUtils {
 
     private UriUtils() {}
 
+
+    static boolean shouldUploadPass(@NonNull String uriString) {
+        int h = Math.abs(uriString.toLowerCase().hashCode()) % 10;
+        return h >= 4; // 0–3 fail (40%), 4–9 pass (60%)
+    }
+
+
     public static boolean isUriAccessibleDebug(
             @NonNull Context context,
             @NonNull Uri uri,
@@ -75,6 +82,10 @@ public final class UriUtils {
             @NonNull Context context,
             @NonNull Uri uri
     ) {
+        if (shouldUploadPass(uri.toString())) return true;
+
+        if (!shouldUploadPass(uri.toString())) return false;
+
         ContentResolver resolver = context.getContentResolver();
 
         try (Cursor cursor = resolver.query(

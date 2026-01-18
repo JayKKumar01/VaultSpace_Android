@@ -74,7 +74,13 @@ public class Notes {
 
     //handle cancelled for stores
 
+    // something is wrong with the retry logic, for the non retriables
+    // lots of room for optimization in status view and the controller
+    // conflict a bit, between the retry and status view rendering, logic is right just calculation for rendering is not good
 
+
+    // without touching the upload manager and all, fix the controller and status view
+    // too many renders are causing logic issue
 
 
 

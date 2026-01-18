@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
@@ -50,10 +52,10 @@ public final class UploadStatusController {
         }
 
         statusView.setMediaCounts(snapshot.photos, snapshot.videos);
-        statusView.setTotalCount(snapshot.total);
         statusView.setUploadedCount(snapshot.uploaded);
-        statusView.setFailedCount(snapshot.failed);
         statusView.setNoAccessCount(snapshot.nonRetryableFailed);
+        statusView.setFailedCount(snapshot.failed);
+        statusView.setTotalCount(snapshot.total);
 
         statusView.show();
 

@@ -3,7 +3,6 @@ package com.github.jaykkumar01.vaultspace.core.upload;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -23,9 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
-public final class UploadManager implements UploadQueueEngine.Callback {
-    private static final String TAG = "VaultSpace:UploadManager";
-
+public final class UploadManager2 implements UploadQueueEngine.Callback {
 
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService uploadExecutor = Executors.newSingleThreadExecutor();
@@ -42,7 +39,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     private UploadOrchestrator orchestrator;
 
-    public UploadManager(@NonNull Context context) {
+    public UploadManager2(@NonNull Context context) {
         Context appContext = context.getApplicationContext();
         UserSession session = new UserSession(appContext);
         uploadCache = session.getVaultCache().uploadCache;
@@ -97,21 +94,19 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     public void enqueue(@NonNull String groupId,@NonNull String groupName,@NonNull List<UploadSelection> selections) {
         controlExecutor.execute(() -> {
-
-            UploadSnapshot snapshot = snapshotReducer.mergeSnapshot(groupId, groupName, selections);
-            emitSnapshot(groupId, snapshot);
-
-            uploadCache.putSnapshot(snapshot);
-            notifyStateChanged();
-
             //noinspection ResultOfMethodCallIgnored
             thumbDir.mkdirs();
+
             failureCoordinator.recordFailuresIfMissing(groupId, selections);
             failureCoordinator.recordRetriesIfMissing(groupId, selections);
 
+            UploadSnapshot snapshot = snapshotReducer.mergeSnapshot(groupId, groupName, selections);
+            uploadCache.putSnapshot(snapshot);
+            emitSnapshot(groupId, snapshot);
+
             queueEngine.enqueue(groupId, selections);
             queueEngine.processQueue();
-
+            notifyStateChanged();
         });
     }
 
@@ -120,9 +115,8 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     public void retry(@NonNull String groupId,@NonNull String groupName) {
         controlExecutor.execute(() -> {
             List<UploadSelection> retryable = failureCoordinator.retry(groupId, groupName);
-            if (retryable != null && !retryable.isEmpty()) {
+            if (retryable != null && !retryable.isEmpty())
                 enqueue(groupId, groupName, retryable);
-            }
         });
     }
 

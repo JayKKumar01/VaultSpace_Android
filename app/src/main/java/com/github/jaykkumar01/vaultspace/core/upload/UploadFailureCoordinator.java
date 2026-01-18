@@ -79,6 +79,7 @@ final class UploadFailureCoordinator {
             }
         }
 
+
         if (nonRetryable > 0) {
             UploadSnapshot snapshot = new UploadSnapshot(groupId, groupName, photos, videos, others, 0, nonRetryable);
             snapshot.nonRetryableFailed = nonRetryable;
@@ -90,11 +91,20 @@ final class UploadFailureCoordinator {
 
     UploadSnapshot restoreFromRetry(String groupId,String groupName) {
         List<UploadSelection> list = retryStore.getAllRetries().get(groupId);
-        if (list == null || list.isEmpty()) return null;
+        if (list == null || list.isEmpty()) {
+            Log.d(TAG, "restoreFromRetry: no retries for group=" + groupId);
+            return null;
+        }
 
         int nonRetryable = 0, photos = 0, videos = 0, others = 0;
+
         for (UploadSelection s : list) {
-            if (!UriUtils.isUriAccessible(appContext, s.uri)) nonRetryable++;
+            boolean accessible = UriUtils.isUriAccessible(appContext, s.uri);
+            if (!accessible) {
+                nonRetryable++;
+                Log.d(TAG, "restoreFromRetry: NON-retryable uri=" + s.uri);
+            }
+
             switch (s.getType()) {
                 case PHOTO -> photos++;
                 case VIDEO -> videos++;
@@ -102,11 +112,25 @@ final class UploadFailureCoordinator {
             }
         }
 
-        UploadSnapshot snapshot = new UploadSnapshot(groupId, groupName, photos, videos, others, 0, photos + videos + others);
+        Log.d(TAG,
+                "restoreFromRetry: group=" + groupId +
+                        " total=" + list.size() +
+                        " photos=" + photos +
+                        " videos=" + videos +
+                        " files=" + others +
+                        " nonRetryable=" + nonRetryable
+        );
+
+        UploadSnapshot snapshot =
+                new UploadSnapshot(groupId, groupName, photos, videos, others, 0, photos + videos + others);
         snapshot.nonRetryableFailed = nonRetryable;
+
         uploadCache.putSnapshot(snapshot);
+        Log.d(TAG, "restoreFromRetry: snapshot restored & cached for group=" + groupId);
+
         return snapshot;
     }
+
 
     void clearGroup(String groupId) {
         List<UploadFailureEntity> rows = failureStore.getFailuresForGroup(groupId);

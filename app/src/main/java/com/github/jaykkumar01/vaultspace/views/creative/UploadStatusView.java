@@ -192,8 +192,8 @@ public class UploadStatusView extends FrameLayout {
         tvMediaInfo = cardContainer.findViewById(R.id.tvUploadMediaInfo);
         tvFailedCount = cardContainer.findViewById(R.id.tvFailedCount);
         ivWarning = cardContainer.findViewById(R.id.ivUploadWarning);
-        tvNoAccessCount=cardContainer.findViewById(R.id.tvNoAccessCount);
-        ivNoAccessWarning=cardContainer.findViewById(R.id.ivNoAccessWarning);
+        tvNoAccessCount = cardContainer.findViewById(R.id.tvNoAccessCount);
+        ivNoAccessWarning = cardContainer.findViewById(R.id.ivNoAccessWarning);
 
 
         progressBar = cardContainer.findViewById(R.id.uploadProgressBar);
@@ -255,6 +255,10 @@ public class UploadStatusView extends FrameLayout {
     /* ================= Visibility ================= */
 
     public void show() {
+        renderMediaInfo();
+        renderFailures();
+        renderNoAccessBadge();
+        updateProgress();
         setVisibility(VISIBLE);
     }
 
@@ -267,28 +271,24 @@ public class UploadStatusView extends FrameLayout {
     public void setMediaCounts(int photos, int videos) {
         photoCount = Math.max(0, photos);
         videoCount = Math.max(0, videos);
-        renderMediaInfo();
     }
 
     public void setTotalCount(int total) {
         totalCount = Math.max(0, total);
-        updateProgress();
     }
 
     public void setUploadedCount(int uploaded) {
         uploadedCount = Math.max(0, uploaded);
-        updateProgress();
+
     }
 
     public void setFailedCount(int failed) {
         failedCount = Math.max(0, failed);
-        renderFailures();
-        updateProgress();
     }
 
-    public void setNoAccessCount(int noAccess){
+    public void setNoAccessCount(int noAccess) {
         noAccessCount = Math.max(0, noAccess);
-        renderNoAccessBadge();
+
     }
 
 
@@ -306,7 +306,7 @@ public class UploadStatusView extends FrameLayout {
         configureAction(ACTION_RETRY, R.drawable.bg_upload_action_retry, onAction);
     }
 
-    public void renderNoAccess(OnClickListener onAction){
+    public void renderNoAccess(OnClickListener onAction) {
         setState(State.FAILED_NO_ACCESS);
         configureAction(ACTION_INFO, R.drawable.bg_upload_action_info, onAction);
     }
@@ -387,11 +387,11 @@ public class UploadStatusView extends FrameLayout {
     }
 
 
-    private void renderNoAccessBadge(){
-        boolean show=noAccessCount>0;
-        ivNoAccessWarning.setVisibility(show?VISIBLE:GONE);
-        tvNoAccessCount.setVisibility(show?VISIBLE:GONE);
-        if(show)tvNoAccessCount.setText(String.valueOf(noAccessCount));
+    private void renderNoAccessBadge() {
+        boolean show = noAccessCount > 0;
+        if (show) tvNoAccessCount.setText(String.valueOf(noAccessCount));
+        ivNoAccessWarning.setVisibility(show ? VISIBLE : GONE);
+        tvNoAccessCount.setVisibility(show ? VISIBLE : GONE);
     }
 
 
