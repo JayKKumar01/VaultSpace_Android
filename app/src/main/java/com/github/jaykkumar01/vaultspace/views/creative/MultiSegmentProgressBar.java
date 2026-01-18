@@ -19,6 +19,10 @@ public final class MultiSegmentProgressBar extends View {
     private static final long DEFAULT_DURATION = 180L;
     private static final long SWEEP_DURATION = 1000L;
 
+    private static final int SWEEP_COLOR_INITIAL = 0x99FFFFFF; // greyed white
+    private static final int SWEEP_COLOR_FINAL = 0xFFFFFFFF; // pure white
+
+
     private float[] target = new float[0];
     private float[] animated = new float[0];
     private float[] start = new float[0];
@@ -43,8 +47,15 @@ public final class MultiSegmentProgressBar extends View {
     private float sweepX = Float.NaN;
     private boolean completionPlayed;
 
-    public MultiSegmentProgressBar(Context c) { super(c); init(); }
-    public MultiSegmentProgressBar(Context c, @Nullable AttributeSet a) { super(c, a); init(); }
+    public MultiSegmentProgressBar(Context c) {
+        super(c);
+        init();
+    }
+
+    public MultiSegmentProgressBar(Context c, @Nullable AttributeSet a) {
+        super(c, a);
+        init();
+    }
 
     private void init() {
         bgPaint.setStyle(Paint.Style.FILL);
@@ -78,6 +89,7 @@ public final class MultiSegmentProgressBar extends View {
             animated[i] = v;
             start[i] = v;
         }
+        maybeStartSweep(); // ← important for immediate empty / full
         invalidate();
     }
 
@@ -89,14 +101,20 @@ public final class MultiSegmentProgressBar extends View {
         interpolator = i != null ? i : new FastOutSlowInInterpolator();
     }
 
-    /* ================= Animation ================= */
+    /* ================= Fraction animation ================= */
 
     private void startAnimationIfNeeded() {
         boolean diff = false;
         for (int i = 0; i < target.length; i++) {
-            if (animated[i] != target[i]) { diff = true; break; }
+            if (animated[i] != target[i]) {
+                diff = true;
+                break;
+            }
         }
-        if (!diff) return;
+        if (!diff) {
+            maybeStartSweep();
+            return;
+        }
 
         System.arraycopy(animated, 0, start, 0, animated.length);
         animStart = System.currentTimeMillis();
@@ -127,26 +145,43 @@ public final class MultiSegmentProgressBar extends View {
         if (done) {
             animating = false;
             animator.cancel();
-            maybeStartCompletionSweep();
+            maybeStartSweep();
         }
     }
 
-    private void maybeStartCompletionSweep() {
-        if (completionPlayed) return;
+    /* ================= Sweep logic ================= */
+
+    private void maybeStartSweep() {
+        if (completionPlayed || animating) return;
+
         float sum = 0f;
-        for (float v : target) sum += v;
-        if (sum < 0.999f) return;
+        boolean allZero = true;
+        for (float v : target) {
+            sum += v;
+            if (v > 0f) allZero = false;
+        }
+
+        if (!allZero && sum < 0.999f) return;
 
         completionPlayed = true;
         sweepX = -getWidth();
 
+        sweepPaint.setColor(allZero ? SWEEP_COLOR_INITIAL : SWEEP_COLOR_FINAL);
+
         sweepAnimator = ValueAnimator.ofFloat(-getWidth(), getWidth());
+
         sweepAnimator.setDuration(SWEEP_DURATION);
         sweepAnimator.setInterpolator(new FastOutSlowInInterpolator());
+
+        if (allZero) {
+            sweepAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        }
+
         sweepAnimator.addUpdateListener(a -> {
             sweepX = (float) a.getAnimatedValue();
             invalidate();
         });
+
         sweepAnimator.start();
     }
 
@@ -194,7 +229,7 @@ public final class MultiSegmentProgressBar extends View {
         syncBackgroundPaint();
     }
 
-    /* ================= Reset & Helpers ================= */
+    /* ================= Reset & helpers ================= */
 
     private void resetTransientState() {
         if (animator != null) animator.cancel();

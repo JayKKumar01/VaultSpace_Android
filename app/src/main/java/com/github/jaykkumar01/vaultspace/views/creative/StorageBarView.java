@@ -1,6 +1,5 @@
 package com.github.jaykkumar01.vaultspace.views.creative;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
@@ -10,7 +9,6 @@ import android.graphics.RectF;
 import android.graphics.Shader;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.animation.LinearInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,6 +18,8 @@ import com.github.jaykkumar01.vaultspace.R;
 import java.util.Locale;
 
 public class StorageBarView extends View {
+
+    /* ================= Paints & geometry ================= */
 
     private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -40,14 +40,15 @@ public class StorageBarView extends View {
     private static final String LOADING_VALUE = "–";
     private static final int DECIMAL_PRECISION = 1;
 
-    /* ================= Sweep (optimized) ================= */
+    /* ================= Sweep ================= */
 
     private static final long SWEEP_DURATION_MS = 1400L;
+    private static final int UPS = 45;
 
-    private ValueAnimator sweepAnimator;
+    private UpsTickerAnimator sweepAnimator;
+
     private LinearGradient sweepGradient;
     private final Matrix sweepMatrix = new Matrix();
-
     private float sweepTranslateX;
 
     /* ================= Dimensions ================= */
@@ -55,7 +56,6 @@ public class StorageBarView extends View {
     private float barHeight;
     private float cornerRadius;
     private float textSpacing;
-
     private float contentWidth;
 
     /* ================= Constructors ================= */
@@ -90,32 +90,21 @@ public class StorageBarView extends View {
         contentWidth = textPaint.measureText(LABEL + LOADING_VALUE);
     }
 
-    /* ================= Layout ================= */
+    /* ================= Layout & shader ================= */
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-
         if (w <= 0) return;
 
-        // Create gradient ONCE per size
-        sweepGradient = new LinearGradient(
-                0f, 0f,
-                w, 0f,
-                new int[]{
-                        0x00FFFFFF,
-                        0x33FFFFFF,
-                        0xAAFFFFFF,
-                        0x33FFFFFF,
-                        0x00FFFFFF
-                },
-                new float[]{0f, 0.45f, 0.5f, 0.55f, 1f},
-                Shader.TileMode.CLAMP
-        );
+        sweepGradient = new LinearGradient(0f, 0f, w, 0f,
+                new int[]{0x00FFFFFF, 0x22FFFFFF, 0x88FFFFFF, 0xCCFFFFFF, 0x88FFFFFF, 0x22FFFFFF, 0x00FFFFFF},
+                new float[]{0f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 1f},
+                Shader.TileMode.CLAMP);
+
 
         sweepPaint.setShader(sweepGradient);
-
-        if (!hasUsage) startSweep();
+        ensureAnimator();
     }
 
     @Override
@@ -152,11 +141,8 @@ public class StorageBarView extends View {
             return;
         }
 
-        // -------- Allocation-free shimmer --------
-
         sweepMatrix.setTranslate(sweepTranslateX, 0f);
         sweepGradient.setLocalMatrix(sweepMatrix);
-
         canvas.drawRoundRect(rect, cornerRadius, cornerRadius, sweepPaint);
     }
 
@@ -165,9 +151,9 @@ public class StorageBarView extends View {
     public void setUsage(float used, float total, @NonNull String unit) {
         if (hasUsage) return;
 
-        stopSweep();
-
         hasUsage = true;
+        if (sweepAnimator != null) sweepAnimator.stop();
+
         usedValue = used;
         totalValue = total;
         unitText = unit;
@@ -179,36 +165,49 @@ public class StorageBarView extends View {
         invalidate();
     }
 
-    /* ================= Sweep lifecycle ================= */
+    /* ================= Lifecycle ================= */
 
-    private void startSweep() {
-        if (sweepAnimator != null || sweepGradient == null) return;
-
-        sweepAnimator = ValueAnimator.ofFloat(-contentWidth, contentWidth);
-        sweepAnimator.setDuration(SWEEP_DURATION_MS);
-        sweepAnimator.setInterpolator(new LinearInterpolator());
-        sweepAnimator.setRepeatCount(ValueAnimator.INFINITE);
-
-        sweepAnimator.addUpdateListener(a -> {
-            sweepTranslateX = (float) a.getAnimatedValue();
-            invalidate();
-        });
-
-        sweepAnimator.start();
-    }
-
-    private void stopSweep() {
-        if (sweepAnimator != null) {
-            sweepAnimator.cancel();
-            sweepAnimator.removeAllUpdateListeners();
-            sweepAnimator = null;
-        }
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (sweepAnimator != null) sweepAnimator.onAttached();
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        stopSweep();
+        if (sweepAnimator != null) sweepAnimator.onDetached();
+    }
+
+    @Override
+    protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        if (sweepAnimator != null) {
+            sweepAnimator.onVisibilityChanged(visibility == VISIBLE);
+        }
+    }
+
+    /* ================= Animator ================= */
+
+    private void ensureAnimator() {
+        if (sweepAnimator != null || hasUsage) return;
+
+        sweepAnimator = new UpsTickerAnimator(
+                this,
+                SWEEP_DURATION_MS,
+                UPS,
+                UPS,
+                progress -> {
+                    sweepTranslateX = lerp(-contentWidth, contentWidth, progress);
+                    invalidate();
+                }
+        );
+
+        // 🔥 Critical lifecycle sync (FIX)
+        if (isAttachedToWindow()) {
+            sweepAnimator.onAttached();
+            sweepAnimator.onVisibilityChanged(getVisibility() == VISIBLE);
+        }
     }
 
     /* ================= Helpers ================= */
@@ -220,6 +219,10 @@ public class StorageBarView extends View {
 
     private String format(float value) {
         return String.format(Locale.US, "%." + DECIMAL_PRECISION + "f", value);
+    }
+
+    private static float lerp(float s, float e, float t) {
+        return s + (e - s) * t;
     }
 
     private float dpToPx(float dp) {
