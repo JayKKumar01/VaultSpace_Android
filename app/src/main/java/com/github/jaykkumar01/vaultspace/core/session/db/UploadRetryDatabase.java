@@ -7,11 +7,8 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
 @Database(
-        entities = {
-                UploadRetryEntity.class,
-                UploadFailureEntity.class
-        },
-        version = 2,
+        entities = { UploadRetryEntity.class },
+        version = 1,
         exportSchema = false
 )
 public abstract class UploadRetryDatabase extends RoomDatabase {

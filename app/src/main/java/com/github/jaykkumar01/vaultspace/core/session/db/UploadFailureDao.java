@@ -4,7 +4,6 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
-
 import java.util.List;
 
 @Dao
@@ -19,29 +18,30 @@ public interface UploadFailureDao {
     @Query("SELECT * FROM upload_failure WHERE groupId = :groupId")
     List<UploadFailureEntity> getByGroup(String groupId);
 
-    /* 🔑 delete exact item (success / retry cleanup) */
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM upload_failure
+            WHERE groupId = :groupId
+              AND uri = :uri
+              AND type = :type
+        )
+    """)
+    boolean contains(String groupId,String uri,String type);
+
     @Query("""
         DELETE FROM upload_failure
         WHERE groupId = :groupId
           AND uri = :uri
           AND type = :type
     """)
-    void delete(
-            String groupId,
-            String uri,
-            String type
-    );
+    void delete(String groupId,String uri,String type);
 
-    /* optional: bulk cleanup when retrying subset */
     @Query("""
         DELETE FROM upload_failure
         WHERE groupId = :groupId
           AND uri IN (:uris)
     """)
-    void deleteByUris(
-            String groupId,
-            List<String> uris
-    );
+    void deleteByUris(String groupId,List<String> uris);
 
     @Query("DELETE FROM upload_failure WHERE groupId = :groupId")
     void deleteByGroup(String groupId);

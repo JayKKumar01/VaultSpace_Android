@@ -4,7 +4,6 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
-
 import java.util.List;
 
 @Dao
@@ -17,10 +16,29 @@ public interface UploadRetryDao {
     void insertAll(List<UploadRetryEntity> entities);
 
     @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM upload_retry
+            WHERE groupId = :groupId
+              AND uri = :uri
+              AND type = :type
+        )
+    """)
+    boolean contains(String groupId,String uri,String type);
+
+    @Query("""
         DELETE FROM upload_retry
-        WHERE groupId = :groupId AND uri = :uri AND type = :type
+        WHERE groupId = :groupId
+          AND uri = :uri
+          AND type = :type
     """)
     void delete(String groupId,String uri,String type);
+
+    @Query("""
+        DELETE FROM upload_retry
+        WHERE groupId = :groupId
+          AND uri IN (:uris)
+    """)
+    void deleteByUris(String groupId,List<String> uris);
 
     @Query("DELETE FROM upload_retry WHERE groupId = :groupId")
     void deleteGroup(String groupId);
