@@ -65,6 +65,14 @@ public class Notes {
     // app can be stopped in the middle somehow so store all the info in the start only, on success just mark it done... or else mark pending... or keep it marked pending on finalized
 
     // retries list is there already then picked... enqueue new selections right
+    // finished with success not working
+
+    // run edge cases with 2 albums.... for notification.. if snapshot is not cleared... then even if it is not running
+    // it gets prioriry in notification... becasue it was added earlier... completed... moved down,
+    // 2nd album started... moves up... but now when
+    // 1st albums get queue in again.. it gets prioriry back becasue it was still in snapshot. fix this
+
+    //handle cancelled for stores
 
 
 

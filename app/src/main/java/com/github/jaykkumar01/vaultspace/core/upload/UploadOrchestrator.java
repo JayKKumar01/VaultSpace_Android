@@ -119,9 +119,9 @@ public final class UploadOrchestrator {
         uploadManager.cancelAllUploads();
     }
 
-    public void retryUploads(@NonNull String groupId) {
+    public void retryUploads(@NonNull String groupId, @NonNull String groupName) {
         Log.d(TAG, "retryUploads(): groupId=" + groupId);
-        // implemented later
+        uploadManager.retry(groupId,groupName);
     }
 
     /* ================= UploadManager callback ================= */

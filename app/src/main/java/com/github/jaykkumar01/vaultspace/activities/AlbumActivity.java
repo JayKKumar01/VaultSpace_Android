@@ -6,7 +6,6 @@ import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
@@ -23,7 +22,6 @@ import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinato
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
-import com.github.jaykkumar01.vaultspace.core.upload.UploadFailureMetadata;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadObserver;
@@ -139,12 +137,14 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onRetryRequested() {
-            uploadOrchestrator.retryUploads(albumId);
+            uploadOrchestrator.retryUploads(albumId, albumName);
         }
 
         @Override
         public void onAcknowledge() {
             uploadOrchestrator.removeSnapshotFromCache(albumId);
+            uploadOrchestrator.removeRetriesFromStore(albumId);
+            uploadOrchestrator.removeFailuresFromStore(albumId);
         }
 
         @Override
@@ -170,6 +170,10 @@ public class AlbumActivity extends AppCompatActivity {
                                     ", thumb=" + f.thumbnailPath
                     );
                 }
+
+                uploadOrchestrator.removeSnapshotFromCache(albumId);
+                uploadOrchestrator.removeRetriesFromStore(albumId);
+                uploadOrchestrator.removeFailuresFromStore(albumId);
             });
         }
 

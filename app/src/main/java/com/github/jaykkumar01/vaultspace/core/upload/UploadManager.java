@@ -312,20 +312,24 @@ public final class UploadManager {
     /* ================= Cancel ================= */
 
     public void cancelUploads(@NonNull String groupId) {
-
         controlExecutor.execute(() -> {
+
+            // 1️⃣ Remove queued tasks
             queue.removeIf(t -> t.groupId.equals(groupId));
+
+            // 2️⃣ Cancel running task if matches
             if (current != null && current.groupId.equals(groupId)) {
                 if (runningUpload != null) {
-                    runningUpload.cancel(true); // 🔴 THIS interrupts sleep / IO
+                    runningUpload.cancel(true);
                     runningUpload = null;
                 }
                 current = null;
             }
 
-            uploadCache.removeSnapshot(groupId);
-            retryStore.clearGroup(groupId);
+            // 3️⃣ Clear all state for group
+            clearGroupInternal(groupId);
 
+            // 4️⃣ Notify + resume
             emitCancelled(groupId);
             processQueue();
             notifyStateChanged();
@@ -334,6 +338,7 @@ public final class UploadManager {
 
     public void cancelAllUploads() {
         controlExecutor.execute(() -> {
+
             // 1️⃣ Stop execution
             queue.clear();
             if (runningUpload != null) {
@@ -342,22 +347,22 @@ public final class UploadManager {
             }
             current = null;
 
-            // 2️⃣ Snapshot groupIds defensively
+            // 2️⃣ Snapshot active groups
             List<String> groupIds =
                     new ArrayList<>(uploadCache.getAllSnapshots().keySet());
 
-            // 3️⃣ Cancel + clear per group
+            // 3️⃣ Cancel + clear everything
             for (String groupId : groupIds) {
                 emitCancelled(groupId);
-                uploadCache.removeSnapshot(groupId);
-                retryStore.clearGroup(groupId);
+                clearGroupInternal(groupId);
             }
 
-            // 5️⃣ Mark system state
+            // 4️⃣ Mark stopped + notify
             uploadCache.markStopped(UploadCache.StopReason.USER);
             notifyStateChanged();
         });
     }
+
 
     public void shutdown() {
         controlExecutor.shutdownNow();
@@ -400,11 +405,11 @@ public final class UploadManager {
     }
 
     public void removeSnapshotFromCache(String groupId) {
-        uploadCache.removeSnapshot(groupId);
+        controlExecutor.execute(() -> uploadCache.removeSnapshot(groupId));
     }
 
     public void removeRetriesFromStore(String groupId) {
-        retryStore.clearGroup(groupId);
+        controlExecutor.execute(() -> retryStore.clearGroup(groupId));
     }
 
     public void removeFailuresFromStore(@NonNull String groupId) {
@@ -428,6 +433,28 @@ public final class UploadManager {
             mainHandler.post(() -> cb.accept(list));
         });
     }
+
+    /* ================= Internal cleanup (control thread only) ================= */
+
+    private void clearFailuresInternal(@NonNull String groupId) {
+        List<UploadFailureEntity> rows = failureStore.getFailuresForGroup(groupId);
+        if (rows != null) {
+            for (UploadFailureEntity e : rows) {
+                if (e.thumbnailPath == null) continue;
+                File f = new File(e.thumbnailPath);
+                if (f.exists() && !f.delete())
+                    Log.w(TAG, "Failed to delete thumb: " + f.getAbsolutePath());
+            }
+        }
+        failureStore.clearGroup(groupId);
+    }
+
+    private void clearGroupInternal(@NonNull String groupId) {
+        uploadCache.removeSnapshot(groupId);
+        retryStore.clearGroup(groupId);
+        clearFailuresInternal(groupId);
+    }
+
 
 
 }
