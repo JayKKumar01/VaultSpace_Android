@@ -70,6 +70,8 @@ public class AlbumActivity extends AppCompatActivity {
 
     private UploadStatusController uploadStatusController;
 
+    private boolean shouldClearGroup;
+
 
     private final AlbumLoader.Callback loaderCallback = new AlbumLoader.Callback() {
         @Override
@@ -89,6 +91,7 @@ public class AlbumActivity extends AppCompatActivity {
     private final AlbumActionCoordinator.Callback actionCallback = new AlbumActionCoordinator.Callback() {
         @Override
         public void onMediaSelected(List<UploadSelection> selections) {
+            shouldClearGroup = false;
             uploadOrchestrator.enqueue(albumId,albumName,selections);
         }
     };
@@ -147,6 +150,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onNoAccessInfo() {
+            shouldClearGroup = true;
             uploadOrchestrator.getFailuresForGroup(albumId, failures -> {
                 if (failures == null || failures.isEmpty()) {
                     Log.d(TAG, "onNoAccessInfo(): no failures for groupId=" + albumId);
@@ -172,6 +176,7 @@ public class AlbumActivity extends AppCompatActivity {
                     }
 
                     uploadOrchestrator.clearGroup(albumId);
+                    shouldClearGroup = false;
                 });
             });
         }
@@ -374,5 +379,8 @@ public class AlbumActivity extends AppCompatActivity {
         albumLoader.release();
         actionCoordinator.release();
         uploadOrchestrator.unregisterObserver(albumId);
+        if (shouldClearGroup){
+            uploadOrchestrator.clearGroup(albumId);
+        }
     }
 }
