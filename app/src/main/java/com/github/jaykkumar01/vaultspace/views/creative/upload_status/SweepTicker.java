@@ -4,7 +4,6 @@ import android.view.View;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
-
 public final class SweepTicker {
 
     public enum Mode{NONE,IDLE,COMPLETION}
@@ -24,6 +23,7 @@ public final class SweepTicker {
     }
 
     public void startIdle(@ColorInt int color){
+        if(mode==Mode.IDLE)return;
         mode=Mode.IDLE;
         startMs=0L;
         sweepX=Float.NaN;
@@ -31,6 +31,7 @@ public final class SweepTicker {
     }
 
     public void startCompletion(@ColorInt int color){
+        if(mode==Mode.COMPLETION)return;
         mode=Mode.COMPLETION;
         startMs=0L;
         sweepX=Float.NaN;
@@ -38,6 +39,7 @@ public final class SweepTicker {
     }
 
     public void stop(){
+        if(mode==Mode.NONE)return;
         mode=Mode.NONE;
         startMs=0L;
         sweepX=Float.NaN;
@@ -45,10 +47,6 @@ public final class SweepTicker {
 
     public boolean isActive(){
         return mode!=Mode.NONE;
-    }
-
-    public Mode getMode(){
-        return mode;
     }
 
     public float getSweepX(){
@@ -70,15 +68,15 @@ public final class SweepTicker {
         long elapsed=nowMs-startMs;
 
         if(mode==Mode.IDLE){
-            float p=(elapsed*IDLE_SPEED)%1f;
+            float p=(elapsed*IDLE_SPEED);
+            p-= (int)p; // cheaper than %
             sweepX=-w+(2f*w*p);
             return true;
         }
 
-        // COMPLETION
         if(elapsed>=COMPLETION_DURATION_MS){
-            stop();              // hard visual clear
-            return false;        // signal completion
+            stop();
+            return false;
         }
 
         float p=elapsed/(float)COMPLETION_DURATION_MS;

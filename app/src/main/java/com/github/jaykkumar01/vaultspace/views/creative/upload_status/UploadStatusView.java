@@ -18,39 +18,7 @@ import androidx.core.content.ContextCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
 
-public class UploadStatusView extends FrameLayout {
-
-    /* ================= Text ================= */
-
-    private static final String TEXT_STARTING = "Just getting started";
-    private static final String TEXT_PROGRESS_LOW = "Making progress";
-    private static final String TEXT_PROGRESS_HALF = "More than halfway";
-    private static final String TEXT_ALMOST_DONE = "Almost there";
-    private static final String TEXT_ONE_LEFT = "Just one more to go";
-    private static final String TEXT_COMPLETED = "All memories are safe";
-    private static final String TEXT_NO_ACCESS = "Some items need access permission";
-
-    /* ================= Actions ================= */
-
-    private static final String ACTION_CANCEL = "Stop";
-    private static final String ACTION_RETRY = "Try Again";
-    private static final String ACTION_OK = "Done";
-    private static final String ACTION_INFO = "See Info";
-
-    /* ================= Formatting ================= */
-
-    private static final String MEDIA_SEPARATOR = " photos · ";
-    private static final String MEDIA_SUFFIX = " videos";
-    private static final String RATIO_SEPARATOR = " / ";
-
-    /* ================= State ================= */
-
-    private enum State {
-        UPLOADING,
-        FAILED_RETRYABLE,
-        FAILED_NO_ACCESS,
-        COMPLETED
-    }
+public final class UploadStatusView extends FrameLayout {
 
     /* ================= Views ================= */
 
@@ -69,19 +37,13 @@ public class UploadStatusView extends FrameLayout {
     private AppCompatButton btnAction;
     private MultiSegmentProgressBar progressBar;
 
-    /* ================= Data ================= */
+    /* ================= Renderer ================= */
 
-    private final float[] progressFractions = new float[3];
+    private final UploadStatusRenderer renderer = new UploadStatusRenderer();
 
-    private int photoCount;
-    private int videoCount;
-    private int totalCount;
-    private int uploadedCount;
-    private int failedCount;
-    private int noAccessCount;
+    /* ================= Layout ================= */
+
     private int dismissOverlap;
-
-    private String textUploading;
 
     /* ================= Constructors ================= */
 
@@ -145,137 +107,75 @@ public class UploadStatusView extends FrameLayout {
         btnAction = cardContainer.findViewById(R.id.tvAction);
     }
 
-    /* ================= Visibility ================= */
-
-    private void show() {
-        renderMediaInfo();
-        renderFailures();
-        renderNoAccessBadge();
-        updateProgress();
-        setVisibility(VISIBLE);
-    }
-
-    public void hide() {
-        setVisibility(GONE);
-    }
-
-    /* ================= Public API ================= */
+    /* ================= Public API (Controller-safe) ================= */
 
     public void setMediaCounts(int photos, int videos) {
-        photoCount = Math.max(0, photos);
-        videoCount = Math.max(0, videos);
+        renderer.setMediaCounts(photos, videos);
     }
 
     public void setTotalCount(int total) {
-        totalCount = Math.max(0, total);
+        renderer.setTotalCount(total);
     }
 
     public void setUploadedCount(int uploaded) {
-        uploadedCount = Math.max(0, uploaded);
+        renderer.setUploadedCount(uploaded);
     }
 
     public void setFailedCount(int failed) {
-        failedCount = Math.max(0, failed);
+        renderer.setFailedCount(failed);
     }
 
     public void setNoAccessCount(int noAccess) {
-        noAccessCount = Math.max(0, noAccess);
+        renderer.setNoAccessCount(noAccess);
     }
 
-    /* ================= State Rendering ================= */
-
     public void renderUploading(OnClickListener action, int completed, int total) {
-        textUploading = resolveProgressText(completed, total);
-        setState(State.UPLOADING);
-        configureAction(ACTION_CANCEL, R.drawable.bg_upload_action_cancel, action);
+        apply(renderer.renderUploading(action, completed, total));
     }
 
     public void renderFailed(OnClickListener action) {
-        setState(State.FAILED_RETRYABLE);
-        configureAction(ACTION_RETRY, R.drawable.bg_upload_action_retry, action);
+        apply(renderer.renderFailed(action));
     }
 
     public void renderNoAccess(OnClickListener action) {
-        setState(State.FAILED_NO_ACCESS);
-        configureAction(ACTION_INFO, R.drawable.bg_upload_action_info, action);
+        apply(renderer.renderNoAccess(action));
     }
 
     public void renderCompleted(OnClickListener action) {
-        setState(State.COMPLETED);
-        configureAction(ACTION_OK, R.drawable.bg_upload_action_ok, action);
+        apply(renderer.renderCompleted(action));
     }
 
-    /* ================= Rendering ================= */
-
-    private void configureAction(String text, int bg, @Nullable OnClickListener action) {
-        btnAction.setText(text);
-        btnAction.setBackgroundResource(bg);
-        btnAction.setOnClickListener(action);
-        show();
+    public void hide() {
+        if (getVisibility() != GONE) setVisibility(GONE);
     }
 
-    private void setState(State state) {
-        switch (state) {
-            case UPLOADING:
-                tvUploadingState.setText(textUploading);
-                ivDismiss.setVisibility(GONE);
-                updateCardOffsets(false);
-                break;
-            case FAILED_RETRYABLE:
-                tvUploadingState.setText(TEXT_ALMOST_DONE);
-                ivDismiss.setVisibility(VISIBLE);
-                updateCardOffsets(true);
-                break;
-            case FAILED_NO_ACCESS:
-                tvUploadingState.setText(TEXT_NO_ACCESS);
-                ivDismiss.setVisibility(GONE);
-                updateCardOffsets(false);
-                break;
-            case COMPLETED:
-                tvUploadingState.setText(TEXT_COMPLETED);
-                ivDismiss.setVisibility(GONE);
-                updateCardOffsets(false);
-                break;
-        }
+    /* ================= Render Applier ================= */
+
+    private void apply(UploadStatusRenderModel m) {
+
+        tvMediaInfo.setText(m.mediaInfoText);
+        tvUploadingState.setText(m.uploadingStateText);
+        tvUploadRatio.setText(m.uploadRatioText);
+
+        ivDismiss.setVisibility(m.showDismiss ? VISIBLE : GONE);
+        updateCardOffsets(m.showDismiss);
+
+        ivWarning.setVisibility(m.showRetryWarning ? VISIBLE : GONE);
+        tvFailedCount.setVisibility(m.showRetryWarning ? VISIBLE : GONE);
+        if (m.showRetryWarning) tvFailedCount.setText(m.failedCountText);
+
+        ivNoAccessWarning.setVisibility(m.showNoAccessWarning ? VISIBLE : GONE);
+        tvNoAccessCount.setVisibility(m.showNoAccessWarning ? VISIBLE : GONE);
+        if (m.showNoAccessWarning) tvNoAccessCount.setText(m.noAccessCountText);
+
+        btnAction.setText(m.actionText);
+        btnAction.setBackgroundResource(m.actionBackgroundRes);
+        btnAction.setOnClickListener(m.actionClick);
         btnAction.setVisibility(VISIBLE);
-        renderFailures();
-        renderNoAccessBadge();
-    }
 
-    private void renderMediaInfo() {
-        tvMediaInfo.setText(photoCount + MEDIA_SEPARATOR + videoCount + MEDIA_SUFFIX);
-    }
+        progressBar.setFractions(m.progressFractions);
 
-    private void renderFailures() {
-        boolean show = failedCount > 0 && failedCount > noAccessCount;
-        ivWarning.setVisibility(show ? VISIBLE : GONE);
-        tvFailedCount.setVisibility(show ? VISIBLE : GONE);
-        if (show) tvFailedCount.setText(String.valueOf(failedCount - noAccessCount));
-    }
-
-    private void renderNoAccessBadge() {
-        boolean show = noAccessCount > 0;
-        ivNoAccessWarning.setVisibility(show ? VISIBLE : GONE);
-        tvNoAccessCount.setVisibility(show ? VISIBLE : GONE);
-        if (show) tvNoAccessCount.setText(String.valueOf(noAccessCount));
-    }
-
-    /* ================= Progress ================= */
-
-    private void updateProgress() {
-        float success = 0f, retry = 0f, noAccess = 0f;
-        if (totalCount > 0) {
-            success = clamp01(uploadedCount / (float) totalCount);
-            noAccess = clamp01(noAccessCount / (float) totalCount);
-            retry = clamp01((failedCount - noAccessCount) / (float) totalCount);
-            float remaining = 1f - success - noAccess;
-            if (retry > remaining) retry = remaining;
-        }
-        progressFractions[0] = success;
-        progressFractions[1] = retry;
-        progressFractions[2] = noAccess;
-        progressBar.setFractions(progressFractions);
-        tvUploadRatio.setText(uploadedCount + RATIO_SEPARATOR + totalCount);
+        if (getVisibility() != VISIBLE) setVisibility(VISIBLE);
     }
 
     /* ================= Helpers ================= */
@@ -317,20 +217,6 @@ public class UploadStatusView extends FrameLayout {
             r.top -= e; r.bottom += e; r.left -= e; r.right += e;
             parent.setTouchDelegate(new TouchDelegate(r, view));
         });
-    }
-
-    private String resolveProgressText(int completed, int total) {
-        if (total <= 0 || completed <= 0) return TEXT_STARTING;
-        int remaining = total - completed;
-        if (remaining == 1) return TEXT_ONE_LEFT;
-        float f = completed / (float) total;
-        if (f >= 0.8f) return TEXT_ALMOST_DONE;
-        if (f >= 0.5f) return TEXT_PROGRESS_HALF;
-        return TEXT_PROGRESS_LOW;
-    }
-
-    private float clamp01(float v) {
-        return Math.max(0f, Math.min(1f, v));
     }
 
     private float dp(float v) {

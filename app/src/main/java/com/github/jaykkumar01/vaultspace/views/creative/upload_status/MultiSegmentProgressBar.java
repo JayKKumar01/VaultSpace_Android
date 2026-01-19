@@ -13,19 +13,16 @@ public final class MultiSegmentProgressBar extends View {
     private static final int SWEEP_COLOR_INITIAL = 0x99FFFFFF;
     private static final int SWEEP_COLOR_FINAL = 0xFFFFFFFF;
 
-    /* progress state */
     private float[] start = new float[0], target = new float[0], current = new float[0];
     private int[] colors = new int[0];
-
     private float targetSum;
     private boolean completionSweepConsumed;
-
     private boolean isAttached;
     private boolean isVisible = true;
 
-    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint sweepPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paint = new Paint();
+    private final Paint bgPaint = new Paint();
+    private final Paint sweepPaint = new Paint();
 
     private final RectF rect = new RectF();
     private final Path clipPath = new Path();
@@ -53,11 +50,12 @@ public final class MultiSegmentProgressBar extends View {
 
     private void init() {
         bgPaint.setStyle(Paint.Style.FILL);
+        bgPaint.setAntiAlias(true);
+        paint.setAntiAlias(false);
+        sweepPaint.setAntiAlias(false);
         cornerRadius = getResources().getDisplayMetrics().density * 2f;
         syncBackgroundPaint();
     }
-
-    /* ================= Public API ================= */
 
     public void setColors(int[] c) {
         colors = c != null ? c.clone() : new int[0];
@@ -65,32 +63,21 @@ public final class MultiSegmentProgressBar extends View {
     }
 
     public void setFractions(@NonNull float[] f) {
-        stopAll(true);
+        stopAll();
         ensureCapacity(f.length);
-
         float oldTargetSum = targetSum;
         targetSum = 0f;
-
-        for (int i = 0; i < f.length; i++) {
+        for (int i = 0, len = f.length; i < len; i++) {
             start[i] = current[i];
-            target[i] = clamp01(f[i]);
-            targetSum += target[i];
+            float v = clamp01(f[i]);
+            target[i] = v;
+            targetSum += v;
         }
-
-        /* transition rules */
-        if (oldTargetSum < 1f && targetSum >= 1f)
-            completionSweepConsumed = false;
-
-        if (targetSum == 0f)
-            completionSweepConsumed = false;
-
-        if (needsProgress())
-            progressTicker.start(now());
-
+        if (oldTargetSum < 1f && targetSum >= 1f) completionSweepConsumed = false;
+        if (targetSum == 0f) completionSweepConsumed = false;
+        if (needsProgress()) progressTicker.start(now());
         startEligibleAnimations();
     }
-
-    /* ================= Lifecycle ================= */
 
     @Override
     protected void onAttachedToWindow() {
@@ -103,41 +90,33 @@ public final class MultiSegmentProgressBar extends View {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         isAttached = false;
-        stopAll(true);
+        stopAll();
     }
 
     @Override
-    protected void onVisibilityChanged(View v, int visibility) {
+    protected void onVisibilityChanged(@NonNull View v, int visibility) {
         super.onVisibilityChanged(v, visibility);
         isVisible = visibility == VISIBLE;
         if (isVisible && isAttached) startEligibleAnimations();
         else frameRunner.stop();
     }
 
-    /* ================= Frame ================= */
-
     private void onFrame(long now) {
-        boolean dirty = false;
-
+        boolean ran = false;
         if (progressTicker.isRunning()) {
             float t = progressTicker.tick(now);
-            for (int i = 0; i < current.length; i++)
+            for (int i = 0, len = current.length; i < len; i++)
                 current[i] = start[i] + (target[i] - start[i]) * t;
-            dirty = true;
+            ran = true;
         }
-
         if (sweepTicker.isActive()) {
-            if (!sweepTicker.tick(now)) {
-                completionSweepConsumed = true;
-                dirty = true;
-            } else dirty = true;
+            if (!sweepTicker.tick(now)) completionSweepConsumed = true;
+            ran = true;
         }
-
-        if (dirty) invalidate();
-        if (!hasActiveAnimations()) frameRunner.stop();
+        if (ran) invalidate();
+        if (!progressTicker.isRunning() && !sweepTicker.isActive())
+            frameRunner.stop();
     }
-
-    /* ================= Draw ================= */
 
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
@@ -147,66 +126,53 @@ public final class MultiSegmentProgressBar extends View {
     }
 
     @Override
-    protected void onDraw(Canvas c) {
+    protected void onDraw(@NonNull Canvas c) {
         int w = getWidth(), h = getHeight();
         if (w <= 0 || h <= 0) return;
-
         int save = c.save();
         c.clipPath(clipPath);
         c.drawRect(0, 0, w, h, bgPaint);
-
         float x = 0f;
-        for (int i = 0; i < current.length; i++) {
-            float fw = current[i] * w;
-            if (fw <= 0f) continue;
-            fw = Math.min(fw, w - x);
+        for (int i = 0, len = current.length; i < len; i++) {
+            float seg = current[i];
+            if (seg <= 0f) continue;
+            float left = x;
+            float right = left + (seg * w);
+            if (left >= w) break;
+            if (right > w) right = w;
             paint.setColor(i < colors.length ? colors[i] : 0);
-            c.drawRect(x, 0, x + fw, h, paint);
-            x += fw;
+            c.drawRect(left, 0, right, h, paint);
+            x = right;
             if (x >= w) break;
         }
-
         float sx = sweepTicker.getSweepX();
         if (!Float.isNaN(sx)) {
             sweepPaint.setColor(sweepTicker.getColor());
             c.drawRect(sx, 0, sx + w * 0.45f, h, sweepPaint);
         }
-
         c.restoreToCount(save);
     }
 
-    /* ================= Decisions ================= */
-
     private void startEligibleAnimations() {
         if (!isAttached || !isVisible) return;
-
-        if (targetSum == 0f) {
-            sweepTicker.startIdle(SWEEP_COLOR_INITIAL);
-        } else if (targetSum >= 1f && !completionSweepConsumed) {
+        if (targetSum == 0f) sweepTicker.startIdle(SWEEP_COLOR_INITIAL);
+        else if (targetSum >= 1f && !completionSweepConsumed)
             sweepTicker.startCompletion(SWEEP_COLOR_FINAL);
-        }
-
-        if (hasActiveAnimations())
+        if (progressTicker.isRunning() || sweepTicker.isActive())
             frameRunner.start();
     }
 
-    private boolean hasActiveAnimations() {
-        return progressTicker.isRunning() || sweepTicker.isActive();
-    }
-
     private boolean needsProgress() {
-        for (int i = 0; i < current.length; i++)
+        for (int i = 0, len = current.length; i < len; i++)
             if (current[i] != target[i]) return true;
         return false;
     }
 
-    private void stopAll(boolean clearSweep) {
+    private void stopAll() {
         frameRunner.stop();
         progressTicker.stop();
-        if (clearSweep) sweepTicker.stop();
+        sweepTicker.stop();
     }
-
-    /* ================= Helpers ================= */
 
     private void ensureCapacity(int n) {
         if (n == current.length) return;
