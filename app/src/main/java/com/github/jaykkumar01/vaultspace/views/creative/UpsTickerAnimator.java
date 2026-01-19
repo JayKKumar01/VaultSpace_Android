@@ -2,7 +2,6 @@ package com.github.jaykkumar01.vaultspace.views.creative;
 
 import android.os.SystemClock;
 import android.view.View;
-
 import androidx.annotation.NonNull;
 
 /**
@@ -37,6 +36,8 @@ public final class UpsTickerAnimator {
     private boolean isVisible = true;
     private boolean isForeground = true;
 
+    private boolean oneShot;
+    private long startMs;
     private long lastTickMs;
 
     private final View host;
@@ -50,9 +51,7 @@ public final class UpsTickerAnimator {
             if (!running) return;
 
             long now = SystemClock.uptimeMillis();
-            long frameInterval = isForeground
-                    ? frameIntervalFgMs
-                    : frameIntervalBgMs;
+            long frameInterval = isForeground ? frameIntervalFgMs : frameIntervalBgMs;
 
             if (lastTickMs != 0L) {
                 long delta = now - lastTickMs;
@@ -68,6 +67,14 @@ public final class UpsTickerAnimator {
             float progress = elapsed / (float) durationMs;
 
             callback.onFrame(progress);
+
+            if (oneShot) {
+                long totalElapsed = now - startMs;
+                if (totalElapsed >= durationMs) {
+                    stop();
+                    return;
+                }
+            }
 
             host.postDelayed(this, frameInterval);
         }
@@ -95,6 +102,7 @@ public final class UpsTickerAnimator {
         if (running) return;
         running = true;
         lastTickMs = 0L;
+        startMs = SystemClock.uptimeMillis();
         host.removeCallbacks(ticker);
         host.post(ticker);
     }
@@ -102,7 +110,14 @@ public final class UpsTickerAnimator {
     public void stop() {
         running = false;
         lastTickMs = 0L;
+        startMs = 0L;
         host.removeCallbacks(ticker);
+    }
+
+    /* ================= Optional behavior ================= */
+
+    public void setOneShot(boolean oneShot) {
+        this.oneShot = oneShot;
     }
 
     /* ================= Lifecycle signals ================= */

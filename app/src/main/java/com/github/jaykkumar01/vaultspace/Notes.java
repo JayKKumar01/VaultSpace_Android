@@ -90,6 +90,8 @@ public class Notes {
 
     // last render should always show.... multisegment progressbar issue on high ups
 
+    // for recycler view, set max width .45 for smaller let them wrap content
+
 
 
 }
