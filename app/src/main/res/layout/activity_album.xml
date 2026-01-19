@@ -207,7 +207,7 @@
 
 
     <!-- ================= Upload Status Card ================= -->
-    <com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView
+    <com.github.jaykkumar01.vaultspace.views.creative.upload_status.UploadStatusView
         android:id="@+id/uploadStatusView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"

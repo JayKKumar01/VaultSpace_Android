@@ -1,10 +1,8 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.views.creative.UploadStatusView;
+import com.github.jaykkumar01.vaultspace.views.creative.upload_status.UploadStatusView;
 
 /**
  * AlbumUploadStatusController

@@ -108,6 +108,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
             //noinspection ResultOfMethodCallIgnored
             thumbDir.mkdirs();
+//            failureCoordinator.recordFailuresIfMissing(groupId, selections);
             failureCoordinator.recordFailuresIfMissingAsync(groupId, selections,thumbExecutor);
             failureCoordinator.recordRetriesIfMissing(groupId, selections);
 
