@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.views.creative.upload_status;
+package com.github.jaykkumar01.vaultspace.views.creative.upload;
 
 public final class ProgressTicker {
 

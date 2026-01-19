@@ -2,7 +2,7 @@ package com.github.jaykkumar01.vaultspace.core.upload;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.views.creative.upload_status.UploadStatusView;
+import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 
 /**
  * AlbumUploadStatusController

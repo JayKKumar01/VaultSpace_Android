@@ -29,7 +29,7 @@ import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
-import com.github.jaykkumar01.vaultspace.views.creative.upload_status.UploadStatusView;
+import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;

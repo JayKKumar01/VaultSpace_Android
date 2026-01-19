@@ -80,7 +80,7 @@
 
 
         <!-- Line 2 -->
-        <com.github.jaykkumar01.vaultspace.views.creative.upload_status.MultiSegmentProgressBar
+        <com.github.jaykkumar01.vaultspace.views.creative.upload.MultiSegmentProgressBar
             android:id="@+id/uploadProgressBar"
             android:layout_width="0dp"
             android:layout_height="4dp"

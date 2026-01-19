@@ -1,12 +1,8 @@
 package com.github.jaykkumar01.vaultspace.views.creative;
 
 import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.LinearGradient;
-import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.Shader;
+import android.graphics.*;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.View;
 
@@ -17,219 +13,209 @@ import com.github.jaykkumar01.vaultspace.R;
 
 import java.util.Locale;
 
-public class StorageBarView extends View {
+public final class StorageBarView extends View {
 
-    /* ================= Paints & geometry ================= */
-
-    private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint sweepPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final RectF rect = new RectF();
-
-    /* ================= State ================= */
-
-    private boolean hasUsage = false;
-
-    private float usageFraction;
-    private float usedValue;
-    private float totalValue;
-    private String unitText = "GB";
-
-    private static final String LABEL = "Your Space · ";
-    private static final String LOADING_VALUE = "–";
-    private static final int DECIMAL_PRECISION = 1;
-
-    /* ================= Sweep ================= */
+    /* ---------- config ---------- */
 
     private static final long SWEEP_DURATION_MS = 1400L;
     private static final int UPS = 45;
+    private static final long FRAME_MS = 1000L / UPS;
+    private static final String LABEL = "Your Space · ";
+    private static final String LOADING = "–";
+    private static final int DECIMALS = 1;
 
-    private UpsTickerAnimator sweepAnimator;
+    /* ---------- paints ---------- */
+
+    private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sweepPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    private final RectF rect = new RectF();
+    private final Matrix sweepMatrix = new Matrix();
+
+    /* ---------- state ---------- */
+
+    private boolean hasUsage;
+    private float used, total, fraction;
+    private String unit = "GB";
+
+    private float contentWidth;
+    private float barHeight, cornerRadius, textSpacing;
+
+    /* ---------- sweep ---------- */
 
     private LinearGradient sweepGradient;
-    private final Matrix sweepMatrix = new Matrix();
-    private float sweepTranslateX;
+    private float sweepProgress;
+    private float sweepX;
+    private long lastMs;
+    private boolean running;
 
-    /* ================= Dimensions ================= */
+    /* ---------- ctor ---------- */
 
-    private float barHeight;
-    private float cornerRadius;
-    private float textSpacing;
-    private float contentWidth;
-
-    /* ================= Constructors ================= */
-
-    public StorageBarView(Context context) {
-        super(context);
-        init(context);
+    public StorageBarView(Context c) {
+        super(c);
+        init(c);
     }
 
-    public StorageBarView(Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
-        init(context);
+    public StorageBarView(Context c, @Nullable AttributeSet a) {
+        super(c, a);
+        init(c);
     }
 
-    public StorageBarView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        init(context);
+    public StorageBarView(Context c, @Nullable AttributeSet a, int s) {
+        super(c, a, s);
+        init(c);
     }
 
-    private void init(Context context) {
-        backgroundPaint.setColor(context.getColor(R.color.vs_toggle_off));
-        fillPaint.setColor(context.getColor(R.color.vs_accent_primary));
-
-        textPaint.setColor(context.getColor(R.color.vs_text_content));
-        textPaint.setTextSize(spToPx(11));
+    private void init(Context c) {
+        bgPaint.setColor(c.getColor(R.color.vs_toggle_off));
+        fillPaint.setColor(c.getColor(R.color.vs_accent_primary));
+        textPaint.setColor(c.getColor(R.color.vs_text_content));
+        textPaint.setTextSize(sp(11));
         textPaint.setFakeBoldText(true);
 
-        barHeight = dpToPx(4);
-        cornerRadius = dpToPx(2);
-        textSpacing = dpToPx(4);
-
-        contentWidth = textPaint.measureText(LABEL + LOADING_VALUE);
+        barHeight = dp(4);
+        cornerRadius = dp(2);
+        textSpacing = dp(4);
+        contentWidth = textPaint.measureText(LABEL + LOADING);
     }
 
-    /* ================= Layout & shader ================= */
+    /* ---------- layout ---------- */
 
     @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
+    protected void onSizeChanged(int w, int h, int ow, int oh) {
         if (w <= 0) return;
-
-        sweepGradient = new LinearGradient(0f, 0f, w, 0f,
+        sweepGradient = new LinearGradient(0, 0, w, 0,
                 new int[]{0x00FFFFFF, 0x22FFFFFF, 0x88FFFFFF, 0xCCFFFFFF, 0x88FFFFFF, 0x22FFFFFF, 0x00FFFFFF},
-                new float[]{0f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 1f},
+                new float[]{0f, .30f, .40f, .50f, .60f, .70f, 1f},
                 Shader.TileMode.CLAMP);
-
-
         sweepPaint.setShader(sweepGradient);
-        ensureAnimator();
     }
 
     @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+    protected void onMeasure(int ws, int hs) {
         Paint.FontMetrics fm = textPaint.getFontMetrics();
-        float textHeight = fm.descent - fm.ascent;
-
-        setMeasuredDimension(
-                (int) Math.ceil(contentWidth),
-                (int) Math.ceil(textHeight + textSpacing + barHeight)
-        );
+        float th = fm.descent - fm.ascent;
+        setMeasuredDimension((int) Math.ceil(contentWidth), (int) Math.ceil(th + textSpacing + barHeight));
     }
 
-    /* ================= Draw ================= */
+    /* ---------- draw ---------- */
 
     @Override
-    protected void onDraw(@NonNull Canvas canvas) {
+    protected void onDraw(@NonNull Canvas c) {
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         float textY = -fm.ascent;
+        c.drawText(text(), 0, textY, textPaint);
 
-        canvas.drawText(buildText(), 0f, textY, textPaint);
-
-        float barTop = textY + fm.descent + textSpacing;
-        float barBottom = barTop + barHeight;
-
-        rect.set(0f, barTop, contentWidth, barBottom);
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, backgroundPaint);
+        float top = textY + fm.descent + textSpacing;
+        rect.set(0, top, contentWidth, top + barHeight);
+        c.drawRoundRect(rect, cornerRadius, cornerRadius, bgPaint);
 
         if (hasUsage) {
-            if (usageFraction > 0f) {
-                rect.right = contentWidth * usageFraction;
-                canvas.drawRoundRect(rect, cornerRadius, cornerRadius, fillPaint);
+            if (fraction > 0f) {
+                rect.right = contentWidth * fraction;
+                c.drawRoundRect(rect, cornerRadius, cornerRadius, fillPaint);
             }
             return;
         }
 
-        sweepMatrix.setTranslate(sweepTranslateX, 0f);
+        sweepMatrix.setTranslate(sweepX, 0);
         sweepGradient.setLocalMatrix(sweepMatrix);
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, sweepPaint);
+        c.drawRoundRect(rect, cornerRadius, cornerRadius, sweepPaint);
     }
 
-    /* ================= Public API ================= */
+    /* ---------- public ---------- */
 
     public void setUsage(float used, float total, @NonNull String unit) {
         if (hasUsage) return;
-
         hasUsage = true;
-        if (sweepAnimator != null) sweepAnimator.stop();
+        stopSweep();
 
-        usedValue = used;
-        totalValue = total;
-        unitText = unit;
+        this.used = used;
+        this.total = total;
+        this.unit = unit;
+        fraction = total <= 0f ? 0f : Math.min(1f, used / total);
 
-        usageFraction = total <= 0f ? 0f : Math.min(1f, used / total);
-
-        contentWidth = textPaint.measureText(buildText());
+        contentWidth = textPaint.measureText(text());
         requestLayout();
         invalidate();
     }
 
-    /* ================= Lifecycle ================= */
+    /* ---------- lifecycle ---------- */
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (sweepAnimator != null) sweepAnimator.onAttached();
+        if (!hasUsage) startSweep();
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if (sweepAnimator != null) sweepAnimator.onDetached();
+        stopSweep();
     }
 
     @Override
-    protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
-        super.onVisibilityChanged(changedView, visibility);
-        if (sweepAnimator != null) {
-            sweepAnimator.onVisibilityChanged(visibility == VISIBLE);
+    protected void onVisibilityChanged(@NonNull View v, int vis) {
+        super.onVisibilityChanged(v, vis);
+        if (vis == VISIBLE && !hasUsage) startSweep();
+        else stopSweep();
+    }
+
+    /* ---------- sweep ticker ---------- */
+
+    private final Runnable ticker = new Runnable() {
+        @Override
+        public void run() {
+            if (!running) return;
+            long now = SystemClock.uptimeMillis();
+            float dt = (now - lastMs) / (float) SWEEP_DURATION_MS;
+            lastMs = now;
+
+            sweepProgress += dt;
+            if (sweepProgress > 1f) sweepProgress -= 1f;
+
+            sweepX = lerp(-contentWidth, contentWidth, sweepProgress);
+            invalidate();
+            postDelayed(this, FRAME_MS);
         }
+    };
+
+    private void startSweep() {
+        if (running) return;
+        running = true;
+        sweepProgress = 0f;
+        lastMs = SystemClock.uptimeMillis();
+        removeCallbacks(ticker);
+        post(ticker);
     }
 
-    /* ================= Animator ================= */
-
-    private void ensureAnimator() {
-        if (sweepAnimator != null || hasUsage) return;
-
-        sweepAnimator = new UpsTickerAnimator(
-                this,
-                SWEEP_DURATION_MS,
-                UPS,
-                UPS,
-                progress -> {
-                    sweepTranslateX = lerp(-contentWidth, contentWidth, progress);
-                    invalidate();
-                }
-        );
-
-        // 🔥 Critical lifecycle sync (FIX)
-        if (isAttachedToWindow()) {
-            sweepAnimator.onAttached();
-            sweepAnimator.onVisibilityChanged(getVisibility() == VISIBLE);
-        }
+    private void stopSweep() {
+        running = false;
+        removeCallbacks(ticker);
     }
 
-    /* ================= Helpers ================= */
+    /* ---------- helpers ---------- */
 
-    private String buildText() {
-        if (!hasUsage) return LABEL + LOADING_VALUE;
-        return LABEL + format(usedValue) + " / " + format(totalValue) + " " + unitText;
+    private String text() {
+        if (!hasUsage) return LABEL + LOADING;
+        return LABEL + fmt(used) + " / " + fmt(total) + " " + unit;
     }
 
-    private String format(float value) {
-        return String.format(Locale.US, "%." + DECIMAL_PRECISION + "f", value);
+    private String fmt(float v) {
+        return String.format(Locale.US, "%." + DECIMALS + "f", v);
     }
 
     private static float lerp(float s, float e, float t) {
         return s + (e - s) * t;
     }
 
-    private float dpToPx(float dp) {
-        return dp * getResources().getDisplayMetrics().density;
+    private float dp(float v) {
+        return v * getResources().getDisplayMetrics().density;
     }
 
-    private float spToPx(float sp) {
-        return sp * getResources().getDisplayMetrics().scaledDensity;
+    private float sp(float v) {
+        return v * getResources().getDisplayMetrics().scaledDensity;
     }
 }
