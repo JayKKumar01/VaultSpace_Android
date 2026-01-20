@@ -101,5 +101,31 @@ public class Notes {
     // started upload, exited, comes back, I loose the uploaded onces why, fix that
 
 
+    // keep the album activity waiting until the storage view is loaded I mean the trusted accounts
+
+    // save the things in usersession that does not change like the root folder id, save once on the first creation, not necessarily on login
+
+    // trusted accounts might not be ready to be added, till the existing trusted accounts are loaded
+
+    //✅ 2️⃣ Cache successful storage info for session (MEDIUM VALUE)
+    //
+    //Once an account succeeds:
+    //
+    //Cache it in memory
+    //
+    //Don’t refetch quota every time
+    //
+    //This avoids repeated flaky calls.
+    //
+    //You already decided:
+    //
+    //Drive permissions are source of truth
+    //So caching quota within session is safe.
+
+
+    // cache the storage quota while uploading for each uploaditem on success, or simply minus that much
+    //in the final but calculations does not take time so simply cache individuals
+
+
 
 }

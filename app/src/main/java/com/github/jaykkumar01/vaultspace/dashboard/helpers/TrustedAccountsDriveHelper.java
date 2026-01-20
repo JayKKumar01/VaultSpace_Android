@@ -13,9 +13,7 @@ import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.Permission;
-import com.google.api.services.drive.model.PermissionList;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
@@ -70,64 +68,34 @@ public final class TrustedAccountsDriveHelper {
     }
 
     /* ==========================================================
-     * Fetch (ALWAYS hits Drive)
+     * Fetch (delegated)
      * ========================================================== */
 
     public void fetchTrustedAccounts(
             ExecutorService executor,
             FetchCallback callback
     ) {
-        executor.execute(() -> {
-            try {
-                String rootFolderId =
-                        DriveFolderRepository.findRootFolderId(primaryDrive);
+        TrustedAccountsFetchWorker.fetch(
+                executor,
+                appContext,
+                primaryDrive,
+                primaryEmail,
+                new TrustedAccountsFetchWorker.Callback() {
+                    @Override
+                    public void onSuccess(List<TrustedAccount> accounts) {
+                        postResult(callback, accounts);
+                    }
 
-                if (rootFolderId == null) {
-                    postResult(callback, List.of());
-                    return;
-                }
-
-                PermissionList permissions =
-                        primaryDrive.permissions()
-                                .list(rootFolderId)
-                                .setFields("permissions(emailAddress,role,type)")
-                                .execute();
-
-                List<TrustedAccount> result = new ArrayList<>();
-
-                for (Permission p : permissions.getPermissions()) {
-
-                    if (!"user".equals(p.getType())) continue;
-                    if (!"writer".equals(p.getRole())) continue;
-
-                    String email = p.getEmailAddress();
-                    if (email == null || email.equalsIgnoreCase(primaryEmail))
-                        continue;
-
-                    try {
-                        Drive drive =
-                                DriveClientProvider.forAccount(appContext, email);
-
-                        result.add(
-                                DriveStorageRepository.fetchStorageInfo(drive, email)
-                        );
-
-                    } catch (Exception e) {
-                        Log.w(TAG, "Skipping trusted account: " + email, e);
+                    @Override
+                    public void onError(Exception e) {
+                        postError(callback, e);
                     }
                 }
-
-                postResult(callback, result);
-
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to fetch trusted accounts", e);
-                postError(callback, e);
-            }
-        });
+        );
     }
 
     /* ==========================================================
-     * Add trusted account (Drive-only)
+     * Add trusted account (UNCHANGED)
      * ========================================================== */
 
     public void addTrustedAccount(
@@ -138,7 +106,7 @@ public final class TrustedAccountsDriveHelper {
         executor.execute(() -> {
             try {
                 String rootFolderId =
-                        DriveFolderRepository.getOrCreateRootFolder(primaryDrive);
+                        DriveFolderRepository.getRootFolderId(primaryDrive);
 
                 if (DrivePermissionRepository.hasWriterAccess(
                         primaryDrive,

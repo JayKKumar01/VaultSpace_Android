@@ -2,7 +2,7 @@ package com.github.jaykkumar01.vaultspace.core.drive;
 
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.model.About;
+import com.google.api.services.drive.model.About.StorageQuota;
 
 public final class DriveStorageRepository {
 
@@ -13,14 +13,14 @@ public final class DriveStorageRepository {
             String email
     ) throws Exception {
 
-        About about =
+        StorageQuota storageQuota =
                 drive.about()
                         .get()
                         .setFields("storageQuota(limit,usage)")
-                        .execute();
+                        .execute().getStorageQuota();
 
-        long limit = about.getStorageQuota().getLimit();
-        long usage = about.getStorageQuota().getUsage();
+        long limit = storageQuota.getLimit();
+        long usage = storageQuota.getUsage();
 
         return new TrustedAccount(
                 email,

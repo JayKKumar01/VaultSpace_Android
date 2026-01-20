@@ -13,69 +13,57 @@ public final class DriveFolderRepository {
     private static final String ALBUMS_FOLDER_NAME = "Albums";
     private static final String FILES_FOLDER_NAME = "Files";
 
-    private DriveFolderRepository() {}
+    private static String rootFolderId;
+    private static String albumsRootId;
+    private static String filesRootId;
 
-    /* ---------------- Root ---------------- */
-
-    public static String findRootFolderId(Drive drive) throws Exception {
-        return findFolderId(drive, ROOT_FOLDER_NAME, null);
+    private DriveFolderRepository() {
     }
 
-    public static String getOrCreateRootFolder(Drive drive) throws Exception {
-        return getOrCreateFolder(drive, ROOT_FOLDER_NAME, null);
+    /* ------------ Public API ------------ */
+
+    public static String getRootFolderId(Drive drive) throws Exception {
+        if (rootFolderId != null) return rootFolderId;
+        rootFolderId = resolveFolder(drive, ROOT_FOLDER_NAME, null);
+        return rootFolderId;
     }
 
-    /* ---------------- Albums ---------------- */
-
-    public static String findAlbumsRootId(Drive drive) throws Exception {
-        String rootId = findRootFolderId(drive);
-        return rootId == null ? null : findFolderId(drive, ALBUMS_FOLDER_NAME, rootId);
+    public static String getAlbumsRootId(Drive drive) throws Exception {
+        if (albumsRootId != null) return albumsRootId;
+        albumsRootId = resolveFolder(drive, ALBUMS_FOLDER_NAME, getRootFolderId(drive));
+        return albumsRootId;
     }
 
-    public static String getOrCreateAlbumsRootId(Drive drive) throws Exception {
-        String rootId = getOrCreateRootFolder(drive);
-        return getOrCreateFolder(drive, ALBUMS_FOLDER_NAME, rootId);
+    public static String getFilesRootId(Drive drive) throws Exception {
+        if (filesRootId != null) return filesRootId;
+        filesRootId = resolveFolder(drive, FILES_FOLDER_NAME, getRootFolderId(drive));
+        return filesRootId;
     }
 
+    /* ------------ Core Resolver ------------ */
 
-    /* ---------------- Files ---------------- */
-
-    public static String findFilesRootId(Drive drive) throws Exception {
-        String rootId = findRootFolderId(drive);
-        return rootId == null ? null : findFolderId(drive, FILES_FOLDER_NAME, rootId);
-    }
-
-    public static String getOrCreateFilesRootId(Drive drive) throws Exception {
-        String rootId = getOrCreateRootFolder(drive);
-        return getOrCreateFolder(drive, FILES_FOLDER_NAME, rootId);
-    }
-
-    /* ---------------- Reusable create ---------------- */
-
-    public static File createFolder(Drive drive, String name, String parentId) throws Exception {
-        File folder = new File().setName(name).setMimeType(FOLDER_MIME);
-        if (parentId != null) folder.setParents(Collections.singletonList(parentId));
-        return drive.files().create(folder).setFields("id,name,createdTime,modifiedTime").execute();
-    }
-
-    /* ---------------- Generic ---------------- */
-
-    public static String getOrCreateFolder(Drive drive, String name, String parentId) throws Exception {
+    private static String resolveFolder(Drive drive, String name, String parentId) throws Exception {
         String id = findFolderId(drive, name, parentId);
         if (id != null) return id;
         return createFolder(drive, name, parentId).getId();
     }
 
-    public static String findFolderId(Drive drive, String name, String parentId) throws Exception {
-        StringBuilder q = new StringBuilder();
-        q.append("mimeType='").append(FOLDER_MIME).append("'")
+    /* ------------ Drive Primitives ------------ */
+
+    public static File createFolder(Drive drive, String name, String parentId) throws Exception {
+        File folder = new File().setName(name).setMimeType(FOLDER_MIME);
+        if (parentId != null) folder.setParents(Collections.singletonList(parentId));
+        return drive.files().create(folder).setFields("id").execute();
+    }
+
+    private static String findFolderId(Drive drive, String name, String parentId) throws Exception {
+        StringBuilder q = new StringBuilder()
+                .append("mimeType='").append(FOLDER_MIME).append("'")
                 .append(" and name='").append(name).append("'")
                 .append(" and trashed=false");
-
         if (parentId != null) q.append(" and '").append(parentId).append("' in parents");
 
-        FileList list = drive.files()
-                .list()
+        FileList list = drive.files().list()
                 .setQ(q.toString())
                 .setFields("files(id)")
                 .setPageSize(1)

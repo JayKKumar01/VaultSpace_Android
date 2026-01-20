@@ -75,7 +75,7 @@ public final class AlbumsDriveHelper {
         executor.execute(() -> {
             try {
                 String rootId =
-                        DriveFolderRepository.findAlbumsRootId(primaryDrive);
+                        DriveFolderRepository.getAlbumsRootId(primaryDrive);
 
                 if (rootId == null) {
                     postResult(callback, List.of());
@@ -128,7 +128,7 @@ public final class AlbumsDriveHelper {
         executor.execute(() -> {
             try {
                 String rootId =
-                        DriveFolderRepository.getOrCreateAlbumsRootId(primaryDrive);
+                        DriveFolderRepository.getAlbumsRootId(primaryDrive);
 
                 File created = DriveFolderRepository.createFolder(
                         primaryDrive, trimmed, rootId

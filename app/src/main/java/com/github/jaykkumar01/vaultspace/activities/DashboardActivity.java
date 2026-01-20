@@ -239,50 +239,17 @@ public class DashboardActivity extends AppCompatActivity {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
 
-
-        // 🔍 DEBUG: log retry data (read all)
-        logUploadRetries();
+        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
 
         applyViewMode(VaultViewMode.ALBUMS);
         segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
         segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
 
-        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
+
 
         btnExpandVault.setOnClickListener(v -> {
             modalCoordinator.showLoading();
             expandVaultHelper.launchExpandVault(expandAccountListener);
-        });
-    }
-
-    private void logUploadRetries() {
-        Executor executor = Executors.newSingleThreadExecutor();
-
-        executor.execute(() -> {
-            Map<String, List<UploadSelection>> retries =
-                    userSession.getUploadRetryStore().getAllRetries();
-
-            if (retries.isEmpty()) {
-                Log.d(TAG, "UploadRetryStore: no retry entries");
-                return;
-            }
-
-            Log.d(TAG, "UploadRetryStore: total albums with retry = " + retries.size());
-
-            for (Map.Entry<String, List<UploadSelection>> entry : retries.entrySet()) {
-                String albumId = entry.getKey();
-                List<UploadSelection> list = entry.getValue();
-
-                Log.d(
-                        TAG,
-                        "UploadRetryStore: groupId=" + albumId +
-                                ", retryCount=" + list.size()
-                );
-
-                for (UploadSelection s : list) {
-                    Log.d(TAG, "  ↳ " + s);
-                }
-            }
         });
     }
 
