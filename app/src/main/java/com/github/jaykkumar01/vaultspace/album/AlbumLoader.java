@@ -99,7 +99,7 @@ public final class AlbumLoader {
                 new AlbumDriveHelper.FetchCallback() {
 
                     @Override
-                    public void onResult(List<AlbumMedia> items) {
+                    public void onResult(@NonNull List<AlbumMedia> items) {
                         if (released) return;
 
                         mediaEntry.initializeFromDrive(items);
@@ -107,7 +107,7 @@ public final class AlbumLoader {
                     }
 
                     @Override
-                    public void onError(Exception e) {
+                    public void onError(@NonNull Exception e) {
                         if (released) return;
 
                         Log.e(TAG, "fetch failed groupId=" + albumId, e);

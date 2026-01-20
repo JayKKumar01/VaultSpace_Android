@@ -86,6 +86,10 @@ public class Notes {
 
     //use the reason retriable in retry also... so that won't have to check the uriutil again
 
+    //update storage upload the uploads,not each but each selections
+
+    // fix race conditions, wait for the trusted accounts to be fetched first
+
 
 
  // use parallel executor wherever possible
