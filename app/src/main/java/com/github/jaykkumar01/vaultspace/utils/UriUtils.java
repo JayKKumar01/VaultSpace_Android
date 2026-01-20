@@ -4,66 +4,79 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.models.UriFileInfo;
+
 public final class UriUtils {
 
-    private UriUtils() {}
-
-
-    static boolean shouldUploadPass(@NonNull String uriString) {
-        int h = Math.abs(uriString.toLowerCase().hashCode()) % 10;
-        return h >= 4; // 0–3 fail (40%), 4–9 pass (60%)
-    }
-
+    private UriUtils(){}
 
     /**
-     * Fast, metadata-only validation for picker-provided Uris.
-     * Does NOT open streams or read file data.
+     * Resolves maximum reliable metadata from a SAF Uri.
+     * Never throws. Never opens streams.
      */
-    public static boolean isUriAccessible(
-            @NonNull Context context,
-            @NonNull Uri uri
-    ) {
-        if (shouldUploadPass(uri.toString())) return true;
+    @NonNull
+    public static UriFileInfo resolve(@NonNull Context context,@NonNull Uri uri){
+        ContentResolver cr=context.getContentResolver();
 
-        if (!shouldUploadPass(uri.toString())) return false;
+        String name="unknown";
+        long size=-1;
+        long modified=-1;
 
-        ContentResolver resolver = context.getContentResolver();
-
-        try (Cursor cursor = resolver.query(
+        try(Cursor c=cr.query(
                 uri,
                 new String[]{
+                        OpenableColumns.DISPLAY_NAME,
                         OpenableColumns.SIZE,
-                        OpenableColumns.DISPLAY_NAME
+                        MediaStore.MediaColumns.DATE_MODIFIED
                 },
-                null,
-                null,
-                null
-        )) {
+                null,null,null
+        )){
+            if(c!=null&&c.moveToFirst()){
+                int nameIdx=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                int sizeIdx=c.getColumnIndex(OpenableColumns.SIZE);
+                int modIdx=c.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED);
 
-            // If provider is dead / permission revoked
-            if (cursor == null || !cursor.moveToFirst()) {
-                return false;
+                if(nameIdx!=-1) name=c.getString(nameIdx);
+                if(sizeIdx!=-1) size=c.getLong(sizeIdx);
+                if(modIdx!=-1){
+                    long sec=c.getLong(modIdx);
+                    if(sec>0) modified=sec*1000L;
+                }
             }
+        }catch(Exception ignored){}
 
-            // Row existence is the real signal
-            int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-            if (nameIndex == -1) {
-                return false;
-            }
+        if(modified<=0){
+            try(Cursor c=cr.query(
+                    uri,
+                    new String[]{MediaStore.MediaColumns.DATE_MODIFIED},
+                    null,null,null
+            )){
+                if(c!=null&&c.moveToFirst()){
+                    long sec=c.getLong(0);
+                    if(sec>0) modified=sec*1000L;
+                }
+            }catch(Exception ignored){}
+        }
 
-            String name = cursor.getString(nameIndex);
-            return name != null && !name.isEmpty();
+        return new UriFileInfo(uri,name,size,modified);
+    }
 
-        } catch (SecurityException e) {
-            // Permission expired / revoked
-            return false;
-        } catch (Exception e) {
-            // Provider failure / invalid Uri
+    /**
+     * Fast metadata-only accessibility check.
+     */
+    public static boolean isUriAccessible(@NonNull Context context,@NonNull Uri uri){
+        try(Cursor c=context.getContentResolver().query(
+                uri,
+                new String[]{OpenableColumns.DISPLAY_NAME},
+                null,null,null
+        )){
+            return c!=null&&c.moveToFirst();
+        }catch(Exception e){
             return false;
         }
     }
