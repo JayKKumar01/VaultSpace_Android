@@ -7,44 +7,38 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
+import com.github.jaykkumar01.vaultspace.album.AlbumUploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * UploadOrchestrator
- * <p>
- * UI-facing facade that:
- * - wires UploadManager
- * - controls foreground service lifecycle
- * - is agnostic of upload source (album, files, future)
- */
 public final class UploadOrchestrator {
 
-    private static final String TAG = "VaultSpace:UploadOrchestrator";
+    /* ==========================================================
+     * Constants
+     * ========================================================== */
 
+    private static final String TAG = "VaultSpace:UploadOrchestrator";
     private static UploadOrchestrator INSTANCE;
+
+    /* ==========================================================
+     * Fields
+     * ========================================================== */
 
     private final Context appContext;
     private final UploadManager uploadManager;
     private final UploadCache uploadCache;
+    private final List<UploadSideEffect> sideEffects = new ArrayList<>();
 
-    public void clearGroup(String groupId){
-        uploadManager.clearGroup(groupId);
-    }
-    public void getFailuresForGroup(@NonNull String groupId, @NonNull Consumer<List<UploadFailureEntity>> cb){
-        uploadManager.getFailuresForGroup(groupId, cb);
-    }
-
-
-
-
-
-    /* ================= Service State ================= */
+    /* ==========================================================
+     * Service state
+     * ========================================================== */
 
     private enum ServiceState {
         IDLE,
@@ -54,151 +48,171 @@ public final class UploadOrchestrator {
 
     private ServiceState serviceState = ServiceState.IDLE;
 
-    /* ================= Singleton ================= */
+    /* ==========================================================
+     * Singleton
+     * ========================================================== */
 
     public static synchronized UploadOrchestrator getInstance(
             @NonNull Context context
-    ) {
-        if (INSTANCE == null) {
-            INSTANCE = new UploadOrchestrator(context);
+    ){
+        if(INSTANCE==null){
+            INSTANCE=new UploadOrchestrator(context);
         }
         return INSTANCE;
     }
 
-    private UploadOrchestrator(@NonNull Context context) {
-        this.appContext = context.getApplicationContext();
+    /* ==========================================================
+     * Constructor
+     * ========================================================== */
 
-        UserSession session = new UserSession(appContext);
+    private UploadOrchestrator(@NonNull Context context){
+        this.appContext=context.getApplicationContext();
 
-        this.uploadCache = session.getVaultCache().uploadCache;
-        this.uploadManager = new UploadManager(appContext);
+        UserSession session=new UserSession(appContext);
+        this.uploadCache=session.getVaultCache().uploadCache;
 
+        this.uploadManager=new UploadManager(appContext);
         this.uploadManager.attachOrchestrator(this);
 
-        Log.d(TAG, "Initialized. serviceState=IDLE");
+        registerSideEffect(new AlbumUploadSideEffect(appContext));
+
+        Log.d(TAG,"Initialized. serviceState=IDLE");
     }
 
-    /* ================= UI-facing API ================= */
+    /* ==========================================================
+     * UI-facing API
+     * ========================================================== */
 
     public void enqueue(
             @NonNull String groupId,
             @NonNull String groupLabel,
             @NonNull List<UploadSelection> selections
-    ) {
-        uploadManager.enqueue(groupId, groupLabel, selections);
+    ){
+        uploadManager.enqueue(groupId,groupLabel,selections);
     }
 
     public void registerObserver(
             @NonNull String groupId,
             @NonNull String groupLabel,
             @NonNull UploadObserver observer
-    ) {
-        Log.d(TAG, "registerObserver(): groupId=" + groupId);
-
-        uploadManager.registerObserver(groupId, groupLabel, observer);
+    ){
+        uploadManager.registerObserver(groupId,groupLabel,observer);
     }
 
-    public void unregisterObserver(@NonNull String groupId) {
-        Log.d(TAG, "unregisterObserver(): groupId=" + groupId);
+    public void unregisterObserver(@NonNull String groupId){
         uploadManager.unregisterObserver(groupId);
     }
 
-    public void cancelUploads(@NonNull String groupId) {
-        Log.d(TAG, "cancelUploads(): groupId=" + groupId);
-        uploadManager.cancelUploads(groupId);
-    }
-
-    public void cancelAllUploads() {
-        Log.d(TAG, "cancelAllUploads()");
-        uploadManager.cancelAllUploads();
-    }
-
-    public void retryUploads(@NonNull String groupId, @NonNull String groupName) {
-        Log.d(TAG, "retryUploads(): groupId=" + groupId);
+    public void retryUploads(@NonNull String groupId,@NonNull String groupName){
         uploadManager.retry(groupId,groupName);
     }
 
-    /* ================= UploadManager callback ================= */
+    public void cancelUploads(@NonNull String groupId){
+        uploadManager.cancelUploads(groupId);
+    }
 
-    public void onUploadStateChanged() {
+    public void cancelAllUploads(){
+        uploadManager.cancelAllUploads();
+    }
 
-        boolean hasActive = uploadCache.hasAnyActiveUploads();
+    public void clearGroup(String groupId){
+        uploadManager.clearGroup(groupId);
+    }
 
-        Log.d(TAG,
-                "onUploadStateChanged(): state=" + serviceState +
-                        ", hasActive=" + hasActive
-        );
+    public void getFailuresForGroup(
+            @NonNull String groupId,
+            @NonNull Consumer<List<UploadFailureEntity>> cb
+    ){
+        uploadManager.getFailuresForGroup(groupId,cb);
+    }
 
-        switch (serviceState) {
+    /* ==========================================================
+     * Upload side-effect dispatch
+     * ========================================================== */
+
+    private void registerSideEffect(@NonNull UploadSideEffect effect){
+        sideEffects.add(effect);
+    }
+
+    public void dispatchUploadSuccess(String groupId, UploadedItem item){
+        for(UploadSideEffect e:sideEffects)
+            e.onUploadSuccess(groupId,item);
+    }
+
+    public void dispatchUploadFailure(String groupId, UploadSelection sel){
+        for(UploadSideEffect e:sideEffects)
+            e.onUploadFailure(groupId,sel);
+    }
+
+    /* ==========================================================
+     * UploadManager → Orchestrator callback
+     * ========================================================== */
+
+    public void onUploadStateChanged(){
+
+        boolean hasActive=uploadCache.hasAnyActiveUploads();
+
+        switch(serviceState){
 
             case IDLE:
-                if (hasActive) {
-                    Log.d(TAG, "State=IDLE → starting foreground service");
+                if(hasActive){
                     startForegroundService();
-                    serviceState = ServiceState.RUNNING;
-                    Log.d(TAG, "State changed → RUNNING");
+                    serviceState=ServiceState.RUNNING;
                 }
                 return;
 
             case RUNNING:
-                // Always nudge to keep notification in sync
-                Log.d(TAG, "State=RUNNING → nudging service");
                 nudgeForegroundService();
                 return;
 
             case FINALIZING:
-                Log.d(TAG, "State=FINALIZING → ignoring upload state change");
                 return;
         }
     }
 
-    /* ================= Foreground service control ================= */
+    /* ==========================================================
+     * Foreground service helpers
+     * ========================================================== */
 
-    private void startForegroundService() {
-        Intent intent = new Intent(appContext, UploadForegroundService.class);
-        ContextCompat.startForegroundService(appContext, intent);
+    private void startForegroundService(){
+        Intent intent=new Intent(appContext,UploadForegroundService.class);
+        ContextCompat.startForegroundService(appContext,intent);
     }
 
-    private void nudgeForegroundService() {
-        Intent intent = new Intent(appContext, UploadForegroundService.class);
+    private void nudgeForegroundService(){
+        Intent intent=new Intent(appContext,UploadForegroundService.class);
         appContext.startService(intent);
     }
 
-    /* ================= Service callbacks ================= */
-
-    void onServiceFinalizing() {
-        Log.d(TAG, "onServiceFinalizing(): RUNNING → FINALIZING");
-        serviceState = ServiceState.FINALIZING;
+    private void stopForegroundServiceImmediately(){
+        Intent intent=new Intent(appContext,UploadForegroundService.class);
+        appContext.stopService(intent);
+        serviceState=ServiceState.IDLE;
     }
 
-    void onServiceDestroyed() {
-        Log.d(TAG, "onServiceDestroyed(): FINALIZING → IDLE");
-        serviceState = ServiceState.IDLE;
+    /* ==========================================================
+     * Service lifecycle callbacks
+     * ========================================================== */
+
+    public void onServiceFinalizing(){
+        serviceState=ServiceState.FINALIZING;
     }
 
-    /* ================= Session cleanup ================= */
+    public void onServiceDestroyed(){
+        serviceState=ServiceState.IDLE;
+    }
 
-    public void onSessionCleared() {
+    /* ==========================================================
+     * Session cleanup
+     * ========================================================== */
 
-        Log.d(TAG, "onSessionCleared(): cancelling uploads + stopping service");
+    public void onSessionCleared(){
 
         uploadManager.cancelAllUploads();
 
-        Intent intent = new Intent(appContext, UploadForegroundService.class);
+        Intent intent=new Intent(appContext,UploadForegroundService.class);
         appContext.stopService(intent);
 
-        serviceState = ServiceState.IDLE;
-        Log.d(TAG, "State reset → IDLE");
+        serviceState=ServiceState.IDLE;
     }
-
-    private void stopForegroundServiceImmediately() {
-        Log.d(TAG, "Stopping foreground service immediately (user cancel)");
-
-        Intent intent = new Intent(appContext, UploadForegroundService.class);
-        appContext.stopService(intent);
-
-        serviceState = ServiceState.IDLE;
-        Log.d(TAG, "ServiceState reset → IDLE");
-    }
-
 }

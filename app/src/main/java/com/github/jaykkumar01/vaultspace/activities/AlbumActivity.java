@@ -18,6 +18,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.AlbumLoader;
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.AlbumUploadSideEffect;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
@@ -134,15 +135,14 @@ public class AlbumActivity extends AppCompatActivity {
         @Override
         public void onSuccess(UploadedItem item) {
             AlbumMedia media = new AlbumMedia(item);
-            albumLoader.append(media);
-
-            if (state == UiState.EMPTY) {
-                transitionTo(UiState.CONTENT);
-                return;
-            }
 
             if (state == UiState.CONTENT) {
                 albumUiController.addMedia(media);
+                return;
+            }
+
+            if (state != UiState.UNINITIALIZED) {
+                renderFromCache();
             }
         }
 

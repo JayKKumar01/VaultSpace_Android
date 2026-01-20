@@ -92,6 +92,8 @@ public class Notes {
 
     // for recycler view, set max width .45 for smaller let them wrap content
 
+    // started upload, exited, comes back, I loose the uploaded onces why, fix that
+
 
 
 }
