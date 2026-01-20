@@ -4,6 +4,8 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
+
 import java.util.Objects;
 
 public final class UploadSelection {
@@ -11,6 +13,7 @@ public final class UploadSelection {
     @NonNull public final Uri uri;
     @NonNull public final String mimeType;
     @NonNull private final UploadType type;
+    public UploadDriveHelper.FailureReason failureReason;
 
     public UploadSelection(@NonNull Uri uri,@NonNull String mimeType){
         this.uri=uri;

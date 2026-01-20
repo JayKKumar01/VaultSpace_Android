@@ -8,10 +8,10 @@ import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureReason;
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.utils.UploadMetadataResolver;
 import com.github.jaykkumar01.vaultspace.utils.UploadThumbnailGenerator;
-import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -28,27 +28,12 @@ final class UploadFailureCoordinator {
     private final UploadFailureStore failureStore;
     private final File thumbDir;
 
-    UploadFailureCoordinator(Context appContext,UploadCache uploadCache,UploadRetryStore retryStore,UploadFailureStore failureStore,File thumbDir) {
+    UploadFailureCoordinator(Context appContext, UploadCache uploadCache, UploadRetryStore retryStore, UploadFailureStore failureStore, File thumbDir) {
         this.appContext = appContext;
         this.uploadCache = uploadCache;
         this.retryStore = retryStore;
         this.failureStore = failureStore;
         this.thumbDir = thumbDir;
-    }
-
-    void recordFailuresIfMissing(String groupId,List<UploadSelection> selections) {
-        List<UploadFailureEntity> out = new ArrayList<>();
-        for (UploadSelection s : selections) {
-            if (failureStore.contains(groupId, s.uri.toString(), s.getType().name())) continue;
-            String name = UploadMetadataResolver.resolveDisplayName(appContext, s.uri);
-            String thumb = UploadThumbnailGenerator.generate(appContext, s.uri, s.getType(), thumbDir);
-            out.add(new UploadFailureEntity(
-                    0L, groupId, s.uri.toString(),
-                    name, s.getType().name(),
-                    thumb, UploadFailureReason.UNKNOWN.name()
-            ));
-        }
-        if (!out.isEmpty()) failureStore.addFailures(out);
     }
 
     void recordFailuresIfMissingAsync(String groupId, List<UploadSelection> selections, ExecutorService thumbExecutor) {
@@ -67,14 +52,18 @@ final class UploadFailureCoordinator {
     }
 
 
-    void recordRetriesIfMissing(String groupId,List<UploadSelection> selections) {
+    void recordRetriesIfMissing(String groupId, List<UploadSelection> selections) {
         List<UploadSelection> out = new ArrayList<>();
         for (UploadSelection s : selections)
             if (!retryStore.contains(groupId, s)) out.add(s);
         if (!out.isEmpty()) retryStore.addRetryBatch(groupId, out);
     }
 
-    List<UploadSelection> retry(String groupId,String groupName) {
+    public void updateReason(UploadTask task, UploadDriveHelper.FailureReason reason) {
+        retryStore.updateFailureReason(task.groupId, task.selection, reason);
+    }
+
+    List<UploadSelection> retry(String groupId, String groupName) {
         List<UploadSelection> all = retryStore.getAllRetries().get(groupId);
         if (all == null || all.isEmpty()) return null;
 
@@ -84,8 +73,7 @@ final class UploadFailureCoordinator {
         List<UploadSelection> retryable = new ArrayList<>();
 
         for (UploadSelection s : all) {
-            boolean accessible = UriUtils.isUriAccessible(appContext, s.uri);
-            if (accessible) retryable.add(s);
+            if (s.failureReason == null || s.failureReason.isRetryable()) retryable.add(s);
             else {
                 nonRetryable++;
                 switch (s.getType()) {
@@ -106,7 +94,7 @@ final class UploadFailureCoordinator {
         return retryable;
     }
 
-    UploadSnapshot restoreFromRetry(String groupId,String groupName) {
+    UploadSnapshot restoreFromRetry(String groupId, String groupName) {
         List<UploadSelection> list = retryStore.getAllRetries().get(groupId);
         if (list == null || list.isEmpty()) {
             Log.d(TAG, "restoreFromRetry: no retries for group=" + groupId);
@@ -116,7 +104,7 @@ final class UploadFailureCoordinator {
         int nonRetryable = 0, photos = 0, videos = 0, others = 0;
 
         for (UploadSelection s : list) {
-            boolean accessible = UriUtils.isUriAccessible(appContext, s.uri);
+            boolean accessible = s.failureReason == null || s.failureReason.isRetryable();
             if (!accessible) {
                 nonRetryable++;
                 Log.d(TAG, "restoreFromRetry: NON-retryable uri=" + s.uri);
@@ -162,4 +150,6 @@ final class UploadFailureCoordinator {
         failureStore.clearGroup(groupId);
         retryStore.clearGroup(groupId);
     }
+
+
 }

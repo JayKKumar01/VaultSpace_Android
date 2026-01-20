@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadSideEffect;
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
@@ -28,5 +29,5 @@ public final class AlbumUploadSideEffect implements UploadSideEffect {
     }
 
     @Override
-    public void onUploadFailure(@NonNull String groupId, @NonNull UploadSelection selection){}
+    public void onUploadFailure(@NonNull String groupId, @NonNull UploadSelection selection, UploadDriveHelper.FailureReason reason){}
 }

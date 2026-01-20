@@ -5,8 +5,8 @@ import android.content.Context;
 import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 
 import java.util.List;
 
@@ -66,11 +66,10 @@ final class UploadSnapshotReducer {
         return updated;
     }
 
-    UploadSnapshot onFailure(UploadTask task) {
-        UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
+    UploadSnapshot onFailure(String groupId, UploadDriveHelper.FailureReason reason) {
+        UploadSnapshot old = uploadCache.getSnapshot(groupId);
         if (old == null) return null;
 
-        boolean retryable = UriUtils.isUriAccessible(appContext, task.selection.uri);
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
@@ -78,7 +77,7 @@ final class UploadSnapshotReducer {
                 old.uploaded, old.failed + 1
         );
         updated.nonRetryableFailed = old.nonRetryableFailed;
-        if (!retryable) updated.nonRetryableFailed++;
+        if (!reason.isRetryable()) updated.nonRetryableFailed++;
         return updated;
     }
 

@@ -11,6 +11,7 @@ import com.github.jaykkumar01.vaultspace.album.AlbumUploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
@@ -139,9 +140,9 @@ public final class UploadOrchestrator {
             e.onUploadSuccess(groupId,item);
     }
 
-    public void dispatchUploadFailure(String groupId, UploadSelection sel){
+    public void dispatchUploadFailure(String groupId, UploadSelection sel, UploadDriveHelper.FailureReason reason){
         for(UploadSideEffect e:sideEffects)
-            e.onUploadFailure(groupId,sel);
+            e.onUploadFailure(groupId,sel,reason);
     }
 
     /* ==========================================================

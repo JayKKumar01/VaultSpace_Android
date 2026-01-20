@@ -1,42 +1,50 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.models.base.UploadType;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 final class UploadQueueEngine {
 
+
     interface Callback {
         void onSuccess(UploadTask task, UploadedItem uploadedItem);
-        void onFailure(UploadTask task);
+
+        void onFailure(UploadTask task, UploadDriveHelper.FailureReason reason);
+
         void onCancelled(UploadTask task);
+
         void onIdle();
     }
 
     private final ExecutorService controlExecutor;
     private final ExecutorService uploadExecutor;
+    private final UploadDriveHelper uploadDriveHelper;
+
     private final Deque<UploadTask> queue = new ArrayDeque<>();
 
     private UploadTask current;
     private Future<?> runningUpload;
     private Callback callback;
 
-    UploadQueueEngine(ExecutorService controlExecutor,ExecutorService uploadExecutor) {
+    UploadQueueEngine(ExecutorService controlExecutor, ExecutorService uploadExecutor, UploadDriveHelper uploadDriveHelper) {
         this.controlExecutor = controlExecutor;
         this.uploadExecutor = uploadExecutor;
+        this.uploadDriveHelper = uploadDriveHelper;
     }
 
     void setCallback(Callback callback) {
         this.callback = callback;
     }
 
-    void enqueue(String groupId,List<UploadSelection> selections) {
+    void enqueue(String groupId, List<UploadSelection> selections) {
         for (UploadSelection s : selections)
             queue.add(new UploadTask(groupId, s));
     }
@@ -52,26 +60,17 @@ final class UploadQueueEngine {
         runningUpload = uploadExecutor.submit(() -> performUpload(task));
     }
 
-    private void performUpload(UploadTask task){
-        UploadSelection s = task.selection;
-        try{
-            Thread.sleep(2000);
-            if(Math.random()>0.5){
-                long now=System.currentTimeMillis();
-                UploadedItem item=new UploadedItem(
-                        "fake_"+now,
-                        "Upload_"+now,
-                        s.mimeType,
-                        UploadType.fromMime(s.mimeType) == UploadType.VIDEO ?5_000_000:1_000_000,
-                        now,
-                        null
-                );
-                controlExecutor.execute(() -> handleSuccess(task,item));
-            }else{
-                controlExecutor.execute(() -> handleFailure(task));
-            }
-        }catch(InterruptedException e){
+
+    private void performUpload(UploadTask task) {
+        try {
+            UploadedItem item = uploadDriveHelper.upload(task.groupId, task.selection);
+            controlExecutor.execute(() -> handleSuccess(task, item));
+        } catch (CancellationException e) {
             controlExecutor.execute(() -> handleCancelled(task));
+        } catch (UploadDriveHelper.UploadFailure f) {
+            controlExecutor.execute(() -> handleFailure(task, f.reason));
+        } catch (Exception e) {
+            controlExecutor.execute(() -> handleFailure(task, UploadDriveHelper.FailureReason.DRIVE_ERROR));
         }
     }
 
@@ -79,14 +78,14 @@ final class UploadQueueEngine {
     private void handleSuccess(UploadTask task, UploadedItem uploadedItem) {
         if (current != task) return;
         clearRunning();
-        if (callback != null) callback.onSuccess(task,uploadedItem);
+        if (callback != null) callback.onSuccess(task, uploadedItem);
         processQueue();
     }
 
-    private void handleFailure(UploadTask task) {
+    private void handleFailure(UploadTask task, UploadDriveHelper.FailureReason reason) {
         if (current != task) return;
         clearRunning();
-        if (callback != null) callback.onFailure(task);
+        if (callback != null) callback.onFailure(task, reason);
         processQueue();
     }
 

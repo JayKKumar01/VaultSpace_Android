@@ -84,6 +84,8 @@ public class Notes {
 
     // add the no access bar also in the progress bar
 
+    //use the reason retriable in retry also... so that won't have to check the uriutil again
+
 
 
  // use parallel executor wherever possible
