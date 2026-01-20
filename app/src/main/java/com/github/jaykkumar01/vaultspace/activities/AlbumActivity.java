@@ -65,8 +65,6 @@ public class AlbumActivity extends AppCompatActivity {
     private AlbumModalHandler albumModalHandler;
 
     private AlbumActionCoordinator actionCoordinator;
-
-    private final List<AlbumMedia> visibleMedia = new ArrayList<>();
     private UploadOrchestrator uploadOrchestrator;
 
     private UploadStatusController uploadStatusController;
@@ -139,14 +137,11 @@ public class AlbumActivity extends AppCompatActivity {
             albumLoader.append(media);
 
             if (state == UiState.EMPTY) {
-                visibleMedia.clear();
-                visibleMedia.addAll(albumLoader.getMedia());
                 transitionTo(UiState.CONTENT);
                 return;
             }
 
             if (state == UiState.CONTENT) {
-                visibleMedia.add(0, media);
                 albumUiController.addMedia(media);
             }
         }
@@ -280,10 +275,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         albumMetaInfo.setCounts(photos, videos);
 
-        visibleMedia.clear();
-        visibleMedia.addAll(snapshot);
-
-        transitionTo(visibleMedia.isEmpty() ? UiState.EMPTY : UiState.CONTENT);
+        transitionTo(snapshot.isEmpty() ? UiState.EMPTY : UiState.CONTENT);
     }
 
     /* ---------------- State Machine ---------------- */
@@ -335,7 +327,7 @@ public class AlbumActivity extends AppCompatActivity {
 
     private void renderContent() {
         albumModalHandler.dismissAll();
-        albumUiController.showContent(visibleMedia);
+        albumUiController.showContent(albumLoader.getMedia());
     }
 
 

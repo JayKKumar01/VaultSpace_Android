@@ -1,6 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadType;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
 import java.util.ArrayDeque;
@@ -51,17 +52,29 @@ final class UploadQueueEngine {
         runningUpload = uploadExecutor.submit(() -> performUpload(task));
     }
 
-    private void performUpload(UploadTask task) {
-        try {
+    private void performUpload(UploadTask task){
+        UploadSelection s = task.selection;
+        try{
             Thread.sleep(2000);
-            if (Math.random() > 0.5)
-                controlExecutor.execute(() -> handleSuccess(task,new UploadedItem("fileId","name","mimeType",0, 0,"")));
-            else
+            if(Math.random()>0.5){
+                long now=System.currentTimeMillis();
+                UploadedItem item=new UploadedItem(
+                        "fake_"+now,
+                        "Upload_"+now,
+                        s.mimeType,
+                        UploadType.fromMime(s.mimeType) == UploadType.VIDEO ?5_000_000:1_000_000,
+                        now,
+                        null
+                );
+                controlExecutor.execute(() -> handleSuccess(task,item));
+            }else{
                 controlExecutor.execute(() -> handleFailure(task));
-        } catch (InterruptedException e) {
+            }
+        }catch(InterruptedException e){
             controlExecutor.execute(() -> handleCancelled(task));
         }
     }
+
 
     private void handleSuccess(UploadTask task, UploadedItem uploadedItem) {
         if (current != task) return;
