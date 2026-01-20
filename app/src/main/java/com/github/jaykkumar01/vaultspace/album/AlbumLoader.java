@@ -81,6 +81,11 @@ public final class AlbumLoader {
         fetchFromDrive(callback);
     }
 
+    public void append(@NonNull AlbumMedia media){
+        mediaEntry.addMedia(media);
+    }
+
+
     public void refresh(@NonNull Callback callback) {
         if (released) return;
 

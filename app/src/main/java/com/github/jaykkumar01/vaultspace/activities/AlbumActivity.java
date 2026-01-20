@@ -27,6 +27,7 @@ import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
@@ -43,7 +44,7 @@ public class AlbumActivity extends AppCompatActivity {
     public static final String EXTRA_ALBUM_ID = "album_id";
     public static final String EXTRA_ALBUM_NAME = "album_name";
 
-    private enum UiState { UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR }
+    private enum UiState {UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR}
 
     private String albumId;
     private String albumName;
@@ -92,7 +93,7 @@ public class AlbumActivity extends AppCompatActivity {
         @Override
         public void onMediaSelected(List<UploadSelection> selections) {
             shouldClearGroup = false;
-            uploadOrchestrator.enqueue(albumId,albumName,selections);
+            uploadOrchestrator.enqueue(albumId, albumName, selections);
         }
     };
 
@@ -106,6 +107,7 @@ public class AlbumActivity extends AppCompatActivity {
         public void onMediaClicked(AlbumMedia media, int position) {
             actionCoordinator.onMediaClicked(media, position);
         }
+
         @Override
         public void onMediaLongPressed(AlbumMedia media, int position) {
             actionCoordinator.onMediaLongPressed(media, position);
@@ -129,6 +131,30 @@ public class AlbumActivity extends AppCompatActivity {
         @Override
         public void onCancelled() {
             uploadStatusController.onCancelled();
+        }
+
+        @Override
+        public void onSuccess(UploadedItem item) {
+            AlbumMedia media = new AlbumMedia(item);
+            albumLoader.append(media);
+
+            if (state == UiState.EMPTY) {
+                visibleMedia.clear();
+                visibleMedia.addAll(albumLoader.getMedia());
+                transitionTo(UiState.CONTENT);
+                return;
+            }
+
+            if (state == UiState.CONTENT) {
+                visibleMedia.add(0, media);
+                albumUiController.addMedia(media);
+            }
+        }
+
+
+        @Override
+        public void onFailure(UploadSelection selection) {
+            //TODO
         }
     };
 
@@ -184,9 +210,6 @@ public class AlbumActivity extends AppCompatActivity {
     };
 
 
-
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -210,7 +233,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         albumLoader = new AlbumLoader(this, albumId);
         albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
-        actionCoordinator = new AlbumActionCoordinator(this,actionCallback);
+        actionCoordinator = new AlbumActionCoordinator(this, actionCallback);
 
 
         uploadStatusController =
@@ -307,7 +330,7 @@ public class AlbumActivity extends AppCompatActivity {
     }
 
     private void renderError() {
-        albumModalHandler.showRetryLoad(this::refreshAlbum,this::finish);
+        albumModalHandler.showRetryLoad(this::refreshAlbum, this::finish);
     }
 
     private void renderContent() {
@@ -379,7 +402,7 @@ public class AlbumActivity extends AppCompatActivity {
         albumLoader.release();
         actionCoordinator.release();
         uploadOrchestrator.unregisterObserver(albumId);
-        if (shouldClearGroup){
+        if (shouldClearGroup) {
             uploadOrchestrator.clearGroup(albumId);
         }
     }

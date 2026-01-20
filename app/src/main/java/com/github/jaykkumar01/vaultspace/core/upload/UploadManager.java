@@ -3,7 +3,6 @@ package com.github.jaykkumar01.vaultspace.core.upload;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -13,6 +12,7 @@ import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -64,7 +64,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     /* ================= Observer ================= */
 
-    public void registerObserver(@NonNull String groupId,@NonNull String groupName,@NonNull UploadObserver observer) {
+    public void registerObserver(@NonNull String groupId, @NonNull String groupName, @NonNull UploadObserver observer) {
         controlExecutor.execute(() -> {
             observers.put(groupId, observer);
             UploadSnapshot snapshot = uploadCache.getSnapshot(groupId);
@@ -80,7 +80,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
         controlExecutor.execute(() -> observers.remove(groupId));
     }
 
-    private void emitSnapshot(String groupId,UploadSnapshot snapshot) {
+    private void emitSnapshot(String groupId, UploadSnapshot snapshot) {
         UploadObserver o = observers.get(groupId);
         if (o != null) mainHandler.post(() -> o.onSnapshot(snapshot));
     }
@@ -90,6 +90,17 @@ public final class UploadManager implements UploadQueueEngine.Callback {
         if (o != null) mainHandler.post(o::onCancelled);
     }
 
+    private void emitSuccess(String groupId, UploadedItem item) {
+        UploadObserver o = observers.get(groupId);
+        if (o != null) mainHandler.post(() -> o.onSuccess(item));
+    }
+
+    private void emitFailure(String groupId, UploadSelection selection) {
+        UploadObserver o = observers.get(groupId);
+        if (o != null) mainHandler.post(() -> o.onFailure(selection));
+    }
+
+
     private void notifyStateChanged() {
         if (orchestrator != null)
             mainHandler.post(orchestrator::onUploadStateChanged);
@@ -97,7 +108,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     /* ================= Enqueue ================= */
 
-    public void enqueue(@NonNull String groupId,@NonNull String groupName,@NonNull List<UploadSelection> selections) {
+    public void enqueue(@NonNull String groupId, @NonNull String groupName, @NonNull List<UploadSelection> selections) {
         controlExecutor.execute(() -> {
 
             UploadSnapshot snapshot = snapshotReducer.mergeSnapshot(groupId, groupName, selections);
@@ -109,7 +120,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
             //noinspection ResultOfMethodCallIgnored
             thumbDir.mkdirs();
 //            failureCoordinator.recordFailuresIfMissing(groupId, selections);
-            failureCoordinator.recordFailuresIfMissingAsync(groupId, selections,thumbExecutor);
+            failureCoordinator.recordFailuresIfMissingAsync(groupId, selections, thumbExecutor);
             failureCoordinator.recordRetriesIfMissing(groupId, selections);
 
             queueEngine.enqueue(groupId, selections);
@@ -120,7 +131,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     /* ================= Retry ================= */
 
-    public void retry(@NonNull String groupId,@NonNull String groupName) {
+    public void retry(@NonNull String groupId, @NonNull String groupName) {
         controlExecutor.execute(() -> {
             List<UploadSelection> retryable = failureCoordinator.retry(groupId, groupName);
             if (retryable != null && !retryable.isEmpty()) {
@@ -132,7 +143,8 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     /* ================= Queue Callbacks ================= */
 
     @Override
-    public void onSuccess(UploadTask task) {
+    public void onSuccess(UploadTask task, UploadedItem uploadedItem) {
+        emitSuccess(task.groupId, uploadedItem);
         UploadSnapshot snapshot = snapshotReducer.onSuccess(task);
         if (snapshot != null) {
             snapshotReducer.finalizeSnapshot(snapshot);
@@ -141,8 +153,10 @@ public final class UploadManager implements UploadQueueEngine.Callback {
         notifyStateChanged();
     }
 
+
     @Override
     public void onFailure(UploadTask task) {
+        emitFailure(task.groupId,task.selection);
         UploadSnapshot snapshot = snapshotReducer.onFailure(task);
         if (snapshot != null) {
             snapshotReducer.finalizeSnapshot(snapshot);
@@ -189,14 +203,14 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     /* ================= Cleanup ================= */
 
-    public void clearGroup(String groupId){
+    public void clearGroup(String groupId) {
         controlExecutor.execute(() -> {
             failureCoordinator.clearGroup(groupId);
             uploadCache.removeSnapshot(groupId);
         });
     }
 
-    public void getFailuresForGroup(@NonNull String groupId,@NonNull Consumer<List<UploadFailureEntity>> cb) {
+    public void getFailuresForGroup(@NonNull String groupId, @NonNull Consumer<List<UploadFailureEntity>> cb) {
         controlExecutor.execute(() -> {
             List<UploadFailureEntity> list = failureStore.getFailuresForGroup(groupId);
             mainHandler.post(() -> cb.accept(list));

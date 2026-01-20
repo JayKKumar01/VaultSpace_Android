@@ -1,6 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -11,7 +12,7 @@ import java.util.concurrent.Future;
 final class UploadQueueEngine {
 
     interface Callback {
-        void onSuccess(UploadTask task);
+        void onSuccess(UploadTask task, UploadedItem uploadedItem);
         void onFailure(UploadTask task);
         void onCancelled(UploadTask task);
         void onIdle();
@@ -52,9 +53,9 @@ final class UploadQueueEngine {
 
     private void performUpload(UploadTask task) {
         try {
-            Thread.sleep(40);
+            Thread.sleep(2000);
             if (Math.random() > 0.5)
-                controlExecutor.execute(() -> handleSuccess(task));
+                controlExecutor.execute(() -> handleSuccess(task,new UploadedItem("fileId","name","mimeType",0, 0,"")));
             else
                 controlExecutor.execute(() -> handleFailure(task));
         } catch (InterruptedException e) {
@@ -62,10 +63,10 @@ final class UploadQueueEngine {
         }
     }
 
-    private void handleSuccess(UploadTask task) {
+    private void handleSuccess(UploadTask task, UploadedItem uploadedItem) {
         if (current != task) return;
         clearRunning();
-        if (callback != null) callback.onSuccess(task);
+        if (callback != null) callback.onSuccess(task,uploadedItem);
         processQueue();
     }
 

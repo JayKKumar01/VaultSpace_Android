@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
@@ -116,25 +117,27 @@ public final class AlbumDriveHelper {
     private static List<AlbumMedia> mapToAlbumMedia(FileList list) {
         List<AlbumMedia> media = new ArrayList<>();
 
-        if (list.getFiles() != null) {
-            for (File f : list.getFiles()) {
-                media.add(new AlbumMedia(
-                        f.getId(),
-                        f.getName(),
-                        f.getMimeType(),
-                        f.getModifiedTime() != null
-                                ? f.getModifiedTime().getValue()
-                                : 0L,
-                        f.getSize() != null
-                                ? f.getSize()
-                                : 0L,
-                        f.getThumbnailLink()
-                ));
-            }
+        if (list.getFiles() == null) return media;
+
+        for (File f : list.getFiles()) {
+
+            UploadedItem item = new UploadedItem(
+                    f.getId(),
+                    f.getName(),
+                    f.getMimeType(),
+                    f.getSize() != null ? f.getSize() : 0L,
+                    f.getModifiedTime() != null
+                            ? f.getModifiedTime().getValue()
+                            : 0L,
+                    f.getThumbnailLink()
+            );
+
+            media.add(new AlbumMedia(item));
         }
 
         return media;
     }
+
 
     /* ==========================================================
      * Main-thread delivery

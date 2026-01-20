@@ -72,6 +72,10 @@ public final class AlbumUiController {
         contentView.setMedia(mediaList);
     }
 
+    public void addMedia(AlbumMedia media) {
+        contentView.addMedia(media);
+    }
+
     /* ---------------- Setup ---------------- */
 
     private void hideAll() {
