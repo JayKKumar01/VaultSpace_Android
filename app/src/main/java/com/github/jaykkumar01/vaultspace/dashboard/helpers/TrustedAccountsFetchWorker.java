@@ -33,7 +33,6 @@ public final class TrustedAccountsFetchWorker {
 
     public interface Callback {
         void onSuccess(List<TrustedAccount> accounts);
-
         void onError(Exception e);
     }
 
@@ -41,7 +40,12 @@ public final class TrustedAccountsFetchWorker {
      * Entry point
      * ========================================================== */
 
-    public static void fetch(ExecutorService executor, Context appContext, Drive primaryDrive, String primaryEmail, Callback callback) {
+    public static void fetch(ExecutorService executor,
+                             Context appContext,
+                             Drive primaryDrive,
+                             String primaryEmail,
+                             Callback callback) {
+
         executor.execute(() -> {
             long startMs = SystemClock.elapsedRealtime();
 
@@ -62,29 +66,20 @@ public final class TrustedAccountsFetchWorker {
                     return;
                 }
 
-                int availableCpus = Runtime.getRuntime().availableProcessors();
-                int workers = Math.max(
-                        1,
-                        Math.min(emails.size(), availableCpus)
-                );
+                int cpu = Runtime.getRuntime().availableProcessors();
+                int workers = Math.max(1, Math.min(emails.size(), cpu - 1));
 
-                Log.d(
-                        TAG,
-                        "fetch start emails=" + emails.size()
-                                + " cpu=" + availableCpus
-                                + " workers=" + workers
-                );
+                Log.d(TAG, "fetch start emails=" + emails.size()
+                        + " cpu=" + cpu
+                        + " workers=" + workers);
 
-                List<TrustedAccount> result =
+                List<TrustedAccount> accounts =
                         fetchAccountsParallel(appContext, emails, workers);
 
-                Log.d(
-                        TAG,
-                        "fetch done accounts=" + result.size()
-                                + " took=" + (SystemClock.elapsedRealtime() - startMs) + "ms"
-                );
+                Log.d(TAG, "fetch done accounts=" + accounts.size()
+                        + " took=" + (SystemClock.elapsedRealtime() - startMs) + "ms");
 
-                callback.onSuccess(result);
+                callback.onSuccess(accounts);
 
             } catch (Exception e) {
                 Log.e(TAG, "fetchTrustedAccounts failed", e);
@@ -93,19 +88,16 @@ public final class TrustedAccountsFetchWorker {
         });
     }
 
-
     /* ==========================================================
-     * Helpers
+     * Permission helpers
      * ========================================================== */
 
-    private static List<String> fetchWriterEmails(
-            Drive primaryDrive,
-            String rootFolderId,
-            String primaryEmail
-    ) throws Exception {
+    private static List<String> fetchWriterEmails(Drive drive,
+                                                  String rootFolderId,
+                                                  String primaryEmail) throws Exception {
 
         PermissionList permissions =
-                primaryDrive.permissions()
+                drive.permissions()
                         .list(rootFolderId)
                         .setFields("permissions(emailAddress,role,type)")
                         .execute();
@@ -125,25 +117,20 @@ public final class TrustedAccountsFetchWorker {
         return emails;
     }
 
-    private static List<TrustedAccount> fetchAccountsParallel(
-            Context appContext,
-            List<String> emails,
-            int workers
-    ) {
+    /* ==========================================================
+     * Parallel fetch
+     * ========================================================== */
 
-        List<Future<TrustedAccount>> futures =
-                new ArrayList<>(emails.size());
+    private static List<TrustedAccount> fetchAccountsParallel(Context appContext,
+                                                              List<String> emails,
+                                                              int workers) {
 
-        List<TrustedAccount> result =
-                new ArrayList<>(emails.size());
+        List<Future<TrustedAccount>> futures = new ArrayList<>(emails.size());
+        List<TrustedAccount> result = new ArrayList<>(emails.size());
 
-        try (ExecutorService pool =
-                     Executors.newFixedThreadPool(workers)) {
-
+        try (ExecutorService pool = Executors.newFixedThreadPool(workers)) {
             for (String email : emails) {
-                futures.add(
-                        pool.submit(() -> fetchWithRetry(appContext, email))
-                );
+                futures.add(pool.submit(() -> fetchWithRetry(appContext, email)));
             }
 
             for (Future<TrustedAccount> f : futures) {
@@ -161,13 +148,16 @@ public final class TrustedAccountsFetchWorker {
         return result;
     }
 
-    private static TrustedAccount fetchWithRetry(
-            Context appContext,
-            String email
-    ) {
-        int attempts = MAX_ATTEMPTS;
+    /* ==========================================================
+     * Retry helper
+     * ========================================================== */
 
-        while (attempts-- > 0) {
+    private static TrustedAccount fetchWithRetry(Context appContext,
+                                                 String email) {
+
+        int attempts = 0;
+
+        while (attempts++ < MAX_ATTEMPTS) {
             try {
                 Drive drive =
                         DriveClientProvider.forAccount(appContext, email);
@@ -176,6 +166,7 @@ public final class TrustedAccountsFetchWorker {
                         .fetchStorageInfo(drive, email);
 
             } catch (Exception e) {
+                Log.w(TAG, "fetch failed email=" + email + " attempt=" + attempts, e);
                 SystemClock.sleep(RETRY_DELAY_MS);
             }
         }
