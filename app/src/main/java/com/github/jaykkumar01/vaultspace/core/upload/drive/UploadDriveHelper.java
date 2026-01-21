@@ -8,12 +8,17 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
+import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
+import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.UriFileInfo;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.models.base.UploadType;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.utils.UploadThumbnailGenerator;
 import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 import com.google.api.client.googleapis.media.MediaHttpUploader;
 import com.google.api.client.http.AbstractInputStreamContent;
@@ -42,6 +47,7 @@ public final class UploadDriveHelper {
     private static final int CHUNK_SMALL = MediaHttpUploader.MINIMUM_CHUNK_SIZE; // 256 KB
     private static final int CHUNK_MEDIUM = 512 * 1024;              // 512 KB
     private static final int CHUNK_LARGE = 1024 * 1024;             // 1 MB
+    private final Drive primaryDrive;
 
     public interface UploadProgressListener {
         void onProgress(long uploadedBytes, long totalBytes);
@@ -87,12 +93,14 @@ public final class UploadDriveHelper {
     public UploadDriveHelper(@NonNull Context context) {
         appContext = context.getApplicationContext();
         resolver = appContext.getContentResolver();
-        trustedCache = new UserSession(appContext).getVaultCache().trustedAccounts;
+        UserSession userSession = new UserSession(appContext);
+        this.primaryDrive = DriveClientProvider.forAccount(appContext,userSession.getPrimaryAccountEmail());
+        trustedCache = userSession.getVaultCache().trustedAccounts;
     }
 
     /* ================= Public API ================= */
 
-    public UploadedItem upload(@NonNull String groupId, @NonNull UploadSelection selection)
+    public UploadedItem upload(@NonNull String groupId, @NonNull UploadSelection selection, UploadFailureStore failureStore, java.io.File thumbDir)
             throws UploadFailure, CancellationException {
 
         Log.d(TAG, "upload start parentId=" + groupId + " uri=" + selection.uri);
@@ -104,10 +112,28 @@ public final class UploadDriveHelper {
         String email = pickRandomAccount(info.sizeBytes);
         Drive drive = DriveClientProvider.forAccount(appContext, email);
 
+
+        String thumbFileId = null;
+
+        if (selection.getType() == UploadType.VIDEO) {
+            try {
+                thumbFileId = uploadVideoThumbnail(drive, selection.uri, failureStore, thumbDir);
+            } catch (Exception e) {
+                Log.w(TAG, "video thumbnail upload failed, continuing without thumb", e);
+            }
+        }
+
         File metadata = new File()
                 .setName(info.name)
                 .setMimeType(selection.mimeType)
                 .setParents(Collections.singletonList(groupId));
+
+        if (thumbFileId != null) {
+            metadata.setAppProperties(
+                    Collections.singletonMap("thumb", thumbFileId)
+            );
+        }
+
 
         if (info.modifiedTimeMillis > 0) {
             metadata.setModifiedTime(new DateTime(info.modifiedTimeMillis));
@@ -127,6 +153,45 @@ public final class UploadDriveHelper {
     }
 
     /* ================= Utilities ================= */
+
+    private String uploadVideoThumbnail(
+            @NonNull Drive drive,
+            @NonNull Uri videoUri,
+            @NonNull UploadFailureStore failureStore,
+            @NonNull java.io.File thumbDir
+    ) throws Exception {
+        UploadFailureEntity f = failureStore.getFailureByUri(videoUri.toString());
+        String path = f != null ? f.thumbnailPath : null;
+
+        if (path == null)
+            path = UploadThumbnailGenerator.generate(appContext, videoUri, UploadType.VIDEO, thumbDir);
+
+        if (path == null) {
+            Log.w(TAG, "thumbnail generation failed");
+            return null;
+        }
+
+        String folderId = DriveFolderRepository.getThumbnailsRootId(primaryDrive);
+        java.io.File file = new java.io.File(path);
+
+        File meta = new File()
+                .setName("vid_thumb_" + System.currentTimeMillis() + ".jpg")
+                .setMimeType("image/jpeg")
+                .setParents(Collections.singletonList(folderId));
+
+        InputStreamContent content =
+                new InputStreamContent("image/jpeg", new java.io.FileInputStream(file));
+        content.setLength(file.length()); // 👈 critical: enables true direct upload
+
+        Drive.Files.Create req = drive.files().create(meta, content).setFields("id");
+        req.getMediaHttpUploader().setDirectUploadEnabled(true); // 👈 skip resumable infra
+
+        File uploaded = req.execute();
+
+        Log.d(TAG, "thumbnail uploaded id=" + uploaded.getId());
+        return uploaded.getId();
+    }
+
 
     private String pickRandomAccount(long sizeBytes) throws UploadFailure {
         List<String> eligible = new ArrayList<>();

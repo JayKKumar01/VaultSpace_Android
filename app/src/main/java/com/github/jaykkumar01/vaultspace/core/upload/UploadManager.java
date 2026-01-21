@@ -72,7 +72,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
         uploadDriveHelper = new UploadDriveHelper(appContext);
 
-        queueEngine = new UploadQueueEngine(controlExecutor, uploadExecutor, uploadDriveHelper);
+        queueEngine = new UploadQueueEngine(controlExecutor, uploadExecutor, uploadDriveHelper, failureStore, thumbDir);
         queueEngine.setCallback(this);
 
         snapshotReducer = new UploadSnapshotReducer(

@@ -71,13 +71,21 @@ public final class AlbumDriveHelper {
 
                     FileList list = drive.files().list()
                             .setQ("'" + albumId + "' in parents and trashed=false")
-                            .setFields("files(id,name,mimeType,modifiedTime,size,thumbnailLink,hasThumbnail)")
+                            .setFields("files(id,name,mimeType,modifiedTime,size,thumbnailLink,hasThumbnail,appProperties)")
                             .execute();
 
-                    if (list.getFiles() == null) continue;
+                    if (list.getFiles() == null) {
+                        continue;
+                    }
 
                     for (File f : list.getFiles()) {
-                        if (unique.containsKey(f.getId())) continue;
+
+                        if (unique.containsKey(f.getId())) {
+                            Log.d(TAG, "skip duplicate id=" + f.getId());
+                            continue;
+                        }
+
+                        String thumbLink = resolveThumbnailLink(drive, f);
 
                         UploadedItem item = new UploadedItem(
                                 f.getId(),
@@ -85,12 +93,21 @@ public final class AlbumDriveHelper {
                                 f.getMimeType(),
                                 f.getSize() != null ? f.getSize() : 0L,
                                 f.getModifiedTime() != null ? f.getModifiedTime().getValue() : 0L,
-                                f.getThumbnailLink()
+                                thumbLink
                         );
+
+                        Log.d(TAG,
+                                "item id=" + item.fileId +
+                                        " type=" + item.getType() +
+                                        " thumbLink=" + item.thumbnailLink
+                        );
+
+
 
                         unique.put(f.getId(), new AlbumMedia(item));
                     }
                 }
+
 
                 List<AlbumMedia> result = new ArrayList<>(unique.values());
                 result.sort((a, b) -> Long.compare(b.modifiedTime, a.modifiedTime));
@@ -104,6 +121,54 @@ public final class AlbumDriveHelper {
             }
         });
     }
+
+    private String resolveThumbnailLink(
+            @NonNull Drive drive,
+            @NonNull File file
+    ) {
+        if (file.getMimeType() == null || !file.getMimeType().startsWith("video/"))
+            return file.getThumbnailLink();
+
+        Map<String, String> props = file.getAppProperties();
+        if (props == null) return file.getThumbnailLink();
+
+        String thumbId = props.get("thumb");
+        if (thumbId == null) return file.getThumbnailLink();
+
+        try {
+            return fetchThumbToCache(
+                    drive,
+                    thumbId,
+                    appContext.getCacheDir()
+            );
+        } catch (Exception e) {
+            Log.w(TAG, "thumb fetch failed id=" + thumbId, e);
+            return file.getThumbnailLink();
+        }
+    }
+
+
+    private String fetchThumbToCache(
+            @NonNull Drive drive,
+            @NonNull String thumbFileId,
+            @NonNull java.io.File cacheDir
+    ) throws Exception {
+
+        java.io.File out = new java.io.File(cacheDir, "thumb_" + thumbFileId + ".jpg");
+
+        if (out.exists()) return out.getAbsolutePath(); // 👈 cache hit
+
+        try (java.io.OutputStream os = new java.io.FileOutputStream(out)) {
+            drive.files()
+                    .get(thumbFileId)
+                    .executeMediaAndDownloadTo(os);
+        }
+
+        return out.getAbsolutePath();
+    }
+
+
+
 
     /* ========================================================== */
 

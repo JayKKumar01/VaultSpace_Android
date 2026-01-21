@@ -12,10 +12,12 @@ public final class DriveFolderRepository {
     private static final String ROOT_FOLDER_NAME = "VaultSpace";
     private static final String ALBUMS_FOLDER_NAME = "Albums";
     private static final String FILES_FOLDER_NAME = "Files";
+    private static final String THUMBNAILS_FOLDER_NAME = "Media Registry";
 
     private static String rootFolderId;
     private static String albumsRootId;
     private static String filesRootId;
+    private static String thumbnailsRootId;
 
     private DriveFolderRepository() {
     }
@@ -39,6 +41,13 @@ public final class DriveFolderRepository {
         filesRootId = resolveFolder(drive, FILES_FOLDER_NAME, getRootFolderId(drive));
         return filesRootId;
     }
+    public static synchronized String getThumbnailsRootId(Drive drive) throws Exception {
+        if (thumbnailsRootId != null) return thumbnailsRootId;
+        thumbnailsRootId = resolveFolder(drive, THUMBNAILS_FOLDER_NAME, getRootFolderId(drive));
+        return thumbnailsRootId;
+    }
+
+
 
     /* ------------ Core Resolver ------------ */
 
@@ -53,7 +62,7 @@ public final class DriveFolderRepository {
     public static File createFolder(Drive drive, String name, String parentId) throws Exception {
         File folder = new File().setName(name).setMimeType(FOLDER_MIME);
         if (parentId != null) folder.setParents(Collections.singletonList(parentId));
-        return drive.files().create(folder).setFields("id").execute();
+        return drive.files().create(folder).setFields("id,name,createdTime,modifiedTime").execute();
     }
 
     private static String findFolderId(Drive drive, String name, String parentId) throws Exception {
@@ -71,4 +80,12 @@ public final class DriveFolderRepository {
 
         return list.getFiles().isEmpty() ? null : list.getFiles().get(0).getId();
     }
+
+    public static void onSessionCleared() {
+        rootFolderId = null;
+        albumsRootId = null;
+        filesRootId = null;
+        thumbnailsRootId = null;
+    }
+
 }

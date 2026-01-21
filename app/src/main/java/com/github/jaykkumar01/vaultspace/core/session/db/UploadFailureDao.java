@@ -29,6 +29,14 @@ public interface UploadFailureDao {
     boolean contains(String groupId,String uri,String type);
 
     @Query("""
+    SELECT * FROM upload_failure
+    WHERE uri = :uri
+    LIMIT 1
+""")
+    UploadFailureEntity getByUri(String uri);
+
+
+    @Query("""
         DELETE FROM upload_failure
         WHERE groupId = :groupId
           AND uri = :uri

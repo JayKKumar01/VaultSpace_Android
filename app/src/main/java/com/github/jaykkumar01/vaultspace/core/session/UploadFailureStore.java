@@ -44,6 +44,11 @@ public final class UploadFailureStore {
         return dao.contains(groupId, uri, type);
     }
 
+    public UploadFailureEntity getFailureByUri(@NonNull String uri) {
+        return dao.getByUri(uri);
+    }
+
+
     /* ================= Delete ================= */
 
     public void removeFailure(

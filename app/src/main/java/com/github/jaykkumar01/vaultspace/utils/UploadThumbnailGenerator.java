@@ -40,6 +40,8 @@ public final class UploadThumbnailGenerator {
             }
 
             if (bmp == null) return null;
+            bmp = clampToThumbSize(bmp);
+
 
             File out = new File(
                     outputDir,
@@ -139,6 +141,28 @@ public final class UploadThumbnailGenerator {
         }
         return size;
     }
+
+    @NonNull
+    private static Bitmap clampToThumbSize(@NonNull Bitmap src) {
+        int w = src.getWidth();
+        int h = src.getHeight();
+
+        if (w <= THUMB_SIZE && h <= THUMB_SIZE)
+            return src;
+
+        float scale = Math.min(
+                (float) THUMB_SIZE / w,
+                (float) THUMB_SIZE / h
+        );
+
+        int nw = Math.round(w * scale);
+        int nh = Math.round(h * scale);
+
+        Bitmap out = Bitmap.createScaledBitmap(src, nw, nh, true);
+        if (out != src) src.recycle();
+        return out;
+    }
+
 
     private UploadThumbnailGenerator() {}
 }

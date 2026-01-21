@@ -1,9 +1,11 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
+import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 
+import java.io.File;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -12,6 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 final class UploadQueueEngine {
+
 
 
     interface Callback {
@@ -27,6 +30,8 @@ final class UploadQueueEngine {
     private final ExecutorService controlExecutor;
     private final ExecutorService uploadExecutor;
     private final UploadDriveHelper uploadDriveHelper;
+    private final UploadFailureStore failureStore;
+    private final File thumbDir;
 
     private final Deque<UploadTask> queue = new ArrayDeque<>();
 
@@ -34,10 +39,12 @@ final class UploadQueueEngine {
     private Future<?> runningUpload;
     private Callback callback;
 
-    UploadQueueEngine(ExecutorService controlExecutor, ExecutorService uploadExecutor, UploadDriveHelper uploadDriveHelper) {
+    UploadQueueEngine(ExecutorService controlExecutor, ExecutorService uploadExecutor, UploadDriveHelper uploadDriveHelper, UploadFailureStore failureStore, File thumbDir) {
         this.controlExecutor = controlExecutor;
         this.uploadExecutor = uploadExecutor;
         this.uploadDriveHelper = uploadDriveHelper;
+        this.failureStore = failureStore;
+        this.thumbDir = thumbDir;
     }
 
     void setCallback(Callback callback) {
@@ -63,7 +70,7 @@ final class UploadQueueEngine {
 
     private void performUpload(UploadTask task) {
         try {
-            UploadedItem item = uploadDriveHelper.upload(task.groupId, task.selection);
+            UploadedItem item = uploadDriveHelper.upload(task.groupId, task.selection,failureStore,thumbDir);
             controlExecutor.execute(() -> handleSuccess(task, item));
         } catch (CancellationException e) {
             controlExecutor.execute(() -> handleCancelled(task));

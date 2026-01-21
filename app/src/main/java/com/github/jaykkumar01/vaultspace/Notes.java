@@ -126,6 +126,10 @@ public class Notes {
     // cache the storage quota while uploading for each uploaditem on success, or simply minus that much
     //in the final but calculations does not take time so simply cache individuals
 
+    // save the thumbnail or just upload the thumbnails directly to drive and get it via cache for video
+
+    // video thumbs are big
+
 
 
 }
