@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.core.consent.DriveConsentHelper;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
@@ -41,9 +42,9 @@ public final class ExpandVaultHelper {
      * Core
      * ========================================================== */
 
-    private final AppCompatActivity activity;
     private final String primaryEmail;
 
+    private final TrustedAccountsRepository repo;
     private final TrustedAccountsDriveHelper driveHelper;
     private final TrustedAccountsCache cache;
     private final AccountPickerHelper accountPicker;
@@ -60,7 +61,6 @@ public final class ExpandVaultHelper {
      * ========================================================== */
 
     public ExpandVaultHelper(@NonNull AppCompatActivity activity) {
-        this.activity = activity;
 
         UserSession session = new UserSession(activity);
         this.primaryEmail = session.getPrimaryAccountEmail();
@@ -70,6 +70,7 @@ public final class ExpandVaultHelper {
         }
 
         this.cache = session.getVaultCache().trustedAccounts;
+        this.repo = new TrustedAccountsRepository(activity);
         this.driveHelper =
                 new TrustedAccountsDriveHelper(activity.getApplicationContext());
         this.accountPicker = new AccountPickerHelper(activity);
@@ -77,36 +78,23 @@ public final class ExpandVaultHelper {
     }
 
     /* ==========================================================
-     * Storage observation (CACHE-FIRST)
+     * Storage observation (REPO-BACKED)
      * ========================================================== */
 
     public void observeVaultStorage(@NonNull StorageStateListener listener) {
         this.storageListener = listener;
 
-        if (cache.isInitialized()) {
-            emitStorageState(cache.getAccountsView());
-            return;
-        }
+        repo.getAccounts(new TrustedAccountsRepository.Callback() {
+            @Override
+            public void onResult(@NonNull List<TrustedAccount> accounts) {
+                emitStorageState(accounts);
+            }
 
-        refreshFromDrive();
-    }
-
-    private void refreshFromDrive() {
-        driveHelper.fetchTrustedAccounts(
-                executor,
-                new TrustedAccountsDriveHelper.FetchCallback() {
-                    @Override
-                    public void onResult(List<TrustedAccount> accounts) {
-                        cache.initializeFromDrive(accounts);
-                        emitStorageState(accounts);
-                    }
-
-                    @Override
-                    public void onError(Exception e) {
-                        Log.e(TAG, "Storage fetch failed", e);
-                    }
-                }
-        );
+            @Override
+            public void onError(@NonNull Exception e) {
+                Log.e(TAG, "Failed to load vault storage", e);
+            }
+        });
     }
 
     /* ==========================================================

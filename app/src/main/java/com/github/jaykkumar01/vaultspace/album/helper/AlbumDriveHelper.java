@@ -9,8 +9,7 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
-import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 import com.google.api.services.drive.Drive;
@@ -36,7 +35,7 @@ public final class AlbumDriveHelper {
 
     private final Context appContext;
     private final String albumId;
-    private final TrustedAccountsCache trustedCache;
+    private final TrustedAccountsRepository trustedRepo;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     /* ========================================================== */
@@ -51,76 +50,88 @@ public final class AlbumDriveHelper {
     public AlbumDriveHelper(@NonNull Context context, @NonNull String albumId) {
         this.appContext = context.getApplicationContext();
         this.albumId = albumId;
-        this.trustedCache = new UserSession(appContext).getVaultCache().trustedAccounts;
+        this.trustedRepo = new TrustedAccountsRepository(appContext);
     }
 
     /* ========================================================== */
 
-    public void fetchAlbumMedia(@NonNull ExecutorService executor,
-                                @NonNull FetchCallback callback) {
-
+    public void fetchAlbumMedia(
+            @NonNull ExecutorService executor,
+            @NonNull FetchCallback callback
+    ) {
         Log.d(TAG, "fetch start albumId=" + albumId);
 
-        executor.execute(() -> {
-            try {
-                Map<String, AlbumMedia> unique = new HashMap<>();
+        trustedRepo.getAccounts(new TrustedAccountsRepository.Callback() {
+            @Override
+            public void onResult(@NonNull List<TrustedAccount> accounts) {
 
-                for (TrustedAccount account : trustedCache.getAccountsView()) {
+                executor.execute(() -> {
+                    try {
+                        Map<String, AlbumMedia> unique = new HashMap<>();
 
-                    Drive drive = DriveClientProvider.forAccount(appContext, account.email);
+                        for (TrustedAccount account : accounts) {
 
-                    FileList list = drive.files().list()
-                            .setQ("'" + albumId + "' in parents and trashed=false")
-                            .setFields("files(id,name,mimeType,modifiedTime,size,thumbnailLink,hasThumbnail,appProperties)")
-                            .execute();
+                            Drive drive = DriveClientProvider
+                                    .forAccount(appContext, account.email);
 
-                    if (list.getFiles() == null) {
-                        continue;
-                    }
+                            FileList list = drive.files().list()
+                                    .setQ("'" + albumId + "' in parents and trashed=false")
+                                    .setFields(
+                                            "files(id,name,mimeType,modifiedTime,size," +
+                                                    "thumbnailLink,hasThumbnail,appProperties)"
+                                    )
+                                    .execute();
 
-                    for (File f : list.getFiles()) {
+                            if (list.getFiles() == null) continue;
 
-                        if (unique.containsKey(f.getId())) {
-                            Log.d(TAG, "skip duplicate id=" + f.getId());
-                            continue;
+                            for (File f : list.getFiles()) {
+
+                                if (unique.containsKey(f.getId())) continue;
+
+                                String thumbLink = resolveThumbnailLink(drive, f);
+
+                                UploadedItem item = new UploadedItem(
+                                        f.getId(),
+                                        f.getName(),
+                                        f.getMimeType(),
+                                        f.getSize() != null ? f.getSize() : 0L,
+                                        f.getModifiedTime() != null
+                                                ? f.getModifiedTime().getValue()
+                                                : 0L,
+                                        thumbLink
+                                );
+
+                                unique.put(f.getId(), new AlbumMedia(item));
+                            }
                         }
 
-                        String thumbLink = resolveThumbnailLink(drive, f);
+                        List<AlbumMedia> result =
+                                new ArrayList<>(unique.values());
 
-                        UploadedItem item = new UploadedItem(
-                                f.getId(),
-                                f.getName(),
-                                f.getMimeType(),
-                                f.getSize() != null ? f.getSize() : 0L,
-                                f.getModifiedTime() != null ? f.getModifiedTime().getValue() : 0L,
-                                thumbLink
-                        );
+                        result.sort((a, b) ->
+                                Long.compare(b.modifiedTime, a.modifiedTime));
 
                         Log.d(TAG,
-                                "item id=" + item.fileId +
-                                        " type=" + item.getType() +
-                                        " thumbLink=" + item.thumbnailLink
-                        );
+                                "fetch done albumId=" + albumId +
+                                        ", totalItems=" + result.size());
 
+                        postResult(callback, result);
 
-
-                        unique.put(f.getId(), new AlbumMedia(item));
+                    } catch (Exception e) {
+                        postError(callback, e);
                     }
-                }
+                });
+            }
 
-
-                List<AlbumMedia> result = new ArrayList<>(unique.values());
-                result.sort((a, b) -> Long.compare(b.modifiedTime, a.modifiedTime));
-
-                Log.d(TAG, "fetch done albumId=" + albumId + ", totalItems=" + result.size());
-
-                postResult(callback, result);
-
-            } catch (Exception e) {
+            @Override
+            public void onError(@NonNull Exception e) {
+                Log.e(TAG, "Failed to load trusted accounts", e);
                 postError(callback, e);
             }
         });
     }
+
+    /* ========================================================== */
 
     private String resolveThumbnailLink(
             @NonNull Drive drive,
@@ -147,7 +158,6 @@ public final class AlbumDriveHelper {
         }
     }
 
-
     private String fetchThumbToCache(
             @NonNull Drive drive,
             @NonNull String thumbFileId,
@@ -155,8 +165,7 @@ public final class AlbumDriveHelper {
     ) throws Exception {
 
         java.io.File out = new java.io.File(cacheDir, "thumb_" + thumbFileId + ".jpg");
-
-        if (out.exists()) return out.getAbsolutePath(); // 👈 cache hit
+        if (out.exists()) return out.getAbsolutePath();
 
         try (java.io.OutputStream os = new java.io.FileOutputStream(out)) {
             drive.files()
@@ -166,9 +175,6 @@ public final class AlbumDriveHelper {
 
         return out.getAbsolutePath();
     }
-
-
-
 
     /* ========================================================== */
 
