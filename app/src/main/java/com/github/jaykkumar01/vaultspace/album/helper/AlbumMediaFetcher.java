@@ -14,120 +14,75 @@ import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 final class AlbumMediaFetcher {
 
     private static final String TAG = "VaultSpace:AlbumFetch";
-
     private final Context appContext;
     private final String albumId;
+    private final DriveThumbnailResolver thumbnailResolver;
 
-    AlbumMediaFetcher(
-            @NonNull Context context,
-            @NonNull String albumId
-    ) {
+    AlbumMediaFetcher(@NonNull Context context, @NonNull String albumId) {
         this.appContext = context.getApplicationContext();
         this.albumId = albumId;
+        this.thumbnailResolver = new DriveThumbnailResolver(appContext);
     }
 
     @NonNull
     List<AlbumMedia> fetch(@NonNull List<TrustedAccount> accounts) throws Exception {
+        long startMs = System.currentTimeMillis();
+        int available = Runtime.getRuntime().availableProcessors();
+        int threads = Math.max(1, Math.min(accounts.size(), available));
+        Log.d(TAG, "fetch start albumId=" + albumId + " accounts=" + accounts.size() + " cpu=" + available + " threads=" + threads);
 
-        Map<String, AlbumMedia> unique = new HashMap<>();
+        Map<String, AlbumMedia> unique = new ConcurrentHashMap<>();
+        List<Future<?>> tasks = new ArrayList<>();
 
-        for (TrustedAccount account : accounts) {
-
-            Drive drive =
-                    DriveClientProvider.forAccount(appContext, account.email);
-
-            FileList list = drive.files().list()
-                    .setQ("'" + albumId + "' in parents and trashed=false")
-                    .setFields(
-                            "files(id,name,mimeType,modifiedTime,size," +
-                                    "thumbnailLink,hasThumbnail,appProperties)"
-                    )
-                    .execute();
-
-            if (list.getFiles() == null) continue;
-
-            for (File f : list.getFiles()) {
-
-                if (unique.containsKey(f.getId())) continue;
-
-                String thumbLink = resolveThumbnailLink(drive, f);
-
-                UploadedItem item = new UploadedItem(
-                        f.getId(),
-                        f.getName(),
-                        f.getMimeType(),
-                        f.getSize() != null ? f.getSize() : 0L,
-                        f.getModifiedTime() != null
-                                ? f.getModifiedTime().getValue()
-                                : 0L,
-                        thumbLink
-                );
-
-                unique.put(f.getId(), new AlbumMedia(item));
+        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
+            for (TrustedAccount account : accounts) {
+                tasks.add(executor.submit(() -> {
+                    fetchFromAccount(account, unique);
+                    return null;
+                }));
             }
+            for (Future<?> f : tasks) f.get();
         }
 
         List<AlbumMedia> result = new ArrayList<>(unique.values());
-        result.sort((a, b) ->
-                Long.compare(b.modifiedTime, a.modifiedTime));
-
+        result.sort((a, b) -> Long.compare(b.modifiedTime, a.modifiedTime));
+        Log.d(TAG, "fetch done albumId=" + albumId + " items=" + result.size() + " took=" + (System.currentTimeMillis() - startMs) + "ms");
         return result;
     }
 
-    /* ========================================================== */
-
-    private String resolveThumbnailLink(
-            @NonNull Drive drive,
-            @NonNull File file
-    ) {
-        if (file.getMimeType() == null ||
-                !file.getMimeType().startsWith("video/")) {
-            return file.getThumbnailLink();
-        }
-
-        Map<String, String> props = file.getAppProperties();
-        if (props == null) return file.getThumbnailLink();
-
-        String thumbId = props.get("thumb");
-        if (thumbId == null) return file.getThumbnailLink();
-
-        try {
-            return fetchThumbToCache(
-                    drive,
-                    thumbId,
-                    appContext.getCacheDir()
-            );
-        } catch (Exception e) {
-            Log.w(TAG, "thumb fetch failed id=" + thumbId, e);
-            return file.getThumbnailLink();
+    private void fetchFromAccount(@NonNull TrustedAccount account, @NonNull Map<String, AlbumMedia> out) throws Exception {
+        Drive drive = DriveClientProvider.forAccount(appContext, account.email);
+        FileList list = drive.files().list()
+                .setQ("'" + albumId + "' in parents and trashed=false")
+                .setFields("files(id,name,mimeType,modifiedTime,size,thumbnailLink,appProperties)")
+                .execute();
+        if (list.getFiles() != null) {
+            for (File f : list.getFiles()) {
+                out.computeIfAbsent(f.getId(), id -> createAlbumMedia(account.email, f));
+            }
         }
     }
 
-    private String fetchThumbToCache(
-            @NonNull Drive drive,
-            @NonNull String thumbFileId,
-            @NonNull java.io.File cacheDir
-    ) throws Exception {
-
-        java.io.File out =
-                new java.io.File(cacheDir, "thumb_" + thumbFileId + ".jpg");
-
-        if (out.exists()) return out.getAbsolutePath();
-
-        try (java.io.OutputStream os =
-                     new java.io.FileOutputStream(out)) {
-            drive.files()
-                    .get(thumbFileId)
-                    .executeMediaAndDownloadTo(os);
-        }
-
-        return out.getAbsolutePath();
+    private AlbumMedia createAlbumMedia(@NonNull String email, @NonNull File file) {
+        String thumbRef = thumbnailResolver.resolve(email, file);
+        UploadedItem item = new UploadedItem(
+                file.getId(),
+                file.getName(),
+                file.getMimeType(),
+                file.getSize() != null ? file.getSize() : 0L,
+                file.getModifiedTime() != null ? file.getModifiedTime().getValue() : 0L,
+                thumbRef
+        );
+        return new AlbumMedia(item);
     }
 }
