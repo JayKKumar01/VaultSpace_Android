@@ -21,107 +21,70 @@ import java.util.concurrent.Future;
 public final class TrustedAccountsFetchWorker {
 
     private static final String TAG = "VaultSpace:TrustedAccountsDrive";
-    private static final int MAX_PARALLEL_WORKERS = 2;
     private static final int MAX_ATTEMPTS = 2;
     private static final long RETRY_DELAY_MS = 250;
 
-    private TrustedAccountsFetchWorker() {}
+    private TrustedAccountsFetchWorker() {
+    }
+
+    /* ==========================================================
+     * Callback
+     * ========================================================== */
 
     public interface Callback {
         void onSuccess(List<TrustedAccount> accounts);
+
         void onError(Exception e);
     }
 
-    public static void fetch(
-            ExecutorService executor,
-            Context appContext,
-            Drive primaryDrive,
-            String primaryEmail,
-            Callback callback
-    ) {
+    /* ==========================================================
+     * Entry point
+     * ========================================================== */
+
+    public static void fetch(ExecutorService executor, Context appContext, Drive primaryDrive, String primaryEmail, Callback callback) {
         executor.execute(() -> {
-            long start = SystemClock.elapsedRealtime();
+            long startMs = SystemClock.elapsedRealtime();
+
             try {
                 String rootFolderId =
                         DriveFolderRepository.getRootFolderId(primaryDrive);
+
                 if (rootFolderId == null) {
                     callback.onSuccess(List.of());
                     return;
                 }
 
-                // ---------- PERMISSIONS FETCH TIMING ----------
-                long permStart = SystemClock.elapsedRealtime();
-
-                PermissionList permissions =
-                        primaryDrive.permissions()
-                                .list(rootFolderId)
-                                .setFields("permissions(emailAddress,role,type)")
-                                .execute();
-
-                long permEnd = SystemClock.elapsedRealtime();
-                Log.d(TAG, "Permissions list API took "
-                        + (permEnd - permStart) + " ms");
-
-                List<String> emails = new ArrayList<>();
-                for (Permission p : permissions.getPermissions()) {
-                    if (!"user".equals(p.getType())) continue;
-                    if (!"writer".equals(p.getRole())) continue;
-                    String email = p.getEmailAddress();
-                    if (email == null || email.equalsIgnoreCase(primaryEmail)) continue;
-                    emails.add(email);
-                }
+                List<String> emails =
+                        fetchWriterEmails(primaryDrive, rootFolderId, primaryEmail);
 
                 if (emails.isEmpty()) {
                     callback.onSuccess(List.of());
                     return;
                 }
 
-                int workers = Math.min(MAX_PARALLEL_WORKERS, emails.size());
+                int availableCpus = Runtime.getRuntime().availableProcessors();
+                int workers = Math.max(
+                        1,
+                        Math.min(emails.size(), availableCpus)
+                );
 
-                try (ExecutorService workerPool =
-                             Executors.newFixedThreadPool(workers)) {
+                Log.d(
+                        TAG,
+                        "fetch start emails=" + emails.size()
+                                + " cpu=" + availableCpus
+                                + " workers=" + workers
+                );
 
-                    List<Future<TrustedAccount>> futures =
-                            new ArrayList<>(emails.size());
+                List<TrustedAccount> result =
+                        fetchAccountsParallel(appContext, emails, workers);
 
-                    for (String email : emails) {
-                        futures.add(workerPool.submit(() -> {
-                            int attempts = MAX_ATTEMPTS;
-                            while (attempts-- > 0) {
-                                try {
-                                    Drive drive =
-                                            DriveClientProvider.forAccount(appContext, email);
-                                    return DriveStorageRepository
-                                            .fetchStorageInfo(drive, email);
-                                } catch (Exception e) {
-                                    Log.w(TAG, "Failed once: " + email);
-                                    SystemClock.sleep(RETRY_DELAY_MS);
-                                }
-                            }
-                            Log.w(TAG, "Failed twice: " + email);
-                            return null;
-                        }));
-                    }
+                Log.d(
+                        TAG,
+                        "fetch done accounts=" + result.size()
+                                + " took=" + (SystemClock.elapsedRealtime() - startMs) + "ms"
+                );
 
-                    List<TrustedAccount> result =
-                            new ArrayList<>(emails.size());
-
-                    for (Future<TrustedAccount> f : futures) {
-                        try {
-                            TrustedAccount account = f.get();
-                            if (account != null) result.add(account);
-                        } catch (Exception ignore) {}
-                    }
-
-                    Log.d(TAG, "accounts took "
-                            + (SystemClock.elapsedRealtime() - permEnd)
-                            + " ms, accounts=" + result.size());
-                    Log.d(TAG, "fetchTrustedAccounts TOTAL took "
-                            + (SystemClock.elapsedRealtime() - start)
-                            + " ms, accounts=" + result.size());
-
-                    callback.onSuccess(result);
-                }
+                callback.onSuccess(result);
 
             } catch (Exception e) {
                 Log.e(TAG, "fetchTrustedAccounts failed", e);
@@ -130,4 +93,93 @@ public final class TrustedAccountsFetchWorker {
         });
     }
 
+
+    /* ==========================================================
+     * Helpers
+     * ========================================================== */
+
+    private static List<String> fetchWriterEmails(
+            Drive primaryDrive,
+            String rootFolderId,
+            String primaryEmail
+    ) throws Exception {
+
+        PermissionList permissions =
+                primaryDrive.permissions()
+                        .list(rootFolderId)
+                        .setFields("permissions(emailAddress,role,type)")
+                        .execute();
+
+        List<String> emails = new ArrayList<>();
+
+        for (Permission p : permissions.getPermissions()) {
+            if (!"user".equals(p.getType())) continue;
+            if (!"writer".equals(p.getRole())) continue;
+
+            String email = p.getEmailAddress();
+            if (email == null || email.equalsIgnoreCase(primaryEmail)) continue;
+
+            emails.add(email);
+        }
+
+        return emails;
+    }
+
+    private static List<TrustedAccount> fetchAccountsParallel(
+            Context appContext,
+            List<String> emails,
+            int workers
+    ) {
+
+        List<Future<TrustedAccount>> futures =
+                new ArrayList<>(emails.size());
+
+        List<TrustedAccount> result =
+                new ArrayList<>(emails.size());
+
+        try (ExecutorService pool =
+                     Executors.newFixedThreadPool(workers)) {
+
+            for (String email : emails) {
+                futures.add(
+                        pool.submit(() -> fetchWithRetry(appContext, email))
+                );
+            }
+
+            for (Future<TrustedAccount> f : futures) {
+                try {
+                    TrustedAccount account = f.get();
+                    if (account != null) {
+                        result.add(account);
+                    }
+                } catch (Exception ignore) {
+                    // individual account failures are tolerated
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static TrustedAccount fetchWithRetry(
+            Context appContext,
+            String email
+    ) {
+        int attempts = MAX_ATTEMPTS;
+
+        while (attempts-- > 0) {
+            try {
+                Drive drive =
+                        DriveClientProvider.forAccount(appContext, email);
+
+                return DriveStorageRepository
+                        .fetchStorageInfo(drive, email);
+
+            } catch (Exception e) {
+                SystemClock.sleep(RETRY_DELAY_MS);
+            }
+        }
+
+        return null;
+    }
 }
