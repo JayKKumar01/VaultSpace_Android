@@ -310,5 +310,6 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     public void shutdown() {
         controlExecutor.shutdownNow();
         uploadExecutor.shutdownNow();
+        queueEngine.cancelAll();
     }
 }

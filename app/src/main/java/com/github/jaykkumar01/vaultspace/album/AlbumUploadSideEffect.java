@@ -20,6 +20,7 @@ public final class AlbumUploadSideEffect implements UploadSideEffect {
 
     @Override
     public void onUploadSuccess(@NonNull String albumId, @NonNull UploadedItem item){
+        UserSession userSession = new UserSession(appContext);
         AlbumMedia media=new AlbumMedia(item);
         new UserSession(appContext)
                 .getVaultCache()

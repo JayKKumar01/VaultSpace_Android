@@ -8,7 +8,6 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
-import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
@@ -18,9 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 final class AlbumMediaFetcher {
 
@@ -38,48 +34,29 @@ final class AlbumMediaFetcher {
         this.thumbnailResolver = new DriveThumbnailResolver(appContext);
     }
 
-    @NonNull
-    List<AlbumMedia> fetch(@NonNull List<TrustedAccount> accounts) throws Exception {
+    public List<AlbumMedia> getMedia(Drive drive) throws Exception {
         long startMs = System.currentTimeMillis();
-        int cpu = Runtime.getRuntime().availableProcessors();
-        int threads = Math.max(1, Math.min(accounts.size(), cpu - 1));
-
-        Log.d(TAG, "fetch start albumId=" + albumId
-                + " accounts=" + accounts.size()
-                + " cpu=" + cpu
-                + " threads=" + threads);
-
         Map<String, AlbumMedia> unique = new ConcurrentHashMap<>();
-        List<Future<?>> tasks = new ArrayList<>();
 
-        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
-            for (TrustedAccount account : accounts) {
-                tasks.add(executor.submit(() -> {
-                    fetchFromAccount(account, unique);
-                    return null;
-                }));
-            }
-            for (Future<?> f : tasks) f.get();
-        }
+        fetchFromAccountInternal(drive, unique);
 
         List<AlbumMedia> result = new ArrayList<>(unique.values());
         result.sort((a, b) -> Long.compare(b.modifiedTime, a.modifiedTime));
 
-        Log.d(TAG, "fetch done albumId=" + albumId
+        Log.d(TAG, "fetch single account albumId=" + albumId
                 + " items=" + result.size()
                 + " took=" + (System.currentTimeMillis() - startMs) + "ms");
 
         return result;
     }
 
-    private void fetchFromAccount(@NonNull TrustedAccount account,
-                                  @NonNull Map<String, AlbumMedia> out) throws Exception {
+    private void fetchFromAccountInternal(@NonNull Drive drive,
+                                          @NonNull Map<String, AlbumMedia> out) throws Exception {
         int attempts = 0;
         Exception lastError = null;
 
         while (attempts < MAX_ATTEMPTS) {
             try {
-                Drive drive = DriveClientProvider.forAccount(appContext, account.email);
                 FileList list = drive.files().list()
                         .setQ("'" + albumId + "' in parents and trashed=false")
                         .setFields("files(id,name,mimeType,modifiedTime,size,thumbnailLink,appProperties)")
@@ -88,15 +65,14 @@ final class AlbumMediaFetcher {
                 if (list.getFiles() != null) {
                     for (File f : list.getFiles()) {
                         out.computeIfAbsent(f.getId(),
-                                id -> createAlbumMedia(account.email, f));
+                                id -> createAlbumMedia(f));
                     }
                 }
                 return;
             } catch (Exception e) {
                 lastError = e;
                 attempts++;
-                Log.w(TAG, "fetch failed account=" + account.email
-                        + " attempt=" + attempts, e);
+                Log.w(TAG, "fetch failed, attempt=" + attempts, e);
 
                 if (attempts < MAX_ATTEMPTS) {
                     SystemClock.sleep(RETRY_DELAY_MS);
@@ -107,9 +83,9 @@ final class AlbumMediaFetcher {
         throw lastError;
     }
 
-    private AlbumMedia createAlbumMedia(@NonNull String email,
-                                        @NonNull File file) {
-        String thumbRef = thumbnailResolver.resolve(email, file);
+    private AlbumMedia createAlbumMedia(@NonNull File file) {
+
+        String thumbRef = thumbnailResolver.resolve(file);
         UploadedItem item = new UploadedItem(
                 file.getId(),
                 file.getName(),

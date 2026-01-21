@@ -28,6 +28,7 @@ import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
+import com.google.api.services.drive.model.Permission;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -36,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class UploadDriveHelper {
@@ -49,10 +52,6 @@ public final class UploadDriveHelper {
     private static final int CHUNK_MEDIUM = 512 * 1024;              // 512 KB
     private static final int CHUNK_LARGE = 1024 * 1024;             // 1 MB
     private final Drive primaryDrive;
-
-    public interface UploadProgressListener {
-        void onProgress(String name, long uploadedBytes, long totalBytes);
-    }
 
     public enum FailureReason {
         NO_TRUSTED_ACCOUNT(true),
@@ -90,11 +89,14 @@ public final class UploadDriveHelper {
     private final Context appContext;
     private final ContentResolver resolver;
     private final TrustedAccountsCache trustedCache;
+    private final String primaryEmail;
+
 
     public UploadDriveHelper(@NonNull Context context) {
         appContext = context.getApplicationContext();
         resolver = appContext.getContentResolver();
         UserSession userSession = new UserSession(appContext);
+        this.primaryEmail = userSession.getPrimaryAccountEmail();
         this.primaryDrive = DriveClientProvider.forAccount(appContext,userSession.getPrimaryAccountEmail());
         trustedCache = userSession.getVaultCache().trustedAccounts;
     }
@@ -144,7 +146,7 @@ public final class UploadDriveHelper {
         AbstractInputStreamContent content =
                 buildContent(selection.uri, selection.mimeType, info.sizeBytes);
 
-        return uploadPreparedFile(groupId,drive, metadata, content, progress, info.sizeBytes);
+        return uploadPreparedFile(groupId, drive, metadata, content, progress, info.sizeBytes);
     }
 
     /* ================= Utilities ================= */
@@ -297,6 +299,7 @@ public final class UploadDriveHelper {
             throw new UploadFailure(FailureReason.DRIVE_ERROR, "Drive upload failed", e);
         }
     }
+
 
     private static String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " B";

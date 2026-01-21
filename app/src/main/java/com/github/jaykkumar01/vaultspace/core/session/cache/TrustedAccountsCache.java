@@ -94,6 +94,27 @@ public final class TrustedAccountsCache extends VaultCache {
         accountsByEmail.put(account.email, account);
     }
 
+    public void recordUploadUsage(String email, long uploadedBytes) {
+        if (!isInitialized() || email == null || uploadedBytes <= 0) return;
+
+        TrustedAccount old = accountsByEmail.get(email);
+        if (old == null) return;
+
+        long newUsed = old.usedQuota + uploadedBytes;
+        long newFree = Math.max(0, old.totalQuota - newUsed);
+
+        accountsByEmail.put(
+                email,
+                new TrustedAccount(
+                        old.email,
+                        old.totalQuota,
+                        newUsed,
+                        newFree
+                )
+        );
+    }
+
+
     public void removeAccount(String email) {
         if (!isInitialized() || email == null) return;
 

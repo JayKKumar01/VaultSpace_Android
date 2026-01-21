@@ -170,7 +170,12 @@ public final class PrimaryAccountConsentHelper {
                     credential
             ).setApplicationName("VaultSpace").build();
 
-            drive.about().get().setFields("user").execute();
+            drive.files()
+                    .list()
+                    .setPageSize(1)
+                    .setFields("files(id)")
+                    .execute();
+
             credential.getToken();
 
             return ConsentResult.GRANTED;

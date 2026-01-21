@@ -138,4 +138,7 @@ public class Notes {
 
 
 
+    // before adding https://www.googleapis.com/auth/drive, make sure you delete the files first from owner's id
+
+    //update the count of storage on success
 }

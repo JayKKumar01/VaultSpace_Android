@@ -18,6 +18,7 @@ import com.google.gson.annotations.SerializedName;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -157,11 +158,24 @@ public final class PrimaryUserCoordinator {
             @NonNull String email
     ) throws Exception {
 
-        GoogleAccountCredential credential =
-                GoogleCredentialFactory.forProfile(context, email);
+        String token = GoogleCredentialFactory.forProfile(context, email).getToken();
 
-        String token = credential.getToken();
+        InputStreamReader reader = getStreamReader(token);
 
+        RawProfile raw =
+                GSON.fromJson(reader, RawProfile.class);
+        reader.close();
+
+        Bitmap photo = null;
+        if (raw.picture != null) {
+            photo = downloadBitmap(normalizePhotoUrl(raw.picture));
+        }
+
+        return new ProfileData(raw.name, photo);
+    }
+
+    @NonNull
+    private static InputStreamReader getStreamReader(String token) throws IOException {
         HttpURLConnection conn =
                 (HttpURLConnection) new URL(USERINFO_URL).openConnection();
         conn.setRequestMethod("GET");
@@ -178,19 +192,7 @@ public final class PrimaryUserCoordinator {
             );
         }
 
-        InputStreamReader reader =
-                new InputStreamReader(conn.getInputStream());
-
-        RawProfile raw =
-                GSON.fromJson(reader, RawProfile.class);
-        reader.close();
-
-        Bitmap photo = null;
-        if (raw.picture != null) {
-            photo = downloadBitmap(normalizePhotoUrl(raw.picture));
-        }
-
-        return new ProfileData(raw.name, photo);
+        return new InputStreamReader(conn.getInputStream());
     }
 
     /* ==========================================================

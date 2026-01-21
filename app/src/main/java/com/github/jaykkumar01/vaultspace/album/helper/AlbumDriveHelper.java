@@ -8,8 +8,10 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
-import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
+import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
+import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.google.api.services.drive.Drive;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -25,9 +27,8 @@ import java.util.concurrent.ExecutorService;
 public final class AlbumDriveHelper {
 
     private static final String TAG = "VaultSpace:AlbumDrive";
-
-    private final TrustedAccountsRepository trustedRepo;
     private final AlbumMediaFetcher fetcher;
+    private final Drive primaryDrive;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public interface FetchCallback {
@@ -40,7 +41,8 @@ public final class AlbumDriveHelper {
             @NonNull String albumId
     ) {
         Context appContext = context.getApplicationContext();
-        this.trustedRepo = new TrustedAccountsRepository(appContext);
+        UserSession userSession = new UserSession(context);
+        this.primaryDrive = DriveClientProvider.forAccount(context,userSession.getPrimaryAccountEmail());
         this.fetcher = new AlbumMediaFetcher(appContext, albumId);
     }
 
@@ -50,23 +52,11 @@ public final class AlbumDriveHelper {
     ) {
         Log.d(TAG, "fetch start");
 
-        trustedRepo.getAccounts(new TrustedAccountsRepository.Callback() {
-            @Override
-            public void onResult(@NonNull List<TrustedAccount> accounts) {
-
-                executor.execute(() -> {
-                    try {
-                        List<AlbumMedia> result =
-                                fetcher.fetch(accounts);
-                        postResult(callback, result);
-                    } catch (Exception e) {
-                        postError(callback, e);
-                    }
-                });
-            }
-
-            @Override
-            public void onError(@NonNull Exception e) {
+        executor.execute(() -> {
+            try {
+                List<AlbumMedia> result = fetcher.getMedia(primaryDrive);
+                postResult(callback, result);
+            } catch (Exception e) {
                 postError(callback, e);
             }
         });

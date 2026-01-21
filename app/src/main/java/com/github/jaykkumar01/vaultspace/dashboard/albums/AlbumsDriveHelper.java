@@ -10,10 +10,13 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
+import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
+import com.google.api.services.drive.model.Permission;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class AlbumsDriveHelper {
 
     private static final String TAG = "VaultSpace:AlbumsDrive";
-    private static final long OP_TIMEOUT_MS = 10_000;
+    private static final long OP_TIMEOUT_MS = 20_000;
 
     private final Drive primaryDrive;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());

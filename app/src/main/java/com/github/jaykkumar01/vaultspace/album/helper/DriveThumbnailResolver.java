@@ -44,7 +44,6 @@ public final class DriveThumbnailResolver {
      */
     @Nullable
     public String resolve(
-            @NonNull String accountEmail,
             @NonNull File file
     ) {
         String mime = file.getMimeType();
@@ -60,10 +59,7 @@ public final class DriveThumbnailResolver {
             Map<String, String> props = file.getAppProperties();
             if (props == null) return null;
 
-            String thumbId = props.get("thumb");
-            if (thumbId == null) return null;
-
-            return accountEmail + SEP + thumbId;
+            return props.get("thumb");
         }
 
         return null;

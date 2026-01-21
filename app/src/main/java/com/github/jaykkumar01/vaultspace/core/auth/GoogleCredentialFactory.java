@@ -39,7 +39,7 @@ public final class GoogleCredentialFactory {
                 context,
                 email,
                 Arrays.asList(
-                        "https://www.googleapis.com/auth/drive.file",
+                        "https://www.googleapis.com/auth/drive",
                         "https://www.googleapis.com/auth/userinfo.profile"
                 )
         );
