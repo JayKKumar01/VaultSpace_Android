@@ -48,9 +48,12 @@ public final class UploadDriveHelper {
     /* -------- Upload tuning (LOCKED) -------- */
     private static final long DIRECT_UPLOAD_MAX = 256L * 1024L;          // ≤256 KB
     private static final long MEDIUM_FILE_MAX = 10L * 1024L * 1024L;     // ≤10 MB
-    private static final int CHUNK_SMALL = MediaHttpUploader.MINIMUM_CHUNK_SIZE; // 256 KB
-    private static final int CHUNK_MEDIUM = 512 * 1024;              // 512 KB
-    private static final int CHUNK_LARGE = 1024 * 1024;             // 1 MB
+
+    // NEW (speed-optimized)
+    private static final int CHUNK_SMALL  = 2 * 512 * 1024;
+    private static final int CHUNK_MEDIUM = 4 * 1024 * 1024;   // 4 MB
+    private static final int CHUNK_LARGE  = 8 * 1024 * 1024;   // 8 MB
+
     private final Drive primaryDrive;
 
     public enum FailureReason {
@@ -89,14 +92,12 @@ public final class UploadDriveHelper {
     private final Context appContext;
     private final ContentResolver resolver;
     private final TrustedAccountsCache trustedCache;
-    private final String primaryEmail;
 
 
     public UploadDriveHelper(@NonNull Context context) {
         appContext = context.getApplicationContext();
         resolver = appContext.getContentResolver();
         UserSession userSession = new UserSession(appContext);
-        this.primaryEmail = userSession.getPrimaryAccountEmail();
         this.primaryDrive = DriveClientProvider.forAccount(appContext,userSession.getPrimaryAccountEmail());
         trustedCache = userSession.getVaultCache().trustedAccounts;
     }
@@ -146,9 +147,10 @@ public final class UploadDriveHelper {
         AbstractInputStreamContent content =
                 buildContent(selection.uri, selection.mimeType, info.sizeBytes);
 
-        return uploadPreparedFile(groupId, drive, metadata, content, progress, info.sizeBytes);
+        UploadedItem item = uploadPreparedFile(groupId, drive, metadata, content, progress, info.sizeBytes);
+        trustedCache.recordUploadUsage(email, info.sizeBytes);
+        return item;
     }
-
     /* ================= Utilities ================= */
 
     private String uploadVideoThumbnail(
@@ -239,6 +241,7 @@ public final class UploadDriveHelper {
             req.setFields("id,name,mimeType,size,modifiedTime,thumbnailLink");
 
             MediaHttpUploader u = req.getMediaHttpUploader();
+
 
             if (fileSize <= DIRECT_UPLOAD_MAX) {
                 u.setDirectUploadEnabled(true);

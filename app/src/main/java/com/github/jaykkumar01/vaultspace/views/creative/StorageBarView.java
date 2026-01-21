@@ -128,19 +128,31 @@ public final class StorageBarView extends View {
     /* ---------- public ---------- */
 
     public void setUsage(float used, float total, @NonNull String unit) {
-        if (hasUsage) return;
-        hasUsage = true;
-        stopSweep();
+
+        boolean firstUsage = !hasUsage;
 
         this.used = used;
         this.total = total;
         this.unit = unit;
-        fraction = total <= 0f ? 0f : Math.min(1f, used / total);
 
+        float newFraction = total <= 0f ? 0f : Math.min(1f, used / total);
+
+        // Only stop sweep on FIRST real usage
+        if (firstUsage) {
+            hasUsage = true;
+            stopSweep();
+        }
+
+        // Update fraction every time
+        fraction = newFraction;
+
+        // Re-measure text if value changed
         contentWidth = textPaint.measureText(text());
+
         requestLayout();
         invalidate();
     }
+
 
     /* ---------- lifecycle ---------- */
 

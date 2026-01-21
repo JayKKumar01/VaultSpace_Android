@@ -10,26 +10,25 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
-import com.google.api.services.drive.model.Permission;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Executors;
 
 public final class AlbumsDriveHelper {
 
     private static final String TAG = "VaultSpace:AlbumsDrive";
-    private static final long OP_TIMEOUT_MS = 20_000;
 
     private final Drive primaryDrive;
+    private final Context appContext;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     /* ==========================================================
@@ -60,26 +59,25 @@ public final class AlbumsDriveHelper {
      * Constructor
      * ========================================================== */
 
-    public AlbumsDriveHelper(Context context) {
-        UserSession session = new UserSession(context);
+    public AlbumsDriveHelper(@NonNull Context context) {
+        appContext = context.getApplicationContext();
+        UserSession session = new UserSession(appContext);
         String email = session.getPrimaryAccountEmail();
-        primaryDrive = DriveClientProvider.forAccount(context, email);
+        primaryDrive = DriveClientProvider.forAccount(appContext, email);
         Log.d(TAG, "Initialized primaryDrive for " + email);
     }
 
     /* ==========================================================
-     * Fetch albums (ALWAYS Drive)
+     * Fetch albums
      * ========================================================== */
 
     public void fetchAlbums(
-            ExecutorService executor,
-            FetchCallback callback
+            @NonNull ExecutorService executor,
+            @NonNull FetchCallback callback
     ) {
         executor.execute(() -> {
             try {
-                String rootId =
-                        DriveFolderRepository.getAlbumsRootId(primaryDrive);
-
+                String rootId = DriveFolderRepository.getAlbumsRootId(primaryDrive);
                 if (rootId == null) {
                     postResult(callback, List.of());
                     return;
@@ -109,43 +107,24 @@ public final class AlbumsDriveHelper {
      * ========================================================== */
 
     public void createAlbum(
-            ExecutorService executor,
-            String albumName,
-            CreateAlbumCallback callback
+            @NonNull ExecutorService executor,
+            @NonNull String albumName,
+            @NonNull CreateAlbumCallback callback
     ) {
-        String trimmed = albumName == null ? "" : albumName.trim();
-        if (trimmed.isEmpty()) {
-            callback.onError(
-                    new IllegalArgumentException("Album name is empty")
-            );
+        String name = albumName.trim();
+        if (name.isEmpty()) {
+            callback.onError(new IllegalArgumentException("Album name is empty"));
             return;
         }
 
-        AtomicBoolean completed = new AtomicBoolean(false);
-        Runnable timeout = () -> failOnce(
-                completed, callback,
-                new TimeoutException("Album creation timed out")
-        );
-        mainHandler.postDelayed(timeout, OP_TIMEOUT_MS);
-
         executor.execute(() -> {
             try {
-                String rootId =
-                        DriveFolderRepository.getAlbumsRootId(primaryDrive);
-
-                File created = DriveFolderRepository.createFolder(
-                        primaryDrive, trimmed, rootId
-                );
-
-                AlbumInfo album = toAlbumInfo(created);
-
-                succeedOnce(completed, timeout, () ->
-                        callback.onSuccess(album)
-                );
-
+                String rootId = DriveFolderRepository.getAlbumsRootId(primaryDrive);
+                File created = DriveFolderRepository.createFolder(primaryDrive, name, rootId);
+                postSuccess(callback, toAlbumInfo(created));
             } catch (Exception e) {
                 Log.e(TAG, "Failed to create album", e);
-                failOnce(completed, callback, e);
+                postError(callback, e);
             }
         });
     }
@@ -155,69 +134,105 @@ public final class AlbumsDriveHelper {
      * ========================================================== */
 
     public void renameAlbum(
-            ExecutorService executor,
-            String albumId,
-            String newName,
-            RenameAlbumCallback callback
+            @NonNull ExecutorService executor,
+            @NonNull String albumId,
+            @NonNull String newName,
+            @NonNull RenameAlbumCallback callback
     ) {
-        AtomicBoolean completed = new AtomicBoolean(false);
-        Runnable timeout = () -> failOnce(
-                completed, callback,
-                new TimeoutException("Album rename timed out")
-        );
-        mainHandler.postDelayed(timeout, OP_TIMEOUT_MS);
-
         executor.execute(() -> {
             try {
-                File update = new File();
-                update.setName(newName);
-
+                File update = new File().setName(newName);
                 File updated = primaryDrive.files()
                         .update(albumId, update)
                         .setFields("id,name,createdTime,modifiedTime")
                         .execute();
 
-                AlbumInfo album = toAlbumInfo(updated);
-
-                succeedOnce(completed, timeout, () ->
-                        callback.onSuccess(album)
-                );
+                postSuccess(callback, toAlbumInfo(updated));
 
             } catch (Exception e) {
                 Log.e(TAG, "Failed to rename album " + albumId, e);
-                failOnce(completed, callback, e);
+                postError(callback, e);
             }
         });
     }
 
     /* ==========================================================
-     * Delete album
+     * Delete album (owner-aware)
      * ========================================================== */
 
     public void deleteAlbum(
-            ExecutorService executor,
-            String albumId,
-            DeleteAlbumCallback callback
+            @NonNull ExecutorService executor,
+            @NonNull String albumId,
+            @NonNull DeleteAlbumCallback callback
     ) {
-        AtomicBoolean completed = new AtomicBoolean(false);
-        Runnable timeout = () -> failOnce(
-                completed, callback,
-                new TimeoutException("Album deletion timed out")
-        );
-        mainHandler.postDelayed(timeout, OP_TIMEOUT_MS);
-
         executor.execute(() -> {
             try {
-                primaryDrive.files().delete(albumId).execute();
-                succeedOnce(completed, timeout, () ->
-                        callback.onSuccess(albumId)
-                );
+                deleteAlbumContentsAndFolder(albumId);
+                postSuccess(callback, albumId);
             } catch (Exception e) {
                 Log.e(TAG, "Failed to delete album " + albumId, e);
-                failOnce(completed, callback, e);
+                postError(callback, e);
             }
         });
     }
+
+    private void deleteAlbumContentsAndFolder(@NonNull String albumId) throws Exception {
+
+        FileList list = primaryDrive.files().list()
+                .setQ("'" + albumId + "' in parents and trashed=false")
+                .setFields("files(id,owners(emailAddress))")
+                .execute();
+
+        if (list.getFiles() == null || list.getFiles().isEmpty()) {
+            primaryDrive.files().delete(albumId).execute();
+            Log.d(TAG, "Album deleted");
+            return;
+        }
+
+        Map<String, List<String>> byOwner = new HashMap<>();
+
+        for (File f : list.getFiles()) {
+            if (f.getOwners() == null || f.getOwners().isEmpty())
+                throw new IllegalStateException("Missing owner for file " + f.getId());
+
+            String owner = f.getOwners().get(0).getEmailAddress();
+            byOwner.computeIfAbsent(owner, k -> new ArrayList<>()).add(f.getId());
+        }
+
+        int cpu = Runtime.getRuntime().availableProcessors();
+        int threads = Math.max(1, Math.min(byOwner.size(), cpu - 1));
+
+        try (ExecutorService executor =
+                     Executors.newFixedThreadPool(threads)) {
+
+            List<Callable<Void>> tasks = new ArrayList<>();
+
+            for (var entry : byOwner.entrySet()) {
+                String ownerEmail = entry.getKey();
+                List<String> fileIds = entry.getValue();
+
+                tasks.add(() -> {
+                    Drive ownerDrive =
+                            DriveClientProvider.forAccount(appContext, ownerEmail);
+
+                    for (String fileId : fileIds) {
+                        ownerDrive.files().delete(fileId).execute();
+                    }
+                    return null;
+                });
+            }
+
+            tasks.add(() -> {
+                primaryDrive.files().delete(albumId).execute();
+                return null;
+            });
+
+            executor.invokeAll(tasks);
+        }
+
+        Log.d(TAG, "Album deleted");
+    }
+
 
     /* ==========================================================
      * Helpers
@@ -247,38 +262,24 @@ public final class AlbumsDriveHelper {
         mainHandler.post(() -> cb.onResult(albums));
     }
 
-    private void postError(FetchCallback cb, Exception e) {
-        mainHandler.post(() -> cb.onError(e));
+    private void postError(Object cb, Exception e) {
+        mainHandler.post(() -> {
+            if (cb instanceof FetchCallback) ((FetchCallback) cb).onError(e);
+            else if (cb instanceof CreateAlbumCallback) ((CreateAlbumCallback) cb).onError(e);
+            else if (cb instanceof RenameAlbumCallback) ((RenameAlbumCallback) cb).onError(e);
+            else if (cb instanceof DeleteAlbumCallback) ((DeleteAlbumCallback) cb).onError(e);
+        });
     }
 
-    private <T> void succeedOnce(
-            AtomicBoolean completed,
-            Runnable timeout,
-            Runnable success
-    ) {
-        if (completed.compareAndSet(false, true)) {
-            mainHandler.removeCallbacks(timeout);
-            mainHandler.post(success);
-        }
+    private void postSuccess(CreateAlbumCallback cb, AlbumInfo album) {
+        mainHandler.post(() -> cb.onSuccess(album));
     }
 
-    private <T> void failOnce(
-            AtomicBoolean completed,
-            Object callback,
-            Exception e
-    ) {
-        if (completed.compareAndSet(false, true)) {
-            mainHandler.post(() -> {
-                if (callback instanceof FetchCallback) {
-                    ((FetchCallback) callback).onError(e);
-                } else if (callback instanceof CreateAlbumCallback) {
-                    ((CreateAlbumCallback) callback).onError(e);
-                } else if (callback instanceof RenameAlbumCallback) {
-                    ((RenameAlbumCallback) callback).onError(e);
-                } else if (callback instanceof DeleteAlbumCallback) {
-                    ((DeleteAlbumCallback) callback).onError(e);
-                }
-            });
-        }
+    private void postSuccess(RenameAlbumCallback cb, AlbumInfo album) {
+        mainHandler.post(() -> cb.onSuccess(album));
+    }
+
+    private void postSuccess(DeleteAlbumCallback cb, String albumId) {
+        mainHandler.post(() -> cb.onSuccess(albumId));
     }
 }

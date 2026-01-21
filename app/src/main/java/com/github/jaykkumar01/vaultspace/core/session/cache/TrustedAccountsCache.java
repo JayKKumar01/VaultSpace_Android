@@ -3,8 +3,10 @@ package com.github.jaykkumar01.vaultspace.core.session.cache;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * TrustedAccountsCache
@@ -26,6 +28,29 @@ import java.util.Map;
  * - UI logic
  */
 public final class TrustedAccountsCache extends VaultCache {
+
+    public interface Listener {
+        void onAccountsChanged(Iterable<TrustedAccount> accounts);
+    }
+
+    private final Set<Listener> listeners = new HashSet<>();
+
+    public void addListener(Listener l) {
+        if (l != null) listeners.add(l);
+    }
+
+    public void removeListener(Listener l) {
+        if (l != null) listeners.remove(l);
+    }
+
+    private void notifyListeners() {
+        Iterable<TrustedAccount> snapshot = getAccountsView();
+        for (Listener l : listeners) {
+            l.onAccountsChanged(snapshot);
+        }
+    }
+
+
 
     /* ==========================================================
      * Storage
@@ -92,6 +117,7 @@ public final class TrustedAccountsCache extends VaultCache {
         if (!isInitialized() || account == null || account.email == null) return;
 
         accountsByEmail.put(account.email, account);
+        notifyListeners();
     }
 
     public void recordUploadUsage(String email, long uploadedBytes) {
@@ -112,6 +138,7 @@ public final class TrustedAccountsCache extends VaultCache {
                         newFree
                 )
         );
+        notifyListeners();
     }
 
 
@@ -119,6 +146,7 @@ public final class TrustedAccountsCache extends VaultCache {
         if (!isInitialized() || email == null) return;
 
         accountsByEmail.remove(email);
+        notifyListeners();
     }
 
     /* ==========================================================

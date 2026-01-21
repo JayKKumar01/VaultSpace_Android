@@ -239,13 +239,12 @@ public class DashboardActivity extends AppCompatActivity {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
 
-        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
 
         applyViewMode(VaultViewMode.ALBUMS);
         segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
         segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
 
-
+        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
 
         btnExpandVault.setOnClickListener(v -> {
             modalCoordinator.showLoading();
@@ -315,5 +314,6 @@ public class DashboardActivity extends AppCompatActivity {
         super.onDestroy();
         albumsUi.onRelease();
         filesUi.onRelease();
+        expandVaultHelper.release();
     }
 }

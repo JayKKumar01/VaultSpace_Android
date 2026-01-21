@@ -38,6 +38,8 @@ public final class ExpandVaultHelper {
         void onError(@NonNull String message);
     }
 
+
+
     /* ==========================================================
      * Core
      * ========================================================== */
@@ -55,6 +57,9 @@ public final class ExpandVaultHelper {
 
     private StorageStateListener storageListener;
     private ExpandAccountListener actionListener;
+
+    private final TrustedAccountsCache.Listener cacheListener = this::emitStorageState;
+
 
     /* ==========================================================
      * Constructor
@@ -77,12 +82,17 @@ public final class ExpandVaultHelper {
         this.consentHelper = new DriveConsentHelper(activity);
     }
 
+    public TrustedAccountsCache getCache() {
+        return cache;
+    }
+
     /* ==========================================================
      * Storage observation (REPO-BACKED)
      * ========================================================== */
-
-    public void observeVaultStorage(@NonNull StorageStateListener listener) {
-        this.storageListener = listener;
+    public void observeVaultStorage(StorageStateListener storageListener) {
+        this.storageListener = storageListener;
+        // 1️⃣ Listen to LIVE cache changes (uploads, retries, etc)
+        cache.addListener(cacheListener);
 
         repo.getAccounts(new TrustedAccountsRepository.Callback() {
             @Override
@@ -235,7 +245,9 @@ public final class ExpandVaultHelper {
 
     public void release() {
         executor.shutdown();
+        cache.removeListener(cacheListener);
         storageListener = null;
         actionListener = null;
     }
+
 }
