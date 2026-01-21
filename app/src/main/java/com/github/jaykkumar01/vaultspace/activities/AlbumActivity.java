@@ -151,6 +151,11 @@ public class AlbumActivity extends AppCompatActivity {
         public void onFailure(UploadSelection selection) {
             //TODO
         }
+
+        @Override
+        public void onProgress(String name, long uploadedBytes, long totalBytes) {
+            uploadStatusController.onProgress(name, uploadedBytes, totalBytes);
+        }
     };
 
     private final UploadStatusController.Callback uploadStatusCallback = new UploadStatusController.Callback() {

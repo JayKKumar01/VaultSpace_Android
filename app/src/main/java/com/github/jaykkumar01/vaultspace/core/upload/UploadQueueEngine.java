@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
+import android.content.Context;
+
 import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
@@ -13,11 +15,11 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-final class UploadQueueEngine {
+public final class UploadQueueEngine {
 
 
 
-    interface Callback {
+    public interface Callback {
         void onSuccess(UploadTask task, UploadedItem uploadedItem);
 
         void onFailure(UploadTask task, UploadDriveHelper.FailureReason reason);
@@ -25,6 +27,8 @@ final class UploadQueueEngine {
         void onCancelled(UploadTask task);
 
         void onIdle();
+
+        void onProgress(String groupId,String itemName, long uploadedBytes, long totalBytes);
     }
 
     private final ExecutorService controlExecutor;
@@ -39,10 +43,10 @@ final class UploadQueueEngine {
     private Future<?> runningUpload;
     private Callback callback;
 
-    UploadQueueEngine(ExecutorService controlExecutor, ExecutorService uploadExecutor, UploadDriveHelper uploadDriveHelper, UploadFailureStore failureStore, File thumbDir) {
+    UploadQueueEngine(Context appContext, ExecutorService controlExecutor, ExecutorService uploadExecutor, UploadFailureStore failureStore, File thumbDir) {
         this.controlExecutor = controlExecutor;
         this.uploadExecutor = uploadExecutor;
-        this.uploadDriveHelper = uploadDriveHelper;
+        this.uploadDriveHelper = new UploadDriveHelper(appContext);;
         this.failureStore = failureStore;
         this.thumbDir = thumbDir;
     }
@@ -56,7 +60,7 @@ final class UploadQueueEngine {
             queue.add(new UploadTask(groupId, s));
     }
 
-    void processQueue() {
+    public void processQueue() {
         if (current != null) return;
         if (queue.isEmpty()) {
             if (callback != null) callback.onIdle();
@@ -70,7 +74,7 @@ final class UploadQueueEngine {
 
     private void performUpload(UploadTask task) {
         try {
-            UploadedItem item = uploadDriveHelper.upload(task.groupId, task.selection,failureStore,thumbDir);
+            UploadedItem item = uploadDriveHelper.upload(task.groupId, task.selection,failureStore,thumbDir,callback);
             controlExecutor.execute(() -> handleSuccess(task, item));
         } catch (CancellationException e) {
             controlExecutor.execute(() -> handleCancelled(task));

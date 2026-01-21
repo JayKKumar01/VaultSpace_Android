@@ -10,4 +10,6 @@ public interface UploadObserver {
 
     void onSuccess(UploadedItem item);
     void onFailure(UploadSelection selection);
+
+    void onProgress(String name, long uploadedBytes, long totalBytes);
 }

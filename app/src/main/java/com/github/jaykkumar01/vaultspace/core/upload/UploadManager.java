@@ -38,7 +38,6 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService uploadExecutor = Executors.newSingleThreadExecutor();
-    private final ExecutorService thumbExecutor = Executors.newFixedThreadPool(2);
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -48,7 +47,6 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     private final UploadFailureStore failureStore;
     private final File thumbDir;
 
-    private final UploadDriveHelper uploadDriveHelper;
     private final UploadQueueEngine queueEngine;
     private final UploadSnapshotReducer snapshotReducer;
     private final UploadFailureCoordinator failureCoordinator;
@@ -70,9 +68,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
         thumbDir = new File(appContext.getFilesDir(), "upload_failures/thumbs");
 
-        uploadDriveHelper = new UploadDriveHelper(appContext);
-
-        queueEngine = new UploadQueueEngine(controlExecutor, uploadExecutor, uploadDriveHelper, failureStore, thumbDir);
+        queueEngine = new UploadQueueEngine(appContext, controlExecutor, uploadExecutor, failureStore, thumbDir);
         queueEngine.setCallback(this);
 
         snapshotReducer = new UploadSnapshotReducer(
@@ -138,8 +134,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     ) {
         controlExecutor.execute(() -> {
 
-            UploadSnapshot snapshot =
-                    snapshotReducer.mergeSnapshot(groupId, groupName, selections);
+            UploadSnapshot snapshot = snapshotReducer.mergeSnapshot(groupId, groupName, selections);
 
             emitSnapshot(groupId, snapshot);
 
@@ -149,11 +144,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
             //noinspection ResultOfMethodCallIgnored
             thumbDir.mkdirs();
 
-            failureCoordinator.recordFailuresIfMissingAsync(
-                    groupId,
-                    selections,
-                    thumbExecutor
-            );
+            failureCoordinator.recordFailuresIfMissingAsync(groupId, selections);
             failureCoordinator.recordRetriesIfMissing(groupId, selections);
 
             queueEngine.enqueue(groupId, selections);
@@ -220,6 +211,18 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     public void onIdle() {
         notifyStateChanged();
     }
+
+    @Override
+    public void onProgress(String groupId, String name, long uploadedBytes, long totalBytes) {
+        emitProgress(groupId, name, uploadedBytes, totalBytes);
+    }
+
+    private void emitProgress(String groupId, String name, long uploadedBytes, long totalBytes) {
+        UploadObserver o = observers.get(groupId);
+        if (o != null) mainHandler.post(() -> o.onProgress(name, uploadedBytes, totalBytes));
+    }
+
+
 
     /* ==========================================================
      * Cancel API
@@ -307,6 +310,5 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     public void shutdown() {
         controlExecutor.shutdownNow();
         uploadExecutor.shutdownNow();
-        thumbExecutor.shutdownNow();
     }
 }

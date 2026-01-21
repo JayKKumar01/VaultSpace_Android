@@ -17,6 +17,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 final class UploadFailureCoordinator {
 
@@ -36,20 +37,26 @@ final class UploadFailureCoordinator {
         this.thumbDir = thumbDir;
     }
 
-    void recordFailuresIfMissingAsync(String groupId, List<UploadSelection> selections, ExecutorService thumbExecutor) {
-        for (UploadSelection s : selections) {
-            if (failureStore.contains(groupId, s.uri.toString(), s.getType().name())) continue;
-            thumbExecutor.execute(() -> {
-                String name = UploadMetadataResolver.resolveDisplayName(appContext, s.uri);
-                String thumb = UploadThumbnailGenerator.generate(appContext, s.uri, s.getType(), thumbDir);
-                failureStore.addFailure(new UploadFailureEntity(
-                        0L, groupId, s.uri.toString(),
-                        name, s.getType().name(),
-                        thumb, UploadFailureReason.UNKNOWN.name()
-                ));
-            });
+    public void recordFailuresIfMissingAsync(String groupId, List<UploadSelection> selections) {
+        int cpu = Runtime.getRuntime().availableProcessors();
+        int threads = Math.max(1, cpu - 1);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
+            for (UploadSelection s : selections) {
+                if (failureStore.contains(groupId, s.uri.toString(), s.getType().name())) continue;
+                executor.execute(() -> {
+                    String name = UploadMetadataResolver.resolveDisplayName(appContext, s.uri);
+                    String thumb = UploadThumbnailGenerator.generate(appContext, s.uri, s.getType(), thumbDir);
+                    failureStore.addFailure(new UploadFailureEntity(
+                            0L, groupId, s.uri.toString(),
+                            name, s.getType().name(),
+                            thumb, UploadFailureReason.UNKNOWN.name()
+                    ));
+                });
+            }
         }
     }
+
 
 
     void recordRetriesIfMissing(String groupId, List<UploadSelection> selections) {

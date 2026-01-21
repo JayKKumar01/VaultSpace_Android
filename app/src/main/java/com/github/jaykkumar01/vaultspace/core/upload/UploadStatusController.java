@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
@@ -84,6 +86,16 @@ public final class UploadStatusController {
             callback.onAcknowledge();
         });
     }
+
+    public void onProgress(String name, long uploadedBytes, long totalBytes) {
+        Log.d(
+                "VaultSpace:UploadProgress",
+                "file=" + name +
+                        " uploaded=" + uploadedBytes +
+                        " total=" + totalBytes
+        );
+    }
+
 
 
 

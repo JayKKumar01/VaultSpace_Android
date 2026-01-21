@@ -13,6 +13,7 @@ import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
+import com.github.jaykkumar01.vaultspace.core.upload.UploadQueueEngine;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.UriFileInfo;
 import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
@@ -50,7 +51,7 @@ public final class UploadDriveHelper {
     private final Drive primaryDrive;
 
     public interface UploadProgressListener {
-        void onProgress(long uploadedBytes, long totalBytes);
+        void onProgress(String name, long uploadedBytes, long totalBytes);
     }
 
     public enum FailureReason {
@@ -100,7 +101,7 @@ public final class UploadDriveHelper {
 
     /* ================= Public API ================= */
 
-    public UploadedItem upload(@NonNull String groupId, @NonNull UploadSelection selection, UploadFailureStore failureStore, java.io.File thumbDir)
+    public UploadedItem upload(@NonNull String groupId, @NonNull UploadSelection selection, UploadFailureStore failureStore, java.io.File thumbDir, UploadQueueEngine.Callback progress)
             throws UploadFailure, CancellationException {
 
         Log.d(TAG, "upload start parentId=" + groupId + " uri=" + selection.uri);
@@ -143,13 +144,7 @@ public final class UploadDriveHelper {
         AbstractInputStreamContent content =
                 buildContent(selection.uri, selection.mimeType, info.sizeBytes);
 
-        UploadProgressListener progress = (u, t) ->
-                Log.d(TAG, "progress parentId=" + groupId +
-                        " uploaded=" + u +
-                        " total=" + t +
-                        " account=" + email);
-
-        return uploadPreparedFile(drive, metadata, content, progress, info.sizeBytes);
+        return uploadPreparedFile(groupId,drive, metadata, content, progress, info.sizeBytes);
     }
 
     /* ================= Utilities ================= */
@@ -230,10 +225,10 @@ public final class UploadDriveHelper {
     /* ================= Drive primitive (SMART UPLOAD) ================= */
 
     private UploadedItem uploadPreparedFile(
-            @NonNull Drive drive,
+            String groupId, @NonNull Drive drive,
             @NonNull File metadata,
             @NonNull AbstractInputStreamContent content,
-            @NonNull UploadProgressListener listener,
+            @NonNull UploadQueueEngine.Callback listener,
             long fileSize)
             throws UploadFailure, CancellationException {
 
@@ -256,7 +251,7 @@ public final class UploadDriveHelper {
 
             u.setProgressListener(p -> {
                 if (Thread.currentThread().isInterrupted()) throw new CancellationException();
-                listener.onProgress(p.getNumBytesUploaded(), content.getLength());
+                listener.onProgress(groupId, metadata.getName(), p.getNumBytesUploaded(), content.getLength());
             });
 
             File f = req.execute();

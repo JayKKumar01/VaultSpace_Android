@@ -129,6 +129,12 @@ public class Notes {
     // save the thumbnail or just upload the thumbnails directly to drive and get it via cache for video
 
     // video thumbs are big
+    
+
+    //Drive API rule (VaultSpace):
+    //When calling Drive APIs in loops or across accounts, always use parallel execution with workers = min(tasks, cpu - 1).
+    // Create one Drive client per task, aggregate results using thread-safe structures, and apply one bounded retry with a small delay (~250ms) on failure.
+    // Fail soft per task; never block others or retry aggressively.
 
 
 
