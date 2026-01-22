@@ -63,6 +63,8 @@ public class AlbumsContentView extends FrameLayout
         addView(addAlbumFab);
 
         deleteStatusView = new DeleteStatusView(context);
+        deleteStatusView.setOnDismissListener(() -> applyDeleteInset(false));
+
         LayoutParams lp = new LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT

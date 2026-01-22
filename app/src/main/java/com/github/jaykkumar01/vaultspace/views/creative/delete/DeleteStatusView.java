@@ -18,6 +18,16 @@ import com.github.jaykkumar01.vaultspace.views.creative.upload.MultiSegmentProgr
 
 public final class DeleteStatusView extends FrameLayout {
 
+    public interface OnDismissListener {
+        void onDismiss();
+    }
+
+    private OnDismissListener dismissListener;
+
+    public void setOnDismissListener(OnDismissListener l) {
+        this.dismissListener = l;
+    }
+
     private final TextView title;
     private final TextView cancel;
     private final MultiSegmentProgressBar progress;
@@ -95,7 +105,7 @@ public final class DeleteStatusView extends FrameLayout {
         progress.setFractions(new float[]{ m.progress });
 
         cancel.setOnClickListener(v -> {
-            hide();              // 👈 UI responsibility
+            hide(); // UI only
             if (m.onCancel != null) {
                 m.onCancel.onClick(v);
             }
@@ -105,8 +115,15 @@ public final class DeleteStatusView extends FrameLayout {
     }
 
     public void hide() {
-        setVisibility(GONE);
+        if (getVisibility() != GONE) {
+            setVisibility(GONE);
+            if (dismissListener != null) {
+                dismissListener.onDismiss();
+            }
+        }
     }
+
+
 
     /* ================= Styling ================= */
 

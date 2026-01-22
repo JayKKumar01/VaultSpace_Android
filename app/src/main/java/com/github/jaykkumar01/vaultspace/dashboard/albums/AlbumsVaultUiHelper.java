@@ -312,16 +312,20 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
                     @Override
                     public void onFileDeleting(String file, int done, int total) {
+                        if (deleteCancelled.get()) return;
+
                         albumsContentView.showDeleteStatus(
                                 deleteRenderer.render(
                                         album.name,
                                         file,
                                         done,
                                         total,
-                                        v -> deleteCancelled.set(true)
+                                        v -> deleteCancelled.set(true) // ONLY signal
                                 )
                         );
                     }
+
+
 
                     @Override
                     public void onCompleted() {
@@ -331,11 +335,14 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                     @Override
                     public void onError(Exception e) {
                         albumsContentView.hideDeleteStatus();
+
                         cache.addAlbum(album);
                         albumsContentView.addAlbum(album);
+
                         moveToState(UiState.CONTENT);
                         Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
                     }
+
                 },
                 deleteCancelled
         );
