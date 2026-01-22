@@ -146,4 +146,6 @@ public class Notes {
     // need to optimize upload speed in uploaddrivehelper
 
     // get the live update for storage while upload
+
+    // make the uplaods parrallel
 }

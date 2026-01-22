@@ -13,6 +13,8 @@ import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumsCache;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
+import com.github.jaykkumar01.vaultspace.views.creative.delete.DeleteProgressCallback;
+import com.github.jaykkumar01.vaultspace.views.creative.delete.DeleteStatusRenderer;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
@@ -24,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
@@ -39,6 +42,11 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     private boolean released;
 
     private AlbumsContentView albumsContentView;
+
+    private final DeleteStatusRenderer deleteRenderer = new DeleteStatusRenderer();
+    private final AtomicBoolean deleteCancelled = new AtomicBoolean(false);
+
+
 
     public AlbumsVaultUiHelper(
             Context context,
@@ -284,26 +292,55 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     }
 
     private void deleteAlbum(AlbumInfo album) {
+        deleteCancelled.set(false);
+
         cache.removeAlbum(album.id);
         albumsContentView.deleteAlbum(album.id);
-
         if (albumsContentView.isEmpty()) moveToState(UiState.EMPTY);
 
-        drive.deleteAlbum(executor, album.id,
-                new AlbumsDriveHelper.DeleteAlbumCallback() {
+        drive.deleteAlbum(
+                executor,
+                album.id,
+                new DeleteProgressCallback() {
+
+                    int total = 1;
+
                     @Override
-                    public void onSuccess(String albumId) {}
+                    public void onStart(int totalFiles) {
+                        total = Math.max(1, totalFiles);
+                    }
+
+                    @Override
+                    public void onFileDeleting(String file, int done, int total) {
+                        albumsContentView.showDeleteStatus(
+                                deleteRenderer.render(
+                                        album.name,
+                                        file,
+                                        done,
+                                        total,
+                                        v -> deleteCancelled.set(true)
+                                )
+                        );
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        albumsContentView.hideDeleteStatus();
+                    }
 
                     @Override
                     public void onError(Exception e) {
-                        if (released) return;
+                        albumsContentView.hideDeleteStatus();
                         cache.addAlbum(album);
                         albumsContentView.addAlbum(album);
                         moveToState(UiState.CONTENT);
                         Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
                     }
-                });
+                },
+                deleteCancelled
+        );
     }
+
 
     /* ==========================================================
      * State & lifecycle

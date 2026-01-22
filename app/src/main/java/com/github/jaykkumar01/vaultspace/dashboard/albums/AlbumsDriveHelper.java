@@ -10,7 +10,9 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
+import com.github.jaykkumar01.vaultspace.views.creative.delete.DeleteProgressCallback;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
@@ -22,6 +24,8 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class AlbumsDriveHelper {
 
@@ -30,6 +34,8 @@ public final class AlbumsDriveHelper {
     private final Drive primaryDrive;
     private final Context appContext;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final TrustedAccountsCache trustedAccountsCache;
+
 
     /* ==========================================================
      * Callbacks
@@ -64,6 +70,8 @@ public final class AlbumsDriveHelper {
         UserSession session = new UserSession(appContext);
         String email = session.getPrimaryAccountEmail();
         primaryDrive = DriveClientProvider.forAccount(appContext, email);
+        trustedAccountsCache = session.getVaultCache().trustedAccounts;
+
         Log.d(TAG, "Initialized primaryDrive for " + email);
     }
 
@@ -163,76 +171,104 @@ public final class AlbumsDriveHelper {
     public void deleteAlbum(
             @NonNull ExecutorService executor,
             @NonNull String albumId,
-            @NonNull DeleteAlbumCallback callback
+            @NonNull DeleteProgressCallback callback,
+            @NonNull AtomicBoolean cancelled
     ) {
         executor.execute(() -> {
             try {
-                deleteAlbumContentsAndFolder(albumId);
-                postSuccess(callback, albumId);
+                deleteAlbumContentsAndFolder(albumId, callback, cancelled);
+                if (!cancelled.get()) post(callback::onCompleted);
             } catch (Exception e) {
-                Log.e(TAG, "Failed to delete album " + albumId, e);
-                postError(callback, e);
+                if (!cancelled.get()) post(() -> callback.onError(e));
             }
         });
     }
 
-    private void deleteAlbumContentsAndFolder(@NonNull String albumId) throws Exception {
+    private void deleteAlbumContentsAndFolder(
+            @NonNull String albumId,
+            @NonNull DeleteProgressCallback cb,
+            @NonNull AtomicBoolean cancelled
+    ) throws Exception {
 
         FileList list = primaryDrive.files().list()
                 .setQ("'" + albumId + "' in parents and trashed=false")
-                .setFields("files(id,owners(emailAddress))")
+                .setFields("files(id,name,size,owners(emailAddress))")
                 .execute();
 
-        if (list.getFiles() == null || list.getFiles().isEmpty()) {
-            primaryDrive.files().delete(albumId).execute();
-            Log.d(TAG, "Album deleted");
+        List<File> files = list.getFiles();
+        if (files == null || files.isEmpty()) {
+            if (!cancelled.get()) {
+                primaryDrive.files().delete(albumId).execute();
+            }
+            post(() -> cb.onStart(0));
             return;
         }
 
-        Map<String, List<String>> byOwner = new HashMap<>();
+        final int total = files.size();
+        post(() -> cb.onStart(total));
 
-        for (File f : list.getFiles()) {
-            if (f.getOwners() == null || f.getOwners().isEmpty())
-                throw new IllegalStateException("Missing owner for file " + f.getId());
+        /* ---------- Group files by owner ---------- */
 
+        Map<String, List<File>> byOwner = new HashMap<>();
+        for (File f : files) {
+            if (f.getOwners() == null || f.getOwners().isEmpty()) continue;
             String owner = f.getOwners().get(0).getEmailAddress();
-            byOwner.computeIfAbsent(owner, k -> new ArrayList<>()).add(f.getId());
+            byOwner.computeIfAbsent(owner, k -> new ArrayList<>()).add(f);
         }
 
-        int cpu = Runtime.getRuntime().availableProcessors();
-        int threads = Math.max(1, Math.min(byOwner.size(), cpu - 1));
+        AtomicInteger deletedCount = new AtomicInteger(0);
 
-        try (ExecutorService executor =
+        int cpu = Runtime.getRuntime().availableProcessors();
+        int threads = Math.max(1, Math.min(byOwner.size(), Math.min(cpu, 4)));
+
+        /* ---------- Parallel delete per owner ---------- */
+
+        try (ExecutorService ownerExecutor =
                      Executors.newFixedThreadPool(threads)) {
 
             List<Callable<Void>> tasks = new ArrayList<>();
 
-            for (var entry : byOwner.entrySet()) {
-                String ownerEmail = entry.getKey();
-                List<String> fileIds = entry.getValue();
+            for (Map.Entry<String, List<File>> entry : byOwner.entrySet()) {
+                final String ownerEmail = entry.getKey();
+                final List<File> ownerFiles = entry.getValue();
 
                 tasks.add(() -> {
                     Drive ownerDrive =
                             DriveClientProvider.forAccount(appContext, ownerEmail);
 
-                    for (String fileId : fileIds) {
-                        ownerDrive.files().delete(fileId).execute();
+                    for (File f : ownerFiles) {
+                        if (cancelled.get()) return null;
+
+                        ownerDrive.files().delete(f.getId()).execute();
+
+                        int done = deletedCount.incrementAndGet();
+                        post(() -> cb.onFileDeleting(f.getName(), done, total));
+
+                        // Storage refund (safe, local, deterministic)
+                        Long size = f.getSize();
+                        if (size != null && size > 0) {
+                            trustedAccountsCache.recordDeleteUsage(ownerEmail, size);
+                        }
                     }
                     return null;
                 });
             }
 
-            tasks.add(() -> {
-                primaryDrive.files().delete(albumId).execute();
-                return null;
-            });
-
-            executor.invokeAll(tasks);
+            ownerExecutor.invokeAll(tasks);
         }
 
-        Log.d(TAG, "Album deleted");
+        /* ---------- Delete album folder LAST ---------- */
+
+        if (!cancelled.get()) {
+            primaryDrive.files().delete(albumId).execute();
+        }
     }
 
+
+
+    private void post(Runnable r) {
+        mainHandler.post(r);
+    }
 
     /* ==========================================================
      * Helpers

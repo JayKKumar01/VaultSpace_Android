@@ -121,13 +121,29 @@ public final class TrustedAccountsCache extends VaultCache {
     }
 
     public void recordUploadUsage(String email, long uploadedBytes) {
-        if (!isInitialized() || email == null || uploadedBytes <= 0) return;
+        if (uploadedBytes <= 0) return;
+        updateUsage(email, uploadedBytes);
+    }
+
+    public void recordDeleteUsage(String email, long freedBytes) {
+        if (freedBytes <= 0) return;
+        updateUsage(email, -freedBytes);
+    }
+
+
+    private void updateUsage(
+            String email,
+            long deltaUsed // +ve = upload, -ve = delete
+    ) {
+        if (!isInitialized() || email == null || deltaUsed == 0) return;
 
         TrustedAccount old = accountsByEmail.get(email);
         if (old == null) return;
 
-        long newUsed = old.usedQuota + uploadedBytes;
-        long newFree = Math.max(0, old.totalQuota - newUsed);
+        long newUsed = old.usedQuota + deltaUsed;
+        newUsed = Math.max(0, Math.min(newUsed, old.totalQuota));
+
+        long newFree = old.totalQuota - newUsed;
 
         accountsByEmail.put(
                 email,
@@ -138,8 +154,11 @@ public final class TrustedAccountsCache extends VaultCache {
                         newFree
                 )
         );
+
         notifyListeners();
     }
+
+
 
 
     public void removeAccount(String email) {

@@ -10,6 +10,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.utils.VaultFabUtil;
+import com.github.jaykkumar01.vaultspace.views.creative.delete.DeleteStatusRenderModel;
+import com.github.jaykkumar01.vaultspace.views.creative.delete.DeleteStatusView;
 
 import java.util.List;
 
@@ -31,6 +33,7 @@ public class AlbumsContentView extends FrameLayout
     private final RecyclerView recyclerView;
     private final AlbumsAdapter adapter;
     private final ImageButton addAlbumFab;
+    private final DeleteStatusView deleteStatusView;
 
     /* ---------------- Listeners ---------------- */
 
@@ -58,7 +61,41 @@ public class AlbumsContentView extends FrameLayout
 
         addAlbumFab = VaultFabUtil.createAddAlbumFab(context);
         addView(addAlbumFab);
+
+        deleteStatusView = new DeleteStatusView(context);
+        LayoutParams lp = new LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+        );
+        lp.gravity = android.view.Gravity.TOP;
+        deleteStatusView.setLayoutParams(lp);
+        deleteStatusView.setVisibility(GONE);
+        addView(deleteStatusView);
     }
+
+    /* ---------------- Delete UI API ---------------- */
+
+    public void showDeleteStatus(DeleteStatusRenderModel model) {
+        deleteStatusView.apply(model);
+        deleteStatusView.post(() -> applyDeleteInset(true));
+    }
+
+    public void hideDeleteStatus() {
+        deleteStatusView.hide();
+        applyDeleteInset(false);
+    }
+
+
+    private void applyDeleteInset(boolean visible) {
+        int inset = visible ? deleteStatusView.getMeasuredHeight() : 0;
+        recyclerView.setPadding(
+                recyclerView.getPaddingLeft(),
+                inset,
+                recyclerView.getPaddingRight(),
+                recyclerView.getPaddingBottom()
+        );
+    }
+
 
     /* ---------------- Adapter → ContentView ---------------- */
 
