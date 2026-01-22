@@ -9,8 +9,8 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.views.creative.delete.DeleteProgressCallback;
 import com.google.api.services.drive.Drive;
@@ -29,18 +29,15 @@ public final class AlbumsDriveHelper {
     private final Drive primaryDrive;
     private final Context appContext;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final TrustedAccountsCache trustedAccountsCache;
+    private TrustedAccountsRepository trustedAccountsRepository;
 
     /* ================= Constructor ================= */
 
-    public AlbumsDriveHelper(@NonNull Context context) {
+    public AlbumsDriveHelper(@NonNull Context context, TrustedAccountsRepository trustedAccountsRepository) {
         appContext = context.getApplicationContext();
         UserSession session = new UserSession(appContext);
-        primaryDrive = DriveClientProvider.forAccount(
-                appContext,
-                session.getPrimaryAccountEmail()
-        );
-        trustedAccountsCache = session.getVaultCache().trustedAccounts;
+        primaryDrive = DriveClientProvider.getPrimaryDrive(appContext);
+        this.trustedAccountsRepository = trustedAccountsRepository;
         Log.d(TAG, "Initialized primaryDrive");
     }
 
@@ -52,7 +49,7 @@ public final class AlbumsDriveHelper {
     ) {
         executor.execute(() -> {
             try {
-                String rootId = DriveFolderRepository.getAlbumsRootId(primaryDrive);
+                String rootId = DriveFolderRepository.getAlbumsRootId(appContext);
                 if (rootId == null) {
                     post(() -> callback.onResult(List.of()));
                     return;
@@ -91,7 +88,7 @@ public final class AlbumsDriveHelper {
                 File created = DriveFolderRepository.createFolder(
                         primaryDrive,
                         name,
-                        DriveFolderRepository.getAlbumsRootId(primaryDrive)
+                        DriveFolderRepository.getAlbumsRootId(appContext)
                 );
                 post(() -> callback.onSuccess(toAlbumInfo(created)));
             } catch (Exception e) {
@@ -210,10 +207,7 @@ public final class AlbumsDriveHelper {
 
                         Long size = f.getSize();
                         if (size != null && size > 0) {
-                            trustedAccountsCache.recordDeleteUsage(
-                                    entry.getKey(),
-                                    size
-                            );
+                            trustedAccountsRepository.recordDeleteUsage(entry.getKey(), size, null);
                         }
                     }
                     return null;

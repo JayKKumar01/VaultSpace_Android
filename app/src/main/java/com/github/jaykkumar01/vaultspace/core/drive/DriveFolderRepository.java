@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.drive;
 
+import android.content.Context;
+
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
@@ -24,26 +26,30 @@ public final class DriveFolderRepository {
 
     /* ------------ Public API ------------ */
 
-    public static String getRootFolderId(Drive drive) throws Exception {
+    public static String getRootFolderId(Context context) throws Exception {
         if (rootFolderId != null) return rootFolderId;
+        Drive drive = DriveClientProvider.getPrimaryDrive(context);
         rootFolderId = resolveFolder(drive, ROOT_FOLDER_NAME, null);
         return rootFolderId;
     }
 
-    public static String getAlbumsRootId(Drive drive) throws Exception {
+    public static String getAlbumsRootId(Context context) throws Exception {
         if (albumsRootId != null) return albumsRootId;
-        albumsRootId = resolveFolder(drive, ALBUMS_FOLDER_NAME, getRootFolderId(drive));
+        Drive drive = DriveClientProvider.getPrimaryDrive(context);
+        albumsRootId = resolveFolder(drive, ALBUMS_FOLDER_NAME, getRootFolderId(context));
         return albumsRootId;
     }
 
-    public static String getFilesRootId(Drive drive) throws Exception {
+    public static String getFilesRootId(Context context) throws Exception {
         if (filesRootId != null) return filesRootId;
-        filesRootId = resolveFolder(drive, FILES_FOLDER_NAME, getRootFolderId(drive));
+        Drive drive = DriveClientProvider.getPrimaryDrive(context);
+        filesRootId = resolveFolder(drive, FILES_FOLDER_NAME, getRootFolderId(context));
         return filesRootId;
     }
-    public static synchronized String getThumbnailsRootId(Drive drive) throws Exception {
+    public static synchronized String getThumbnailsRootId(Context context) throws Exception {
         if (thumbnailsRootId != null) return thumbnailsRootId;
-        thumbnailsRootId = resolveFolder(drive, THUMBNAILS_FOLDER_NAME, getRootFolderId(drive));
+        Drive drive = DriveClientProvider.getPrimaryDrive(context);
+        thumbnailsRootId = resolveFolder(drive, THUMBNAILS_FOLDER_NAME, getRootFolderId(context));
         return thumbnailsRootId;
     }
 

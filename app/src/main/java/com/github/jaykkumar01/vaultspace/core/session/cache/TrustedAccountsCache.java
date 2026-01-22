@@ -3,74 +3,50 @@ package com.github.jaykkumar01.vaultspace.core.session.cache;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * TrustedAccountsCache
  *
- * Session-scoped cache for trusted accounts.
+ * Session-scoped, in-memory cache for trusted accounts.
  *
  * Guarantees:
  * - O(1) lookup by email
- * - O(1) add / remove
- * - O(n) ONLY during initialization
+ * - O(1) add / remove / update
+ * - O(n) ONLY during (re)initialization
  * - Empty result is a VALID initialized state
  *
+ * Supports:
+ * - One-time initialization
+ * - Explicit refresh via clear() + initializeFromDrive()
+ *
  * Responsibilities:
- * - Hold trusted account knowledge for the session
+ * - Hold trusted account data
  *
  * Non-responsibilities:
  * - Drive access
- * - Permission checks
- * - UI logic
+ * - Listeners
+ * - Threading
+ * - UI concerns
  */
 public final class TrustedAccountsCache extends VaultCache {
 
-    public interface Listener {
-        void onAccountsChanged(Iterable<TrustedAccount> accounts);
-    }
-
-    private final Set<Listener> listeners = new HashSet<>();
-
-    public void addListener(Listener l) {
-        if (l != null) listeners.add(l);
-    }
-
-    public void removeListener(Listener l) {
-        if (l != null) listeners.remove(l);
-    }
-
-    private void notifyListeners() {
-        Iterable<TrustedAccount> snapshot = getAccountsView();
-        for (Listener l : listeners) {
-            l.onAccountsChanged(snapshot);
-        }
-    }
-
-
-
-    /* ==========================================================
-     * Storage
-     * ========================================================== */
-
     /**
      * email -> TrustedAccount
-     *
      * LinkedHashMap preserves insertion order for UI.
      */
     private final Map<String, TrustedAccount> accountsByEmail =
             new LinkedHashMap<>();
 
     /* ==========================================================
-     * Initialization (O(n) — ONLY allowed place)
+     * Initialization / Refresh (O(n))
      * ========================================================== */
 
     /**
-     * Initializes cache from Drive result.
-     * Empty result is considered INITIALIZED.
+     * Initializes cache from Drive data.
+     * Must be called ONLY when cache is not initialized.
+     * Empty iterable is a VALID initialized state.
      */
     public void initializeFromDrive(Iterable<TrustedAccount> accounts) {
         if (isInitialized()) return;
@@ -102,22 +78,25 @@ public final class TrustedAccountsCache extends VaultCache {
     }
 
     /**
-     * Read-only iterable view for UI.
-     * UI should snapshot to List if needed.
+     * Read-only iterable view.
+     * Caller may snapshot if needed.
      */
     public Iterable<TrustedAccount> getAccountsView() {
         return Collections.unmodifiableCollection(accountsByEmail.values());
     }
 
     /* ==========================================================
-     * Mutation APIs (ALL O(1))
+     * Mutation APIs (O(1))
      * ========================================================== */
 
     public void addAccount(TrustedAccount account) {
         if (!isInitialized() || account == null || account.email == null) return;
-
         accountsByEmail.put(account.email, account);
-        notifyListeners();
+    }
+
+    public void removeAccount(String email) {
+        if (!isInitialized() || email == null) return;
+        accountsByEmail.remove(email);
     }
 
     public void recordUploadUsage(String email, long uploadedBytes) {
@@ -130,20 +109,16 @@ public final class TrustedAccountsCache extends VaultCache {
         updateUsage(email, -freedBytes);
     }
 
-
-    private void updateUsage(
-            String email,
-            long deltaUsed // +ve = upload, -ve = delete
-    ) {
+    private void updateUsage(String email, long deltaUsed) {
         if (!isInitialized() || email == null || deltaUsed == 0) return;
 
         TrustedAccount old = accountsByEmail.get(email);
         if (old == null) return;
 
-        long newUsed = old.usedQuota + deltaUsed;
-        newUsed = Math.max(0, Math.min(newUsed, old.totalQuota));
-
-        long newFree = old.totalQuota - newUsed;
+        long newUsed = Math.max(0, Math.min(
+                old.usedQuota + deltaUsed,
+                old.totalQuota
+        ));
 
         accountsByEmail.put(
                 email,
@@ -151,27 +126,19 @@ public final class TrustedAccountsCache extends VaultCache {
                         old.email,
                         old.totalQuota,
                         newUsed,
-                        newFree
+                        old.totalQuota - newUsed
                 )
         );
-
-        notifyListeners();
-    }
-
-
-
-
-    public void removeAccount(String email) {
-        if (!isInitialized() || email == null) return;
-
-        accountsByEmail.remove(email);
-        notifyListeners();
     }
 
     /* ==========================================================
      * VaultCache hook
      * ========================================================== */
 
+    /**
+     * Clears all data AND resets initialization state.
+     * Repository must call this before refresh.
+     */
     @Override
     protected void onClear() {
         accountsByEmail.clear();

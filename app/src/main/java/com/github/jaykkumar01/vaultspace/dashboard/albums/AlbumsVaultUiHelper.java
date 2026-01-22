@@ -9,6 +9,7 @@ import android.widget.Toast;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.activities.AlbumActivity;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumsCache;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
@@ -45,6 +46,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
 
     private final DeleteStatusRenderer deleteRenderer = new DeleteStatusRenderer();
     private final AtomicBoolean deleteCancelled = new AtomicBoolean(false);
+    private final TrustedAccountsRepository trustedAccountsRepository;
 
 
 
@@ -54,8 +56,8 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             ModalHost hostView
     ) {
         super(context, container, hostView);
-
-        drive = new AlbumsDriveHelper(context);
+        trustedAccountsRepository = TrustedAccountsRepository.getInstance(context);
+        drive = new AlbumsDriveHelper(context, trustedAccountsRepository);
         cache = new UserSession(context).getVaultCache().albums;
 
         initStaticUi();

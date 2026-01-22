@@ -148,4 +148,14 @@ public class Notes {
     // get the live update for storage while upload
 
     // make the uplaods parrallel
+
+    // vault space folder issue
+
+    // two folders are getting created, fix that issue
+
+    //fix trusted account cache, it should never be accessible from outside TrustedRepo
+
+    // before publishing make sure you clear everything on session
+
+    // on session clear make sure to clear the store
 }

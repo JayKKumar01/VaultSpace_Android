@@ -26,4 +26,17 @@ public final class DriveClientProvider {
                 .setApplicationName(APP_NAME)
                 .build();
     }
+
+    public static Drive getPrimaryDrive(Context context) {
+        GoogleAccountCredential credential =
+                GoogleCredentialFactory.forPrimaryDrive(context);
+
+        return new Drive.Builder(
+                new NetHttpTransport(),
+                GsonFactory.getDefaultInstance(),
+                credential
+        )
+                .setApplicationName(APP_NAME)
+                .build();
+    }
 }

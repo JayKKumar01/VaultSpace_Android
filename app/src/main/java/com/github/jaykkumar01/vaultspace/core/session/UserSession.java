@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 
 public class UserSession {
@@ -111,5 +112,6 @@ public class UserSession {
         PrimaryUserCoordinator.clearSavedProfilePhoto(appContext);
         UploadOrchestrator.getInstance(appContext).onSessionCleared();
         DriveFolderRepository.onSessionCleared();
+        TrustedAccountsRepository.destroy();
     }
 }

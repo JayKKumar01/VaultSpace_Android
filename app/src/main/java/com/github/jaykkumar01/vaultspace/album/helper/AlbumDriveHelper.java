@@ -9,7 +9,6 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
-import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.google.api.services.drive.Drive;
 
@@ -41,8 +40,7 @@ public final class AlbumDriveHelper {
             @NonNull String albumId
     ) {
         Context appContext = context.getApplicationContext();
-        UserSession userSession = new UserSession(context);
-        this.primaryDrive = DriveClientProvider.forAccount(context,userSession.getPrimaryAccountEmail());
+        this.primaryDrive = DriveClientProvider.getPrimaryDrive(context);
         this.fetcher = new AlbumMediaFetcher(appContext, albumId);
     }
 

@@ -125,6 +125,7 @@ public final class UploadQueueEngine {
             runningUpload = null;
         }
         current = null;
+        uploadDriveHelper.release();
     }
 
     private void clearRunning() {

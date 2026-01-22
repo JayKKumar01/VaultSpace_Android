@@ -51,15 +51,14 @@ public final class TrustedAccountsFetchWorker {
 
             try {
                 String rootFolderId =
-                        DriveFolderRepository.getRootFolderId(primaryDrive);
+                        DriveFolderRepository.getRootFolderId(appContext);
 
                 if (rootFolderId == null) {
                     callback.onSuccess(List.of());
                     return;
                 }
 
-                List<String> emails =
-                        fetchWriterEmails(primaryDrive, rootFolderId, primaryEmail);
+                List<String> emails = fetchWriterEmails(primaryDrive, rootFolderId, primaryEmail);
 
                 if (emails.isEmpty()) {
                     callback.onSuccess(List.of());

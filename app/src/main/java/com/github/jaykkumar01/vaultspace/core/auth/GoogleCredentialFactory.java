@@ -2,6 +2,7 @@ package com.github.jaykkumar01.vaultspace.core.auth;
 
 import android.content.Context;
 
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
 import java.util.Arrays;
@@ -23,6 +24,15 @@ public final class GoogleCredentialFactory {
     }
 
     /* ---------------- Drive only ---------------- */
+
+    public static GoogleAccountCredential forPrimaryDrive(Context context) {
+        String email = new UserSession(context).getPrimaryAccountEmail();
+        return create(
+                context,
+                email,
+                Collections.singleton("https://www.googleapis.com/auth/drive")
+        );
+    }
 
     public static GoogleAccountCredential forDrive(Context context, String email) {
         return create(

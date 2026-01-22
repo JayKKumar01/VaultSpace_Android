@@ -11,27 +11,19 @@ import com.github.jaykkumar01.vaultspace.core.consent.DriveConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class ExpandVaultHelper {
 
     private static final String TAG = "VaultSpace:ExpandVault";
-    private static final String UNIT_GB = "GB";
-    private static final double BYTES_IN_GB = 1024d * 1024d * 1024d;
 
     /* ==========================================================
      * Listeners
      * ========================================================== */
-
-    public interface StorageStateListener {
-        void onVaultStorageState(@NonNull VaultStorageState state);
-    }
 
     public interface ExpandAccountListener {
         void onSuccess();
@@ -48,24 +40,20 @@ public final class ExpandVaultHelper {
 
     private final TrustedAccountsRepository repo;
     private final TrustedAccountsDriveHelper driveHelper;
-    private final TrustedAccountsCache cache;
     private final AccountPickerHelper accountPicker;
     private final DriveConsentHelper consentHelper;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    private StorageStateListener storageListener;
     private ExpandAccountListener actionListener;
-
-    private final TrustedAccountsCache.Listener cacheListener = this::emitStorageState;
 
 
     /* ==========================================================
      * Constructor
      * ========================================================== */
 
-    public ExpandVaultHelper(@NonNull AppCompatActivity activity) {
+    public ExpandVaultHelper(@NonNull AppCompatActivity activity, TrustedAccountsRepository repo) {
 
         UserSession session = new UserSession(activity);
         this.primaryEmail = session.getPrimaryAccountEmail();
@@ -73,38 +61,10 @@ public final class ExpandVaultHelper {
         if (primaryEmail == null) {
             throw new IllegalStateException("Primary email is null");
         }
-
-        this.cache = session.getVaultCache().trustedAccounts;
-        this.repo = new TrustedAccountsRepository(activity);
-        this.driveHelper =
-                new TrustedAccountsDriveHelper(activity.getApplicationContext());
+        this.repo = repo;
+        this.driveHelper = new TrustedAccountsDriveHelper(activity.getApplicationContext());
         this.accountPicker = new AccountPickerHelper(activity);
         this.consentHelper = new DriveConsentHelper(activity);
-    }
-
-    public TrustedAccountsCache getCache() {
-        return cache;
-    }
-
-    /* ==========================================================
-     * Storage observation (REPO-BACKED)
-     * ========================================================== */
-    public void observeVaultStorage(StorageStateListener storageListener) {
-        this.storageListener = storageListener;
-        // 1️⃣ Listen to LIVE cache changes (uploads, retries, etc)
-        cache.addListener(cacheListener);
-
-        repo.getAccounts(new TrustedAccountsRepository.Callback() {
-            @Override
-            public void onResult(@NonNull List<TrustedAccount> accounts) {
-                emitStorageState(accounts);
-            }
-
-            @Override
-            public void onError(@NonNull Exception e) {
-                Log.e(TAG, "Failed to load vault storage", e);
-            }
-        });
     }
 
     /* ==========================================================
@@ -170,9 +130,15 @@ public final class ExpandVaultHelper {
                 new TrustedAccountsDriveHelper.AddCallback() {
                     @Override
                     public void onAdded(TrustedAccount account) {
-                        cache.addAccount(account);
-                        emitStorageState(cache.getAccountsView());
-                        succeedAction();
+                        repo.addAccount(account, new TrustedAccountsRepository.MutationCallback() {
+                            @Override public void onSuccess() {
+                                succeedAction();
+                            }
+                            @Override public void onError(Exception e) {
+                                failAction("Failed to save account");
+                            }
+                        });
+
                     }
 
                     @Override
@@ -187,30 +153,6 @@ public final class ExpandVaultHelper {
                     }
                 }
         );
-    }
-
-    /* ==========================================================
-     * Storage aggregation
-     * ========================================================== */
-
-    private void emitStorageState(Iterable<TrustedAccount> accounts) {
-        if (storageListener == null) return;
-
-        long total = 0L;
-        long used = 0L;
-
-        for (TrustedAccount account : accounts) {
-            total += account.totalQuota;
-            used += account.usedQuota;
-        }
-
-        VaultStorageState state = new VaultStorageState(
-                (float) (used / BYTES_IN_GB),
-                (float) (total / BYTES_IN_GB),
-                UNIT_GB
-        );
-
-        runOnUi(() -> storageListener.onVaultStorageState(state));
     }
 
     /* ==========================================================
@@ -245,8 +187,6 @@ public final class ExpandVaultHelper {
 
     public void release() {
         executor.shutdown();
-        cache.removeListener(cacheListener);
-        storageListener = null;
         actionListener = null;
     }
 

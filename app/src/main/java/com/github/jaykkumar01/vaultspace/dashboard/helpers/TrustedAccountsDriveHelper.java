@@ -61,8 +61,7 @@ public final class TrustedAccountsDriveHelper {
         UserSession session = new UserSession(context);
         this.appContext = context.getApplicationContext();
         this.primaryEmail = session.getPrimaryAccountEmail();
-        this.primaryDrive =
-                DriveClientProvider.forAccount(appContext, primaryEmail);
+        this.primaryDrive = DriveClientProvider.getPrimaryDrive(appContext);
 
         Log.d(TAG, "Initialized for primary: " + primaryEmail);
     }
@@ -106,7 +105,7 @@ public final class TrustedAccountsDriveHelper {
         executor.execute(() -> {
             try {
                 String rootFolderId =
-                        DriveFolderRepository.getRootFolderId(primaryDrive);
+                        DriveFolderRepository.getRootFolderId(appContext);
 
                 if (DrivePermissionRepository.hasWriterAccess(
                         primaryDrive,

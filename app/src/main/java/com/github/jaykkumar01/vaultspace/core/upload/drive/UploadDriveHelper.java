@@ -9,9 +9,9 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.cache.TrustedAccountsCache;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadQueueEngine;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
@@ -28,7 +28,6 @@ import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
-import com.google.api.services.drive.model.Permission;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -37,8 +36,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class UploadDriveHelper {
@@ -53,8 +50,6 @@ public final class UploadDriveHelper {
     private static final int CHUNK_SMALL  = 2 * 512 * 1024;
     private static final int CHUNK_MEDIUM = 4 * 1024 * 1024;   // 4 MB
     private static final int CHUNK_LARGE  = 8 * 1024 * 1024;   // 8 MB
-
-    private final Drive primaryDrive;
 
     public enum FailureReason {
         NO_TRUSTED_ACCOUNT(true),
@@ -91,15 +86,13 @@ public final class UploadDriveHelper {
 
     private final Context appContext;
     private final ContentResolver resolver;
-    private final TrustedAccountsCache trustedCache;
+    private final TrustedAccountsRepository trustedAccountsRepo;
 
 
     public UploadDriveHelper(@NonNull Context context) {
         appContext = context.getApplicationContext();
         resolver = appContext.getContentResolver();
-        UserSession userSession = new UserSession(appContext);
-        this.primaryDrive = DriveClientProvider.forAccount(appContext,userSession.getPrimaryAccountEmail());
-        trustedCache = userSession.getVaultCache().trustedAccounts;
+        trustedAccountsRepo = TrustedAccountsRepository.getInstance(context);
     }
 
     /* ================= Public API ================= */
@@ -148,7 +141,7 @@ public final class UploadDriveHelper {
                 buildContent(selection.uri, selection.mimeType, info.sizeBytes);
 
         UploadedItem item = uploadPreparedFile(groupId, drive, metadata, content, progress, info.sizeBytes);
-        trustedCache.recordUploadUsage(email, info.sizeBytes);
+        trustedAccountsRepo.recordUploadUsage(email, info.sizeBytes, null);
         return item;
     }
     /* ================= Utilities ================= */
@@ -170,7 +163,7 @@ public final class UploadDriveHelper {
             return null;
         }
 
-        String folderId = DriveFolderRepository.getThumbnailsRootId(primaryDrive);
+        String folderId = DriveFolderRepository.getThumbnailsRootId(appContext);
         java.io.File file = new java.io.File(path);
 
         File meta = new File()
@@ -193,22 +186,35 @@ public final class UploadDriveHelper {
 
 
     private String pickRandomAccount(long sizeBytes) throws UploadFailure {
-        List<String> eligible = new ArrayList<>();
-        boolean hasAny = false;
+        List<TrustedAccount> snapshot =
+                trustedAccountsRepo.getAccountsSnapshot();
 
-        for (TrustedAccount a : trustedCache.getAccountsView()) {
-            hasAny = true;
-            if (a.totalQuota - a.usedQuota >= sizeBytes) eligible.add(a.email);
+        if (snapshot.isEmpty()) {
+            throw new UploadFailure(
+                    FailureReason.NO_TRUSTED_ACCOUNT,
+                    "No trusted accounts available"
+            );
         }
 
-        if (eligible.isEmpty())
-            throw new UploadFailure(
-                    hasAny ? FailureReason.NO_SPACE : FailureReason.NO_TRUSTED_ACCOUNT,
-                    "No eligible trusted account"
-            );
+        List<String> eligible = new ArrayList<>();
+        for (TrustedAccount a : snapshot) {
+            if (a.totalQuota - a.usedQuota >= sizeBytes) {
+                eligible.add(a.email);
+            }
+        }
 
-        return eligible.get(ThreadLocalRandom.current().nextInt(eligible.size()));
+        if (eligible.isEmpty()) {
+            throw new UploadFailure(
+                    FailureReason.NO_SPACE,
+                    "No trusted account has enough free space"
+            );
+        }
+
+        return eligible.get(
+                ThreadLocalRandom.current().nextInt(eligible.size())
+        );
     }
+
 
     private AbstractInputStreamContent buildContent(Uri uri, String mime, long size)
             throws UploadFailure {
@@ -319,4 +325,6 @@ public final class UploadDriveHelper {
                 .format(new java.util.Date(millis));
     }
 
+    public void release() {
+    }
 }

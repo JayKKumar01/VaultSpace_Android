@@ -19,6 +19,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
@@ -27,21 +28,21 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelpe
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 
+import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
+
+    private static final String UNIT_GB = "GB";
+    private static final double BYTES_IN_GB = 1024d * 1024d * 1024d;
 
     public enum AuthState {
         UNINITIALIZED, INIT, CHECKING, GRANTED, EXIT
@@ -62,6 +63,7 @@ public class DashboardActivity extends AppCompatActivity {
     /* Helpers */
     private DashboardProfileHelper profileHelper;
     private ExpandVaultHelper expandVaultHelper;
+    private TrustedAccountsRepository trustedAccountsRepository;
 
     /* UI */
     private StorageBarView storageBar;
@@ -126,7 +128,8 @@ public class DashboardActivity extends AppCompatActivity {
         userSession = new UserSession(this);
         profileHelper = new DashboardProfileHelper(this);
         consentHelper = new PrimaryAccountConsentHelper(this);
-        expandVaultHelper = new ExpandVaultHelper(this);
+        trustedAccountsRepository = TrustedAccountsRepository.getInstance(this);
+        expandVaultHelper = new ExpandVaultHelper(this, trustedAccountsRepository);
     }
 
     private void initViews() {
@@ -156,12 +159,14 @@ public class DashboardActivity extends AppCompatActivity {
                     public void handleOnBackPressed() {
                         if (authState == AuthState.EXIT) return;
 
-                        if (modalHost.onBackPressed()){
+                        if (modalHost.onBackPressed()) {
                             return;
                         }
 
-                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi.onBackPressed()) return;
-                        if (currentViewMode == VaultViewMode.FILES && filesUi.onBackPressed()) return;
+                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi.onBackPressed())
+                            return;
+                        if (currentViewMode == VaultViewMode.FILES && filesUi.onBackPressed())
+                            return;
 
 
                         modalCoordinator.handleBackPress(
@@ -238,13 +243,17 @@ public class DashboardActivity extends AppCompatActivity {
     private void activateGrantedState() {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
-
+        trustedAccountsRepository.getAccounts(accounts -> {
+            onVaultStorageState(accounts);
+            trustedAccountsRepository.addListener(this::onVaultStorageState);
+        }, e -> {
+            Log.e(TAG, "Failed to load trusted accounts", e);
+            showToast("Failed to load storage info. Please check your connection.");
+        });
 
         applyViewMode(VaultViewMode.ALBUMS);
         segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
         segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
-
-        expandVaultHelper.observeVaultStorage(this::onVaultStorageState);
 
         btnExpandVault.setOnClickListener(v -> {
             modalCoordinator.showLoading();
@@ -274,16 +283,33 @@ public class DashboardActivity extends AppCompatActivity {
         else filesUi.show();
     }
 
-    private void onVaultStorageState(VaultStorageState state) {
+    private void onVaultStorageState(Iterable<TrustedAccount> accounts) {
+        long total = 0L;
+        long used = 0L;
+
+        for (TrustedAccount account : accounts) {
+            total += account.totalQuota;
+            used += account.usedQuota;
+        }
+
+        VaultStorageState state = new VaultStorageState(
+                (float) (used / BYTES_IN_GB),
+                (float) (total / BYTES_IN_GB),
+                UNIT_GB
+        );
         storageBar.setUsage(state.used, state.total, state.unit);
     }
 
     private final ExpandVaultHelper.ExpandAccountListener expandAccountListener =
             new ExpandVaultHelper.ExpandAccountListener() {
-                @Override public void onSuccess() {
+                @Override
+                public void onSuccess() {
                     modalCoordinator.clearLoading();
+                    showToast("Account added to your vault successfully");
                 }
-                @Override public void onError(@NonNull String message) {
+
+                @Override
+                public void onError(@NonNull String message) {
                     modalCoordinator.clearLoading();
                     showToast(message);
                 }
@@ -312,8 +338,10 @@ public class DashboardActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        trustedAccountsRepository.removeListener(this::onVaultStorageState);
         albumsUi.onRelease();
         filesUi.onRelease();
         expandVaultHelper.release();
     }
+
 }
