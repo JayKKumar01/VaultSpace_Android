@@ -1,7 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 
 public interface UploadObserver {
 

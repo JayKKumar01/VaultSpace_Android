@@ -28,7 +28,7 @@ public final class TrustedAccountsFetchWorker {
     }
 
     /* ==========================================================
-     * Callback
+     * Listener
      * ========================================================== */
 
     public interface Callback {

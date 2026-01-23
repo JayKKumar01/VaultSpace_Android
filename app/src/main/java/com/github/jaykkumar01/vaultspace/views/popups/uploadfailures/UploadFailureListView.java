@@ -14,7 +14,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.List;
@@ -24,7 +25,7 @@ public final class UploadFailureListView extends FrameLayout {
     public UploadFailureListView(
             @NonNull Context context,
             String title,
-            List<UploadFailureEntity> failures,
+            List<UploadSelection> failures,
             Runnable onOk
     ) {
         super(context);
@@ -33,7 +34,7 @@ public final class UploadFailureListView extends FrameLayout {
 
     private void init(
             String title,
-            List<UploadFailureEntity> failures,
+            List<UploadSelection> failures,
             Runnable onOk
     ) {
         setLayoutParams(new LayoutParams(
@@ -130,9 +131,9 @@ public final class UploadFailureListView extends FrameLayout {
     private static final class UploadFailureAdapter
             extends RecyclerView.Adapter<UploadFailureVH> {
 
-        private final List<UploadFailureEntity> items;
+        private final List<UploadSelection> items;
 
-        UploadFailureAdapter(List<UploadFailureEntity> items) {
+        UploadFailureAdapter(List<UploadSelection> items) {
             this.items = items;
         }
 

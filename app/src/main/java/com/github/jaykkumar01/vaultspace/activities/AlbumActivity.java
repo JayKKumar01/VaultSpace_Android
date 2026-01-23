@@ -1,6 +1,5 @@
 package com.github.jaykkumar01.vaultspace.activities;
 
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
@@ -18,23 +17,19 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.AlbumLoader;
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.album.AlbumUploadSideEffect;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
-import com.github.jaykkumar01.vaultspace.utils.UriUtils;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class AlbumActivity extends AppCompatActivity {
@@ -88,9 +83,14 @@ public class AlbumActivity extends AppCompatActivity {
         }
     };
 
-    private final AlbumActionCoordinator.Callback actionCallback = new AlbumActionCoordinator.Callback() {
+    private final AlbumActionCoordinator.Listener actionListener = new AlbumActionCoordinator.Listener() {
         @Override
-        public void onMediaSelected(List<UploadSelection> selections) {
+        public void onMediaSelected(int size) {
+            // show something to user till it get's snapshot
+        }
+
+        @Override
+        public void onMediaResolved(List<UploadSelection> selections) {
             shouldClearGroup = false;
             uploadOrchestrator.enqueue(albumId, albumName, selections);
         }
@@ -187,20 +187,6 @@ public class AlbumActivity extends AppCompatActivity {
                 albumModalHandler.showUploadFailures(failures, () -> {
                     Log.d(TAG, "onNoAccessInfo(): groupId=" + albumId + ", totalFailures=" + failures.size());
 
-                    for (UploadFailureEntity f : failures) {
-                        boolean accessible = UriUtils.isUriAccessible(AlbumActivity.this, Uri.parse(f.uri));
-
-                        Log.d(TAG,
-                                "Failure → " +
-                                        "uri=" + f.uri +
-                                        ", type=" + f.type +
-                                        ", name=" + f.displayName +
-                                        ", reason=" + f.failureReason +
-                                        ", retryable=" + accessible +
-                                        ", thumb=" + f.thumbnailPath
-                        );
-                    }
-
                     uploadOrchestrator.clearGroup(albumId);
                     shouldClearGroup = false;
                 });
@@ -233,7 +219,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         albumLoader = new AlbumLoader(this, albumId);
         albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
-        actionCoordinator = new AlbumActionCoordinator(this, actionCallback);
+        actionCoordinator = new AlbumActionCoordinator(this, actionListener);
 
 
         uploadStatusController =

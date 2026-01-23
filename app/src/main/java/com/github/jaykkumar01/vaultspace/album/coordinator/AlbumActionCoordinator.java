@@ -1,63 +1,76 @@
 package com.github.jaykkumar01.vaultspace.album.coordinator;
 
+import android.net.Uri;
 import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.core.picker.AlbumMediaPicker;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.selection.UriSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadSelectionHelper;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class AlbumActionCoordinator {
+
+    private static final String TAG = "VaultSpace:AlbumAction";
     private boolean released;
 
     /* ============================================================
      * Host contract
      * ============================================================ */
 
-    public interface Callback {
-        void onMediaSelected(List<UploadSelection> selections);
+    public interface Listener {
+        void onMediaSelected(int size);
+        void onMediaResolved(List<UploadSelection> selections);
     }
 
     /* ============================================================
      * Fields
      * ============================================================ */
 
-    private static final String TAG = "VaultSpace:AlbumAction";
-    private final Callback callback;
-    private final AlbumMediaPicker mediaPicker;
+    private final Listener listener;
+    private final UriSelection uriSelection;
+    private final UploadSelectionHelper uploadHelper;
+    private final ExecutorService executor;
 
     /* ============================================================
      * Constructor
      * ============================================================ */
 
-    public AlbumActionCoordinator(AppCompatActivity activity, Callback callback) {
-        this.callback = callback;
-        AlbumMediaPicker.Callback pickerCallback = new AlbumMediaPicker.Callback() {
+    public AlbumActionCoordinator(AppCompatActivity activity, Listener listener) {
+        this.listener = listener;
 
-            @Override
-            public void onMediaPicked(List<UploadSelection> selections) {
-                if (released) return;
+        // 🔑 Coordinator OWNS executor
+        this.executor = Executors.newSingleThreadExecutor();
+        this.uploadHelper = new UploadSelectionHelper(activity);
 
-                if (!selections.isEmpty()) {
-                    callback.onMediaSelected(selections);
-                }
-            }
-
-            @Override
-            public void onPickCancelled() {
-                if (released) return;
-                Log.d(TAG, "Media pick cancelled");
-            }
-        };
-        this.mediaPicker = new AlbumMediaPicker(activity, pickerCallback);
+        this.uriSelection = new UriSelection(activity, uris -> {
+            if (released || uris.isEmpty()) return;
+            listener.onMediaSelected(uris.size());
+            handleMediaUris(uris);
+        });
     }
 
     /* ============================================================
-     * Media picker callback
+     * Uri intake
      * ============================================================ */
+
+    private void handleMediaUris(List<Uri> uris) {
+        Log.d(TAG, "Media URIs selected count=" + uris.size());
+
+        executor.execute(() -> {
+            if (released) return;
+
+            uploadHelper.resolve(uris, selections -> {
+                if (released) return;
+                listener.onMediaResolved(selections);
+            });
+        });
+    }
 
     /* ============================================================
      * User intents
@@ -65,32 +78,26 @@ public final class AlbumActionCoordinator {
 
     public void onAddMediaClicked() {
         if (released) return;
-        mediaPicker.launchPicker();
+        uriSelection.selectMediaUris();
     }
 
     public void onMediaClicked(AlbumMedia media, int position) {
         if (released) return;
-
         Log.d(TAG, "Media clicked pos=" + position);
-
-        // future:
-        // openMediaViewer(media, position)
     }
 
     public void onMediaLongPressed(AlbumMedia media, int position) {
         if (released) return;
-
         Log.d(TAG, "Media long pressed pos=" + position);
-
-        // future:
-        // showContextMenu(media)
     }
 
     /* ============================================================
-     * Internal helpers
+     * Lifecycle
      * ============================================================ */
 
     public void release() {
         released = true;
+        uploadHelper.release();
+        executor.shutdownNow();
     }
 }

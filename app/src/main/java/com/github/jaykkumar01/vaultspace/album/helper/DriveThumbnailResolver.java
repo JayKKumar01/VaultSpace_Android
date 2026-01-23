@@ -140,7 +140,7 @@ public final class DriveThumbnailResolver {
     }
 
     /* ==========================================================
-     * Callback
+     * Listener
      * ========================================================== */
 
     public interface Callback {

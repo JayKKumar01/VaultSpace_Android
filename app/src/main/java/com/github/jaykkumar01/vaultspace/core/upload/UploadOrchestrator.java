@@ -10,10 +10,9 @@ import androidx.core.content.ContextCompat;
 import com.github.jaykkumar01.vaultspace.album.AlbumUploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
-import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -122,7 +121,7 @@ public final class UploadOrchestrator {
 
     public void getFailuresForGroup(
             @NonNull String groupId,
-            @NonNull Consumer<List<UploadFailureEntity>> cb
+            @NonNull Consumer<List<UploadSelection>> cb
     ){
         uploadManager.getFailuresForGroup(groupId,cb);
     }
@@ -140,7 +139,7 @@ public final class UploadOrchestrator {
             e.onUploadSuccess(groupId,item);
     }
 
-    public void dispatchUploadFailure(String groupId, UploadSelection sel, UploadDriveHelper.FailureReason reason){
+    public void dispatchUploadFailure(String groupId, UploadSelection sel, FailureReason reason){
         for(UploadSideEffect e:sideEffects)
             e.onUploadFailure(groupId,sel,reason);
     }

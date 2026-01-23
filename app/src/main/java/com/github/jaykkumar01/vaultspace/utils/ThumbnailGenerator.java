@@ -11,14 +11,14 @@ import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.github.jaykkumar01.vaultspace.models.base.UploadType;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.UUID;
 
-public final class UploadThumbnailGenerator {
+public final class ThumbnailGenerator {
 
     // Stable, memory-safe size for batch processing
     private static final int THUMB_SIZE = 128;
@@ -164,5 +164,5 @@ public final class UploadThumbnailGenerator {
     }
 
 
-    private UploadThumbnailGenerator() {}
+    private ThumbnailGenerator() {}
 }

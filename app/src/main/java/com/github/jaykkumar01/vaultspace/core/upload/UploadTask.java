@@ -2,7 +2,7 @@ package com.github.jaykkumar01.vaultspace.core.upload;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
 /**
  * UploadTask

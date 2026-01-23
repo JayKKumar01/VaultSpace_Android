@@ -15,7 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
 import java.io.File;
 import java.util.Locale;
@@ -139,10 +139,10 @@ public final class UploadFailureVH extends RecyclerView.ViewHolder {
         row.setLayoutParams(lp);
     }
 
-    void bind(UploadFailureEntity e) {
+    void bind(UploadSelection e) {
         name.setText(e.displayName);
 
-        String typeUpper = e.type.toUpperCase(Locale.US);
+        String typeUpper = e.type.name();
         String ext = resolveExtension(e.displayName);
         meta.setText(ext != null ? typeUpper + " · " + ext : typeUpper);
 

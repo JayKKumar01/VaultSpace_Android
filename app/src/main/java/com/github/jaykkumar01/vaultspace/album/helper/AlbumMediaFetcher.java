@@ -7,8 +7,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;

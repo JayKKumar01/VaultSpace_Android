@@ -43,7 +43,7 @@ public final class PrimaryUserCoordinator {
 
 
     /* ==========================================================
-     * Callback
+     * Listener
      * ========================================================== */
 
     public interface Callback {

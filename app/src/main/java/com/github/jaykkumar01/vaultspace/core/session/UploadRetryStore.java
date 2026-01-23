@@ -8,8 +8,9 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDao;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDatabase;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
+import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
 import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +40,7 @@ public final class UploadRetryStore {
     }
 
     public void removeRetry(@NonNull String groupId, @NonNull UploadSelection s) {
-        dao.delete(groupId, s.uri.toString(), s.getType().name());
+        dao.delete(groupId, s.uri.toString(), s.type.name());
     }
 
     public void removeRetryByUris(@NonNull String groupId, @NonNull List<Uri> uris) {
@@ -52,7 +53,7 @@ public final class UploadRetryStore {
     /* ================= Read ================= */
 
     public boolean contains(@NonNull String groupId, @NonNull UploadSelection s) {
-        return dao.contains(groupId, s.uri.toString(), s.getType().name());
+        return dao.contains(groupId, s.uri.toString(), s.type.name());
     }
 
     @NonNull
@@ -75,13 +76,13 @@ public final class UploadRetryStore {
     public void updateFailureReason(
             @NonNull String groupId,
             @NonNull UploadSelection s,
-            @NonNull UploadDriveHelper.FailureReason reason
+            @NonNull FailureReason reason
     ) {
         s.failureReason = reason;
         dao.updateFailureReason(
                 groupId,
                 s.uri.toString(),
-                s.getType().name(),
+                s.type.name(),
                 reason.name()
         );
     }
@@ -103,17 +104,40 @@ public final class UploadRetryStore {
 
     /* ================= Mapping ================= */
 
-    private static UploadRetryEntity toEntity(@NonNull String groupId, @NonNull UploadSelection s) {
-        String reason = s.failureReason != null ? s.failureReason.name() : UploadDriveHelper.FailureReason.DRIVE_ERROR.name();
-        return new UploadRetryEntity(groupId, s.uri.toString(), s.mimeType, s.getType().name(), reason);
+    private static UploadRetryEntity toEntity(
+            @NonNull String groupId,
+            @NonNull UploadSelection s
+    ) {
+        String reason = s.failureReason != null
+                ? s.failureReason.name()
+                : FailureReason.DRIVE_ERROR.name();
+
+        return new UploadRetryEntity(
+                groupId,
+                s.uri.toString(),
+                s.mimeType,
+                s.type.name(),
+                s.displayName,
+                s.thumbnailPath,
+                reason
+        );
     }
+
 
 
     private static UploadSelection fromEntity(@NonNull UploadRetryEntity e) {
-        UploadSelection s = new UploadSelection(Uri.parse(e.uri), e.mimeType);
-        s.failureReason = UploadDriveHelper.FailureReason.valueOf(e.failureReason);
+        UploadSelection s = new UploadSelection(
+                Uri.parse(e.uri),
+                e.mimeType,              // may be null
+                e.displayName,
+                -1L,
+                System.currentTimeMillis(),
+                e.thumbnailPath
+        );
+        s.failureReason = FailureReason.valueOf(e.failureReason);
         return s;
     }
+
 
 
 }

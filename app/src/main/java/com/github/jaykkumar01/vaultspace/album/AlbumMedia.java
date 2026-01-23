@@ -1,7 +1,7 @@
 package com.github.jaykkumar01.vaultspace.album;
 
-import com.github.jaykkumar01.vaultspace.models.base.UploadType;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 
 public class AlbumMedia {
 

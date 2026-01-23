@@ -2,7 +2,7 @@ package com.github.jaykkumar01.vaultspace.album.helper;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.DismissResult;
@@ -48,7 +48,7 @@ public final class AlbumModalHandler {
     }
 
     public void showUploadFailures(
-            @NonNull List<UploadFailureEntity> failures,
+            @NonNull List<UploadSelection> failures,
             @NonNull Runnable onOk
     ) {
         String title =

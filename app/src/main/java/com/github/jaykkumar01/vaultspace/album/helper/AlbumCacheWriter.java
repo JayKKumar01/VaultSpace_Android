@@ -6,7 +6,7 @@ import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 
 public final class AlbumCacheWriter {
 

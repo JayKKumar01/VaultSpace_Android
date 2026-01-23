@@ -14,7 +14,7 @@ import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
  */
 public final class UploadStatusController {
 
-    /* ================= Callback ================= */
+    /* ================= Listener ================= */
 
     public interface Callback {
         void onCancelRequested();

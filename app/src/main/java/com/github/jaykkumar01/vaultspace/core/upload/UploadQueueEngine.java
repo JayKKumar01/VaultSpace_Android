@@ -2,12 +2,11 @@ package com.github.jaykkumar01.vaultspace.core.upload;
 
 import android.content.Context;
 
-import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
+import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
 import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 
-import java.io.File;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -22,7 +21,7 @@ public final class UploadQueueEngine {
     public interface Callback {
         void onSuccess(UploadTask task, UploadedItem uploadedItem);
 
-        void onFailure(UploadTask task, UploadDriveHelper.FailureReason reason);
+        void onFailure(UploadTask task, FailureReason reason);
 
         void onCancelled(UploadTask task);
 
@@ -34,8 +33,6 @@ public final class UploadQueueEngine {
     private final ExecutorService controlExecutor;
     private final ExecutorService uploadExecutor;
     private final UploadDriveHelper uploadDriveHelper;
-    private final UploadFailureStore failureStore;
-    private final File thumbDir;
 
     private final Deque<UploadTask> queue = new ArrayDeque<>();
 
@@ -43,12 +40,10 @@ public final class UploadQueueEngine {
     private Future<?> runningUpload;
     private Callback callback;
 
-    UploadQueueEngine(Context appContext, ExecutorService controlExecutor, ExecutorService uploadExecutor, UploadFailureStore failureStore, File thumbDir) {
+    UploadQueueEngine(Context appContext, ExecutorService controlExecutor, ExecutorService uploadExecutor) {
         this.controlExecutor = controlExecutor;
         this.uploadExecutor = uploadExecutor;
-        this.uploadDriveHelper = new UploadDriveHelper(appContext);;
-        this.failureStore = failureStore;
-        this.thumbDir = thumbDir;
+        this.uploadDriveHelper = new UploadDriveHelper(appContext);
     }
 
     void setCallback(Callback callback) {
@@ -74,14 +69,14 @@ public final class UploadQueueEngine {
 
     private void performUpload(UploadTask task) {
         try {
-            UploadedItem item = uploadDriveHelper.upload(task.groupId, task.selection,failureStore,thumbDir,callback);
+            UploadedItem item = uploadDriveHelper.upload(task.groupId, task.selection,callback);
             controlExecutor.execute(() -> handleSuccess(task, item));
         } catch (CancellationException e) {
             controlExecutor.execute(() -> handleCancelled(task));
         } catch (UploadDriveHelper.UploadFailure f) {
             controlExecutor.execute(() -> handleFailure(task, f.reason));
         } catch (Exception e) {
-            controlExecutor.execute(() -> handleFailure(task, UploadDriveHelper.FailureReason.DRIVE_ERROR));
+            controlExecutor.execute(() -> handleFailure(task, FailureReason.DRIVE_ERROR));
         }
     }
 
@@ -93,7 +88,7 @@ public final class UploadQueueEngine {
         processQueue();
     }
 
-    private void handleFailure(UploadTask task, UploadDriveHelper.FailureReason reason) {
+    private void handleFailure(UploadTask task, FailureReason reason) {
         if (current != task) return;
         clearRunning();
         if (callback != null) callback.onFailure(task, reason);

@@ -10,16 +10,12 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
-import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
-import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadQueueEngine;
+import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
-import com.github.jaykkumar01.vaultspace.models.UriFileInfo;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.models.base.UploadType;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
-import com.github.jaykkumar01.vaultspace.utils.UploadThumbnailGenerator;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 import com.google.api.client.googleapis.media.MediaHttpUploader;
 import com.google.api.client.http.AbstractInputStreamContent;
@@ -51,26 +47,6 @@ public final class UploadDriveHelper {
     private static final int CHUNK_MEDIUM = 4 * 1024 * 1024;   // 4 MB
     private static final int CHUNK_LARGE  = 8 * 1024 * 1024;   // 8 MB
 
-    public enum FailureReason {
-        NO_TRUSTED_ACCOUNT(true),
-        NO_ACCESS(true),
-        NO_SPACE(true),
-        URI_NOT_FOUND(false),
-        IO_ERROR(true),
-        DRIVE_ERROR(true),
-        CANCELLED(false);
-
-        private final boolean retryable;
-
-        FailureReason(boolean retryable) {
-            this.retryable = retryable;
-        }
-
-        public boolean isRetryable() {
-            return retryable;
-        }
-    }
-
     public static final class UploadFailure extends Exception {
         public final FailureReason reason;
 
@@ -97,31 +73,30 @@ public final class UploadDriveHelper {
 
     /* ================= Public API ================= */
 
-    public UploadedItem upload(@NonNull String groupId, @NonNull UploadSelection selection, UploadFailureStore failureStore, java.io.File thumbDir, UploadQueueEngine.Callback progress)
+    public UploadedItem upload(@NonNull String groupId, @NonNull UploadSelection selection,UploadQueueEngine.Callback progress)
             throws UploadFailure, CancellationException {
 
         Log.d(TAG, "upload start parentId=" + groupId + " uri=" + selection.uri);
 
-        UriFileInfo info = UriUtils.resolve(appContext, selection.uri);
-        if (info.name.isEmpty())
+        if (!UriUtils.isAccessible(appContext,selection.uri))
             throw new UploadFailure(FailureReason.URI_NOT_FOUND, "Uri not accessible or name missing");
 
-        String email = pickRandomAccount(info.sizeBytes);
+        String email = pickRandomAccount(selection.sizeBytes);
         Drive drive = DriveClientProvider.forAccount(appContext, email);
 
 
         String thumbFileId = null;
 
-        if (selection.getType() == UploadType.VIDEO) {
+        if (selection.type == UploadType.VIDEO && selection.thumbnailPath != null) {
             try {
-                thumbFileId = uploadVideoThumbnail(drive, selection.uri, failureStore, thumbDir);
+                thumbFileId = uploadVideoThumbnail(drive, selection.thumbnailPath);
             } catch (Exception e) {
                 Log.w(TAG, "video thumbnail upload failed, continuing without thumb", e);
             }
         }
 
         File metadata = new File()
-                .setName(info.name)
+                .setName(selection.displayName)
                 .setMimeType(selection.mimeType)
                 .setParents(Collections.singletonList(groupId));
 
@@ -132,36 +107,24 @@ public final class UploadDriveHelper {
         }
 
 
-        if (info.modifiedTimeMillis > 0) {
-            metadata.setModifiedTime(new DateTime(info.modifiedTimeMillis));
+        if (selection.momentMillis > 0) {
+            metadata.setModifiedTime(new DateTime(selection.momentMillis));
         }
 
 
         AbstractInputStreamContent content =
-                buildContent(selection.uri, selection.mimeType, info.sizeBytes);
+                buildContent(selection.uri, selection.mimeType, selection.sizeBytes);
 
-        UploadedItem item = uploadPreparedFile(groupId, drive, metadata, content, progress, info.sizeBytes);
-        trustedAccountsRepo.recordUploadUsage(email, info.sizeBytes, null);
+        UploadedItem item = uploadPreparedFile(groupId, drive, metadata, content, progress, selection.sizeBytes);
+        trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes, null);
         return item;
     }
     /* ================= Utilities ================= */
 
     private String uploadVideoThumbnail(
             @NonNull Drive drive,
-            @NonNull Uri videoUri,
-            @NonNull UploadFailureStore failureStore,
-            @NonNull java.io.File thumbDir
+            @NonNull String path
     ) throws Exception {
-        UploadFailureEntity f = failureStore.getFailureByUri(videoUri.toString());
-        String path = f != null ? f.thumbnailPath : null;
-
-        if (path == null)
-            path = UploadThumbnailGenerator.generate(appContext, videoUri, UploadType.VIDEO, thumbDir);
-
-        if (path == null) {
-            Log.w(TAG, "thumbnail generation failed");
-            return null;
-        }
 
         String folderId = DriveFolderRepository.getThumbnailsRootId(appContext);
         java.io.File file = new java.io.File(path);

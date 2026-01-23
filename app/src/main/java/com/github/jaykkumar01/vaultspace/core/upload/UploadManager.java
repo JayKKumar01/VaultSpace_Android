@@ -6,14 +6,12 @@ import android.os.Looper;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
-import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.models.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -44,11 +42,12 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     private final Map<String, UploadObserver> observers = new ConcurrentHashMap<>();
 
     private final UploadCache uploadCache;
-    private final UploadFailureStore failureStore;
     private final File thumbDir;
 
     private final UploadQueueEngine queueEngine;
     private final UploadSnapshotReducer snapshotReducer;
+    private final UploadRetryStore retryStore;
+
     private final UploadFailureCoordinator failureCoordinator;
 
     private UploadOrchestrator orchestrator;
@@ -63,28 +62,16 @@ public final class UploadManager implements UploadQueueEngine.Callback {
         UserSession session = new UserSession(appContext);
         uploadCache = session.getVaultCache().uploadCache;
 
-        UploadRetryStore retryStore = session.getUploadRetryStore();
-        failureStore = session.getUploadFailureStore();
+        this.retryStore = session.getUploadRetryStore();
 
         thumbDir = new File(appContext.getFilesDir(), "upload_failures/thumbs");
 
-        queueEngine = new UploadQueueEngine(appContext, controlExecutor, uploadExecutor, failureStore, thumbDir);
+        queueEngine = new UploadQueueEngine(appContext, controlExecutor, uploadExecutor);
         queueEngine.setCallback(this);
 
-        snapshotReducer = new UploadSnapshotReducer(
-                appContext,
-                uploadCache,
-                retryStore,
-                failureStore
-        );
+        snapshotReducer = new UploadSnapshotReducer(appContext, uploadCache, retryStore);
 
-        failureCoordinator = new UploadFailureCoordinator(
-                appContext,
-                uploadCache,
-                retryStore,
-                failureStore,
-                thumbDir
-        );
+        failureCoordinator = new UploadFailureCoordinator(appContext, uploadCache, retryStore);
     }
 
     /* ==========================================================
@@ -144,7 +131,6 @@ public final class UploadManager implements UploadQueueEngine.Callback {
             //noinspection ResultOfMethodCallIgnored
             thumbDir.mkdirs();
 
-            failureCoordinator.recordFailuresIfMissingAsync(groupId, selections);
             failureCoordinator.recordRetriesIfMissing(groupId, selections);
 
             queueEngine.enqueue(groupId, selections);
@@ -183,7 +169,7 @@ public final class UploadManager implements UploadQueueEngine.Callback {
     }
 
     @Override
-    public void onFailure(UploadTask task, UploadDriveHelper.FailureReason reason) {
+    public void onFailure(UploadTask task, FailureReason reason) {
 
         if (orchestrator != null) {
             orchestrator.dispatchUploadFailure(task.groupId, task.selection, reason);
@@ -191,8 +177,8 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
         emitFailure(task.groupId, task.selection);
 
-        UploadSnapshot snapshot = snapshotReducer.onFailure(task.groupId,reason);
-        failureCoordinator.updateReason(task,reason);
+        UploadSnapshot snapshot = snapshotReducer.onFailure(task.groupId, reason);
+        failureCoordinator.updateReason(task, reason);
 
         if (snapshot != null) {
             snapshotReducer.finalizeSnapshot(snapshot);
@@ -298,11 +284,10 @@ public final class UploadManager implements UploadQueueEngine.Callback {
 
     public void getFailuresForGroup(
             @NonNull String groupId,
-            @NonNull Consumer<List<UploadFailureEntity>> cb
+            @NonNull Consumer<List<UploadSelection>> cb
     ) {
         controlExecutor.execute(() -> {
-            List<UploadFailureEntity> list =
-                    failureStore.getFailuresForGroup(groupId);
+            List<UploadSelection> list = retryStore.getRetriesForGroup(groupId);
             mainHandler.post(() -> cb.accept(list));
         });
     }

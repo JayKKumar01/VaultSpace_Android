@@ -1,6 +1,7 @@
 package com.github.jaykkumar01.vaultspace.views.popups.uploadfailures;
 
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadFailureEntity;
+import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.views.popups.core.Modal;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalSpec;
 
@@ -9,7 +10,7 @@ import java.util.List;
 public final class UploadFailureListSpec extends ModalSpec {
 
     public String title;
-    public List<UploadFailureEntity> failures;
+    public List<UploadSelection> failures;
     public Runnable onOk;
 
     public UploadFailureListSpec() {
@@ -20,7 +21,7 @@ public final class UploadFailureListSpec extends ModalSpec {
         return new UploadFailureListModal(this);
     }
 
-    public void setFailures(List<UploadFailureEntity> failures) {
+    public void setFailures(List<UploadSelection> failures) {
         this.failures = failures;
     }
 

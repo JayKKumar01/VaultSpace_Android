@@ -22,7 +22,6 @@ public class UserSession {
 
     // Session-scoped retry store (persisted)
     private UploadRetryStore uploadRetryStore;
-    private UploadFailureStore uploadFailureStore;
 
 
 
@@ -73,13 +72,6 @@ public class UserSession {
         return uploadRetryStore;
     }
 
-    public UploadFailureStore getUploadFailureStore() {
-        if (uploadFailureStore == null) {
-            uploadFailureStore = new UploadFailureStore(appContext);
-        }
-        return uploadFailureStore;
-    }
-
 
     /* ---------------- Session ---------------- */
 
@@ -95,11 +87,6 @@ public class UserSession {
         if (uploadRetryStore != null) {
             uploadRetryStore.onSessionCleared();
             uploadRetryStore = null;
-        }
-
-        if (uploadFailureStore != null) {
-            uploadFailureStore.onSessionCleared();
-            uploadFailureStore = null;
         }
 
 

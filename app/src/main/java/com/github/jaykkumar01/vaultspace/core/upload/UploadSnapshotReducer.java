@@ -1,12 +1,11 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
 import android.content.Context;
-
-import com.github.jaykkumar01.vaultspace.core.session.UploadFailureStore;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
+import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
 import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
-import com.github.jaykkumar01.vaultspace.models.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
 import java.util.List;
 
@@ -15,19 +14,17 @@ final class UploadSnapshotReducer {
     private final Context appContext;
     private final UploadCache uploadCache;
     private final UploadRetryStore retryStore;
-    private final UploadFailureStore failureStore;
 
-    UploadSnapshotReducer(Context appContext,UploadCache uploadCache,UploadRetryStore retryStore,UploadFailureStore failureStore) {
+    UploadSnapshotReducer(Context appContext,UploadCache uploadCache,UploadRetryStore retryStore) {
         this.appContext = appContext;
         this.uploadCache = uploadCache;
         this.retryStore = retryStore;
-        this.failureStore = failureStore;
     }
 
     UploadSnapshot mergeSnapshot(String groupId,String groupName,List<UploadSelection> selections) {
         int photos = 0, videos = 0, others = 0;
         for (UploadSelection s : selections) {
-            switch (s.getType()) {
+            switch (s.type) {
                 case PHOTO -> photos++;
                 case VIDEO -> videos++;
                 case FILE -> others++;
@@ -55,7 +52,6 @@ final class UploadSnapshotReducer {
         if (old == null) return null;
 
         retryStore.removeRetry(task.groupId, task.selection);
-        failureStore.removeFailure(task.groupId, task.selection.uri.toString(), task.selection.getType().name());
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
@@ -66,7 +62,7 @@ final class UploadSnapshotReducer {
         return updated;
     }
 
-    UploadSnapshot onFailure(String groupId, UploadDriveHelper.FailureReason reason) {
+    UploadSnapshot onFailure(String groupId, FailureReason reason) {
         UploadSnapshot old = uploadCache.getSnapshot(groupId);
         if (old == null) return null;
 

@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.utils;
 
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
@@ -11,8 +12,10 @@ import android.provider.OpenableColumns;
 import androidx.annotation.NonNull;
 import androidx.exifinterface.media.ExifInterface;
 
-import com.github.jaykkumar01.vaultspace.models.UriFileInfo;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
 
+import java.io.File;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -21,31 +24,56 @@ import java.util.TimeZone;
 
 public final class UriUtils {
 
-    private UriUtils() {
+    private UriUtils() {}
+
+    /* ============================================================
+     * Public API
+     * ============================================================ */
+
+    public static boolean isAccessible(@NonNull Context context, @NonNull Uri uri) {
+        try (Cursor c = context.getContentResolver().query(
+                uri,
+                new String[]{OpenableColumns.DISPLAY_NAME},
+                null, null, null
+        )) {
+            return c != null && c.moveToFirst();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    /**
-     * Resolves best possible moment time for images & videos.
-     * <p>
-     * Contract:
-     * - momentMillis = epoch millis OR -1
-     * - prefers capture time over filesystem time
-     * - never guesses
-     */
     @NonNull
-    public static UriFileInfo resolve(@NonNull Context context, @NonNull Uri uri) {
-
+    public static UploadSelection resolve(@NonNull Context context, @NonNull Uri uri) {
         ContentResolver cr = context.getContentResolver();
 
+        BaseMeta meta = resolveBaseMeta(cr, uri);
+        String mime = cr.getType(uri);
+        UploadType type = mime != null ? UploadType.fromMime(mime) : UploadType.FILE;
+
+        long moment =
+                resolveMomentMillis(context, cr, uri, type, meta.momentMillis);
+
+        String thumbPath = null;
+        if (type == UploadType.PHOTO || type == UploadType.VIDEO) {
+            File dir = new File(context.getCacheDir(), "thumbs");
+            @SuppressLint("ResultOfMethodCallIgnored")
+            boolean ignored = dir.exists() || dir.mkdirs();
+            thumbPath = ThumbnailGenerator.generate(context, uri, type, dir);
+        }
+
+        return new UploadSelection(
+                uri, mime, meta.displayName, meta.sizeBytes, moment, thumbPath
+        );
+    }
+
+    /* ============================================================
+     * Base metadata (single query)
+     * ============================================================ */
+
+    private static BaseMeta resolveBaseMeta(ContentResolver cr, Uri uri) {
         String name = "unknown";
         long size = -1;
-        long momentMillis = -1;
-
-        String mime = cr.getType(uri);
-        boolean isImage = mime != null && mime.startsWith("image/");
-        boolean isVideo = mime != null && mime.startsWith("video/");
-
-        /* ---------- Basic metadata ---------- */
+        long moment = -1;
 
         try (Cursor c = cr.query(
                 uri,
@@ -63,56 +91,54 @@ public final class UriUtils {
 
                 if (n != -1) name = c.getString(n);
                 if (s != -1) size = c.getLong(s);
-
                 if (m != -1) {
                     long sec = c.getLong(m);
-                    if (sec > 0) momentMillis = sec * 1000L;
+                    if (sec > 0) moment = sec * 1000L;
                 }
             }
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
 
-        /* ---------- IMAGE: EXIF ---------- */
-
-        if (momentMillis <= 0 && isImage) {
-            long exif = extractExifTime(context, uri);
-            if (exif > 0) momentMillis = exif;
-        }
-
-        /* ---------- VIDEO: DATE_TAKEN ---------- */
-
-        if (momentMillis <= 0 && isVideo) {
-            try (Cursor c = cr.query(
-                    uri,
-                    new String[]{MediaStore.Video.VideoColumns.DATE_TAKEN},
-                    null, null, null
-            )) {
-                if (c != null && c.moveToFirst()) {
-                    long taken = c.getLong(0);
-                    if (taken > 0) momentMillis = taken;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-
-        /* ---------- VIDEO: METADATA ---------- */
-
-        if (momentMillis <= 0 && isVideo) {
-            long meta = extractVideoMetadataTime(context, uri);
-            if (meta > 0) momentMillis = meta;
-        }
-
-        return new UriFileInfo(uri, name, size, momentMillis);
+        return new BaseMeta(name, size, moment);
     }
 
-    /* ================= Helpers ================= */
+    /* ============================================================
+     * Moment resolution (optimized, switch-based)
+     * ============================================================ */
+
+    private static long resolveMomentMillis(
+            Context ctx,
+            ContentResolver cr,
+            Uri uri,
+            UploadType type,
+            long baseMoment
+    ) {
+        if (baseMoment > 0) return baseMoment;
+
+        return switch (type) {
+            case PHOTO -> {
+                long exif = extractExifTime(ctx, uri);
+                yield exif > 0 ? exif : -1;
+            }
+            case VIDEO -> {
+                long taken = extractVideoDateTaken(cr, uri);
+                if (taken > 0) yield taken;
+
+                long meta = extractVideoMetadataTime(ctx, uri);
+                yield meta > 0 ? meta : -1;
+            }
+            default -> -1;
+        };
+    }
+
+    /* ============================================================
+     * Image EXIF
+     * ============================================================ */
 
     private static long extractExifTime(Context ctx, Uri uri) {
         try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
             if (in == null) return -1;
 
             ExifInterface exif = new ExifInterface(in);
-
             String dt = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
             if (dt == null) dt = exif.getAttribute(ExifInterface.TAG_DATETIME);
             if (dt == null) return -1;
@@ -128,14 +154,31 @@ public final class UriUtils {
         }
     }
 
+    /* ============================================================
+     * Video metadata
+     * ============================================================ */
+
+    private static long extractVideoDateTaken(ContentResolver cr, Uri uri) {
+        try (Cursor c = cr.query(
+                uri,
+                new String[]{MediaStore.Video.VideoColumns.DATE_TAKEN},
+                null, null, null
+        )) {
+            if (c != null && c.moveToFirst()) {
+                long taken = c.getLong(0);
+                if (taken > 0) return taken;
+            }
+        } catch (Exception ignored) {}
+        return -1;
+    }
+
     private static long extractVideoMetadataTime(Context ctx, Uri uri) {
-        MediaMetadataRetriever r = new MediaMetadataRetriever();
-        try {
+        try (MediaMetadataRetriever r = new MediaMetadataRetriever()) {
+
             r.setDataSource(ctx, uri);
 
-            String date = r.extractMetadata(
-                    MediaMetadataRetriever.METADATA_KEY_DATE
-            );
+            String date =
+                    r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE);
             if (date == null) return -1;
 
             date = date.replace("-", "").replace(":", "");
@@ -152,23 +195,12 @@ public final class UriUtils {
 
         } catch (Exception ignored) {
             return -1;
-        } finally {
-            try {
-                r.release();
-            } catch (Exception ignored) {
-            }
         }
     }
 
-    public static boolean isUriAccessible(@NonNull Context context, @NonNull Uri uri) {
-        try (Cursor c = context.getContentResolver().query(
-                uri,
-                new String[]{OpenableColumns.DISPLAY_NAME},
-                null, null, null
-        )) {
-            return c != null && c.moveToFirst();
-        } catch (Exception e) {
-            return false;
-        }
-    }
+    /* ============================================================
+     * Internal holder
+     * ============================================================ */
+
+    private record BaseMeta(String displayName, long sizeBytes, long momentMillis) {}
 }
