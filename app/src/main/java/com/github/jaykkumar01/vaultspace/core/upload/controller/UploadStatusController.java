@@ -108,5 +108,6 @@ public final class UploadStatusController {
 
     public void onCancelled() {
         statusView.hide();
+        progressStackView.reset();
     }
 }

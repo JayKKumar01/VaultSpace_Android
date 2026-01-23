@@ -156,7 +156,7 @@ public final class AlbumsDriveHelper {
 
         FileList list = primaryDrive.files().list()
                 .setQ("'" + albumId + "' in parents and trashed=false")
-                .setFields("files(id,name,size,owners(emailAddress))")
+                .setFields("files(id,name,size,owners(emailAddress),appProperties)")
                 .execute();
 
         List<File> files = list.getFiles();
@@ -200,6 +200,17 @@ public final class AlbumsDriveHelper {
                         if (cancelled.get())
                             throw new Exception("Delete cancelled");
 
+                        Map<String, String> props = f.getAppProperties();
+                        if (props != null) {
+                            String thumbId = props.get("thumb");
+                            if (thumbId != null) {
+                                try {
+                                    drive.files().delete(thumbId).execute();
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+
                         drive.files().delete(f.getId()).execute();
 
                         int done = deleted.incrementAndGet();
@@ -227,7 +238,9 @@ public final class AlbumsDriveHelper {
 
     /* ================= Helpers ================= */
 
-    private void post(Runnable r) { mainHandler.post(r); }
+    private void post(Runnable r) {
+        mainHandler.post(r);
+    }
 
     private static List<AlbumInfo> parseAlbums(FileList list) {
         List<AlbumInfo> out = new ArrayList<>();
@@ -251,21 +264,25 @@ public final class AlbumsDriveHelper {
 
     public interface FetchCallback {
         void onResult(List<AlbumInfo> albums);
+
         void onError(Exception e);
     }
 
     public interface CreateAlbumCallback {
         void onSuccess(AlbumInfo album);
+
         void onError(Exception e);
     }
 
     public interface RenameAlbumCallback {
         void onSuccess(AlbumInfo updated);
+
         void onError(Exception e);
     }
 
     public interface DeleteAlbumCallback {
         void onSuccess(String albumId);
+
         void onError(Exception e);
     }
 }

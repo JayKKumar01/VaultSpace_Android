@@ -1,40 +1,51 @@
 package com.github.jaykkumar01.vaultspace.core.upload.helper;
 
+import android.content.Context;
+
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
+
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class UploadDispatcher {
-
-    private static final String TAG = "VaultSpace:Dispatcher";
     private static final int MAX_PARALLEL = 3;
-
     private final ExecutorService executor = Executors.newFixedThreadPool(MAX_PARALLEL);
-    private final ConcurrentLinkedQueue<DispatchItem> queue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<UploadTask> queue = new ConcurrentLinkedQueue<>();
     private final Map<String, Set<Future<?>>> runningByGroup = new ConcurrentHashMap<>();
     private final AtomicInteger running = new AtomicInteger();
+    private final UploadDriveHelper driveHelper;
 
-    public void submit(String groupId, Runnable task) {
-        queue.add(new DispatchItem(groupId, task));
+    public UploadDispatcher(Context context) {
+        this.driveHelper = new UploadDriveHelper(context);
+    }
+
+    public void enqueue(String groupId, List<UploadSelection> selections, UploadTask.Callback callback) {
+        if (selections == null || selections.isEmpty()) return;
+        for (UploadSelection s : selections) {
+            queue.add(new UploadTask(groupId, s, driveHelper, callback));
+        }
         trySchedule();
     }
 
     private void trySchedule() {
         synchronized (this) {
             while (running.get() < MAX_PARALLEL) {
-                DispatchItem item = queue.poll();
-                if (item == null) return;
+                UploadTask task = queue.poll();
+                if (task == null) return;
                 running.incrementAndGet();
                 final Future<?>[] ref = new Future<?>[1];
                 ref[0] = executor.submit(() -> {
                     try {
-                        item.task.run();
+                        task.run();
                     } finally {
-                        onTaskFinished(item.groupId, ref[0]);
+                        onTaskFinished(task.groupId, ref[0]);
                     }
                 });
-                runningByGroup.computeIfAbsent(item.groupId, k -> ConcurrentHashMap.newKeySet()).add(ref[0]);
+                runningByGroup.computeIfAbsent(task.groupId, k -> ConcurrentHashMap.newKeySet()).add(ref[0]);
             }
         }
     }
@@ -48,7 +59,7 @@ public final class UploadDispatcher {
     public void cancelGroup(String groupId) {
         Set<Future<?>> set = runningByGroup.remove(groupId);
         if (set != null) for (Future<?> f : set) f.cancel(true);
-        queue.removeIf(i -> i.groupId.equals(groupId));
+        queue.removeIf(t -> t.groupId.equals(groupId));
     }
 
     public void cancelAll() {
@@ -73,8 +84,5 @@ public final class UploadDispatcher {
             set.remove(future);
             if (set.isEmpty()) runningByGroup.remove(groupId);
         }
-    }
-
-    private record DispatchItem(String groupId, Runnable task) {
     }
 }

@@ -118,6 +118,9 @@ public class AlbumActivity extends AppCompatActivity {
     private final UploadObserver uploadObserver = new UploadObserver() {
         @Override
         public void onSnapshot(UploadSnapshot snapshot) {
+            if (snapshot == null){
+                return;
+            }
             Log.d(
                     TAG,
                     "Upload snapshot → album=" + snapshot.groupId

@@ -57,9 +57,9 @@ public final class UploadOrchestrator {
 
     public static synchronized UploadOrchestrator getInstance(
             @NonNull Context context
-    ){
-        if(INSTANCE==null){
-            INSTANCE=new UploadOrchestrator(context);
+    ) {
+        if (INSTANCE == null) {
+            INSTANCE = new UploadOrchestrator(context);
         }
         return INSTANCE;
     }
@@ -68,18 +68,18 @@ public final class UploadOrchestrator {
      * Constructor
      * ========================================================== */
 
-    private UploadOrchestrator(@NonNull Context context){
-        this.appContext=context.getApplicationContext();
+    private UploadOrchestrator(@NonNull Context context) {
+        this.appContext = context.getApplicationContext();
 
-        UserSession session=new UserSession(appContext);
-        this.uploadCache=session.getVaultCache().uploadCache;
+        UserSession session = new UserSession(appContext);
+        this.uploadCache = session.getVaultCache().uploadCache;
 
-        this.uploadManager=new UploadManager(appContext);
+        this.uploadManager = new UploadManager(appContext);
         this.uploadManager.attachOrchestrator(this);
 
         registerSideEffect(new AlbumUploadSideEffect(appContext));
 
-        Log.d(TAG,"Initialized. serviceState=IDLE");
+        Log.d(TAG, "Initialized. serviceState=IDLE");
     }
 
     /* ==========================================================
@@ -90,77 +90,77 @@ public final class UploadOrchestrator {
             @NonNull String groupId,
             @NonNull String groupLabel,
             @NonNull List<UploadSelection> selections
-    ){
-        uploadManager.enqueue(groupId,groupLabel,selections);
+    ) {
+        uploadManager.enqueue(groupId, groupLabel, selections);
     }
 
     public void registerObserver(
             @NonNull String groupId,
             @NonNull String groupLabel,
             @NonNull UploadObserver observer
-    ){
-        uploadManager.registerObserver(groupId,groupLabel,observer);
+    ) {
+        uploadManager.registerObserver(groupId, groupLabel, observer);
     }
 
-    public void unregisterObserver(@NonNull String groupId){
+    public void unregisterObserver(@NonNull String groupId) {
         uploadManager.unregisterObserver(groupId);
     }
 
-    public void retryUploads(@NonNull String groupId,@NonNull String groupName){
-        uploadManager.retry(groupId,groupName);
+    public void retryUploads(@NonNull String groupId, @NonNull String groupName) {
+        uploadManager.retry(groupId, groupName);
     }
 
-    public void cancelUploads(@NonNull String groupId){
+    public void cancelUploads(@NonNull String groupId) {
         uploadManager.cancelUploads(groupId);
     }
 
-    public void cancelAllUploads(){
+    public void cancelAllUploads() {
         uploadManager.cancelAllUploads();
     }
 
-    public void clearGroup(String groupId){
+    public void clearGroup(String groupId) {
         uploadManager.clearGroup(groupId);
     }
 
     public void getFailuresForGroup(
             @NonNull String groupId,
             @NonNull Consumer<List<UploadSelection>> cb
-    ){
-        uploadManager.getFailuresForGroup(groupId,cb);
+    ) {
+        uploadManager.getFailuresForGroup(groupId, cb);
     }
 
     /* ==========================================================
      * Upload side-effect dispatch
      * ========================================================== */
 
-    private void registerSideEffect(@NonNull UploadSideEffect effect){
+    private void registerSideEffect(@NonNull UploadSideEffect effect) {
         sideEffects.add(effect);
     }
 
-    public void dispatchUploadSuccess(String groupId, UploadedItem item){
-        for(UploadSideEffect e:sideEffects)
-            e.onUploadSuccess(groupId,item);
+    public void dispatchUploadSuccess(String groupId, UploadedItem item) {
+        for (UploadSideEffect e : sideEffects)
+            e.onUploadSuccess(groupId, item);
     }
 
-    public void dispatchUploadFailure(String groupId, UploadSelection sel, FailureReason reason){
-        for(UploadSideEffect e:sideEffects)
-            e.onUploadFailure(groupId,sel,reason);
+    public void dispatchUploadFailure(String groupId, UploadSelection sel, FailureReason reason) {
+        for (UploadSideEffect e : sideEffects)
+            e.onUploadFailure(groupId, sel, reason);
     }
 
     /* ==========================================================
      * UploadManager → Orchestrator callback
      * ========================================================== */
 
-    public void onUploadStateChanged(){
+    public void onUploadStateChanged() {
 
-        boolean hasActive=uploadCache.hasAnyActiveUploads();
+        boolean hasActive = uploadCache.hasAnyActiveUploads();
 
-        switch(serviceState){
+        switch (serviceState) {
 
             case IDLE:
-                if(hasActive){
+                if (hasActive) {
                     startForegroundService();
-                    serviceState=ServiceState.RUNNING;
+                    serviceState = ServiceState.RUNNING;
                 }
                 return;
 
@@ -177,45 +177,45 @@ public final class UploadOrchestrator {
      * Foreground service helpers
      * ========================================================== */
 
-    private void startForegroundService(){
-        Intent intent=new Intent(appContext, UploadForegroundService.class);
-        ContextCompat.startForegroundService(appContext,intent);
+    private void startForegroundService() {
+        Intent intent = new Intent(appContext, UploadForegroundService.class);
+        ContextCompat.startForegroundService(appContext, intent);
     }
 
-    private void nudgeForegroundService(){
-        Intent intent=new Intent(appContext,UploadForegroundService.class);
+    private void nudgeForegroundService() {
+        Intent intent = new Intent(appContext, UploadForegroundService.class);
         appContext.startService(intent);
     }
 
-    private void stopForegroundServiceImmediately(){
-        Intent intent=new Intent(appContext,UploadForegroundService.class);
+    private void stopForegroundServiceImmediately() {
+        Intent intent = new Intent(appContext, UploadForegroundService.class);
         appContext.stopService(intent);
-        serviceState=ServiceState.IDLE;
+        serviceState = ServiceState.IDLE;
     }
 
     /* ==========================================================
      * Service lifecycle callbacks
      * ========================================================== */
 
-    public void onServiceFinalizing(){
-        serviceState=ServiceState.FINALIZING;
+    public void onServiceFinalizing() {
+        serviceState = ServiceState.FINALIZING;
     }
 
-    public void onServiceDestroyed(){
-        serviceState=ServiceState.IDLE;
+    public void onServiceDestroyed() {
+        serviceState = ServiceState.IDLE;
     }
 
     /* ==========================================================
      * Session cleanup
      * ========================================================== */
 
-    public void onSessionCleared(){
+    public void onSessionCleared() {
 
         uploadManager.cancelAllUploads();
 
-        Intent intent=new Intent(appContext,UploadForegroundService.class);
+        Intent intent = new Intent(appContext, UploadForegroundService.class);
         appContext.stopService(intent);
 
-        serviceState=ServiceState.IDLE;
+        serviceState = ServiceState.IDLE;
     }
 }

@@ -171,6 +171,19 @@ public class Notes {
     // so basically on resume you need to fix the progress bar differently
 
 
+    //if there is any error to any file it needs to get removed,
+    // resume case is very messy fix it
+
+
+
+    // make only items progress overflow, keep the overall progress as a solid view
+
+    //on cancel hide the item progress, actually clear it
+    //actually hide both the view
+
+    // once cancelled, notificaiton always shows some items were not uploaded, fix that
+
+
 
 
 

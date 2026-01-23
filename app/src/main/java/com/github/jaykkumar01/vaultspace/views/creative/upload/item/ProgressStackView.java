@@ -5,6 +5,7 @@ import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
+import android.view.Gravity;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -18,8 +19,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class ProgressStackView extends FrameLayout {
-
-    private static final int MAX_HEIGHT_DP = 112;
 
     private final Map<String, ProgressItemView> items =
             new LinkedHashMap<>();
@@ -52,7 +51,7 @@ public final class ProgressStackView extends FrameLayout {
                         R.color.vs_surface_soft_translucent
                 )
         );
-        setBackground(bg);
+        setClickable(false);
 
         ScrollView scroll = new ScrollView(getContext());
         scroll.setOverScrollMode(OVER_SCROLL_NEVER);
@@ -60,12 +59,13 @@ public final class ProgressStackView extends FrameLayout {
 
         LayoutParams scrollLp =
                 new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        scrollLp.height = dp(MAX_HEIGHT_DP);
+        scrollLp.gravity = Gravity.BOTTOM;
         scroll.setLayoutParams(scrollLp);
 
         container = new LinearLayout(getContext());
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(dp(16), dp(8), dp(16), dp(8));
+        container.setBackground(bg);
 
         scroll.addView(container,
                 new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
@@ -116,4 +116,11 @@ public final class ProgressStackView extends FrameLayout {
     private int dp(int v) {
         return (int) (v * getResources().getDisplayMetrics().density);
     }
+
+    public void reset() {
+        items.clear();
+        if(container!=null) container.removeAllViews();
+        hide();
+    }
+
 }

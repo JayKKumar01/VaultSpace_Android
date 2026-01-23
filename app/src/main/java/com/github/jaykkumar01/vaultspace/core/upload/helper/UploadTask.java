@@ -39,6 +39,11 @@ public final class UploadTask implements Runnable {
             cb.onSuccess(groupId,selection,item);
         }catch(UploadDriveHelper.UploadFailure f){
             cb.onFailure(groupId,selection,f.reason);
-        }catch(CancellationException ignored){}
+        }catch(CancellationException ignored){
+
+        }catch(Exception e){
+            if(Thread.currentThread().isInterrupted())return;
+            throw e;
+        }
     }
 }

@@ -41,7 +41,7 @@ public final class UploadManager implements UploadTask.Callback {
      * ========================================================== */
 
     private final ExecutorService controlExecutor = Executors.newSingleThreadExecutor();
-    private final UploadDispatcher dispatcher = new UploadDispatcher();
+    private final UploadDispatcher dispatcher;
 
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -49,7 +49,6 @@ public final class UploadManager implements UploadTask.Callback {
     private final Map<String, UploadObserver> observers = new ConcurrentHashMap<>();
 
     private final UploadCache uploadCache;
-    private final UploadDriveHelper driveHelper;
 
     private final UploadSnapshotReducer snapshotReducer;
     private final UploadRetryStore retryStore;
@@ -69,11 +68,11 @@ public final class UploadManager implements UploadTask.Callback {
         uploadCache = session.getVaultCache().uploadCache;
 
         this.retryStore = session.getUploadRetryStore();
-        this.driveHelper = new UploadDriveHelper(context);
 
         snapshotReducer = new UploadSnapshotReducer(appContext, uploadCache, retryStore);
 
         failureCoordinator = new UploadFailureCoordinator(appContext, uploadCache, retryStore);
+        dispatcher = new UploadDispatcher(context);
     }
 
     /* ==========================================================
@@ -122,6 +121,7 @@ public final class UploadManager implements UploadTask.Callback {
             @NonNull List<UploadSelection> selections
     ) {
         controlExecutor.execute(() -> {
+            uploadCache.clearStopReason();
 
             UploadSnapshot snapshot = snapshotReducer.mergeSnapshot(groupId, groupName, selections);
 
@@ -132,12 +132,7 @@ public final class UploadManager implements UploadTask.Callback {
 
             failureCoordinator.recordRetriesIfMissing(groupId, selections);
 
-            for (UploadSelection s : selections) {
-                dispatcher.submit(
-                        groupId,
-                        new UploadTask(groupId, s, driveHelper, this)
-                );
-            }
+            dispatcher.enqueue(groupId,selections,this);
 
         });
     }

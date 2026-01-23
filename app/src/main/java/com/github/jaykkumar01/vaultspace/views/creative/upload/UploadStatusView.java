@@ -69,7 +69,7 @@ public final class UploadStatusView extends FrameLayout {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(8));
-        bg.setColor(ContextCompat.getColor(getContext(), R.color.vs_surface_soft_translucent));
+        bg.setColor(ContextCompat.getColor(getContext(), R.color.vs_surface_soft));
         cardContainer.setBackground(bg);
 
         dismissOverlap = (int) dp(14);

@@ -21,7 +21,7 @@ import java.util.UUID;
 public final class ThumbnailGenerator {
 
     // Stable, memory-safe size for batch processing
-    private static final int THUMB_SIZE = 128;
+    private static final int THUMB_SIZE = 256;
 
     @Nullable
     public static String generate(
@@ -50,7 +50,7 @@ public final class ThumbnailGenerator {
 
             try (FileOutputStream fos = new FileOutputStream(out)) {
                 // JPEG is fastest + lowest overhead in loops
-                bmp.compress(Bitmap.CompressFormat.JPEG, 75, fos);
+                bmp.compress(Bitmap.CompressFormat.JPEG, 95, fos);
             }
 
             return out.getAbsolutePath();
