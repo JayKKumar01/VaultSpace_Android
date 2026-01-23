@@ -4,7 +4,6 @@ import android.content.Context;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
-import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
 import java.util.List;
@@ -47,11 +46,11 @@ final class UploadSnapshotReducer {
         return snapshot;
     }
 
-    UploadSnapshot onSuccess(UploadTask task) {
-        UploadSnapshot old = uploadCache.getSnapshot(task.groupId);
+    UploadSnapshot onSuccess(String groupId, UploadSelection selection) {
+        UploadSnapshot old = uploadCache.getSnapshot(groupId);
         if (old == null) return null;
 
-        retryStore.removeRetry(task.groupId, task.selection);
+        retryStore.removeRetry(groupId, selection);
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
@@ -61,6 +60,7 @@ final class UploadSnapshotReducer {
         updated.nonRetryableFailed = old.nonRetryableFailed;
         return updated;
     }
+
 
     UploadSnapshot onFailure(String groupId, FailureReason reason) {
         UploadSnapshot old = uploadCache.getSnapshot(groupId);

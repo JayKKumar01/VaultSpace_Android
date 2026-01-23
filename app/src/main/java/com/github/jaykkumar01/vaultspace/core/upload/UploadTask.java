@@ -1,30 +1,41 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
-import androidx.annotation.NonNull;
+import com.github.jaykkumar01.vaultspace.core.upload.base.*;
+import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 
-import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import java.util.concurrent.CancellationException;
 
-/**
- * UploadTask
- *
- * Immutable execution unit representing
- * a single media upload belonging to an album.
- *
- * Contains no logic.
- */
-public final class UploadTask {
+final class UploadTask implements Runnable {
 
-    @NonNull
-    public final String groupId;
+    interface Callback{
+        void onSuccess(String groupId, UploadSelection s, UploadedItem item);
+        void onFailure(String groupId, UploadSelection s, FailureReason r);
+        void onProgress(String groupId, String name, long uploaded, long total);
+    }
 
-    @NonNull
-    public final UploadSelection selection;
+    final String groupId;
+    final UploadSelection selection;
+    private final UploadDriveHelper helper;
+    private final Callback cb;
 
-    public UploadTask(
-            @NonNull String groupId,
-            @NonNull UploadSelection selection
-    ) {
-        this.groupId = groupId;
-        this.selection = selection;
+    UploadTask(String groupId, UploadSelection s, UploadDriveHelper h, Callback cb){
+        this.groupId=groupId;
+        this.selection=s;
+        this.helper=h;
+        this.cb=cb;
+    }
+
+    @Override public void run(){
+        if(Thread.currentThread().isInterrupted()) return;
+        try{
+            UploadedItem item = helper.upload(
+                    groupId,
+                    selection,
+                    (u,t)->cb.onProgress(groupId,selection.displayName,u,t)
+            );
+            cb.onSuccess(groupId,selection,item);
+        }catch(UploadDriveHelper.UploadFailure f){
+            cb.onFailure(groupId,selection,f.reason);
+        }catch(CancellationException ignored){}
     }
 }

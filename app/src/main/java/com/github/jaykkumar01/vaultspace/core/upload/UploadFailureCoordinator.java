@@ -35,8 +35,8 @@ final class UploadFailureCoordinator {
         if (!out.isEmpty()) retryStore.addRetryBatch(groupId, out);
     }
 
-    public void updateReason(UploadTask task, FailureReason reason) {
-        retryStore.updateFailureReason(task.groupId, task.selection, reason);
+    public void updateReason(String groupId, UploadSelection selection, FailureReason reason) {
+        retryStore.updateFailureReason(groupId, selection, reason);
     }
 
     List<UploadSelection> retry(String groupId, String groupName) {

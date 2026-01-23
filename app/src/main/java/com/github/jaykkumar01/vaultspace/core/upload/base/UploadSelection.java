@@ -35,8 +35,4 @@ public final class UploadSelection {
         this.failureReason = null;
     }
 
-    public void markFailed(@NonNull FailureReason reason) {
-        this.failureReason = reason;
-    }
-
 }

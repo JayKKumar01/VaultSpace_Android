@@ -10,42 +10,28 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
-import com.github.jaykkumar01.vaultspace.core.upload.UploadQueueEngine;
-import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
+import com.github.jaykkumar01.vaultspace.core.upload.base.*;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
-import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
-import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
-import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 import com.google.api.client.googleapis.media.MediaHttpUploader;
-import com.google.api.client.http.AbstractInputStreamContent;
-import com.google.api.client.http.HttpResponseException;
-import com.google.api.client.http.InputStreamContent;
+import com.google.api.client.http.*;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class UploadDriveHelper {
 
     private static final String TAG = "VaultSpace:UploadDrive";
-
-    /* -------- Upload tuning (LOCKED) -------- */
-    private static final long DIRECT_UPLOAD_MAX = 256L * 1024L;          // ≤256 KB
-    private static final long MEDIUM_FILE_MAX = 10L * 1024L * 1024L;     // ≤10 MB
-
-    // NEW (speed-optimized)
-    private static final int CHUNK_SMALL  = 2 * 512 * 1024;
-    private static final int CHUNK_MEDIUM = 4 * 1024 * 1024;   // 4 MB
-    private static final int CHUNK_LARGE  = 8 * 1024 * 1024;   // 8 MB
+    private static final int FIXED_CHUNK = 512 * 1024; // 512 KB
 
     public static final class UploadFailure extends Exception {
         public final FailureReason reason;
@@ -63,7 +49,7 @@ public final class UploadDriveHelper {
     private final Context appContext;
     private final ContentResolver resolver;
     private final TrustedAccountsRepository trustedAccountsRepo;
-
+    private final ConcurrentHashMap<String, Drive> driveCache = new ConcurrentHashMap<>();
 
     public UploadDriveHelper(@NonNull Context context) {
         appContext = context.getApplicationContext();
@@ -71,60 +57,69 @@ public final class UploadDriveHelper {
         trustedAccountsRepo = TrustedAccountsRepository.getInstance(context);
     }
 
+    private Drive getDrive(String email) {
+        return driveCache.computeIfAbsent(
+                email, e -> DriveClientProvider.forAccount(appContext, e)
+        );
+    }
+
     /* ================= Public API ================= */
 
-    public UploadedItem upload(@NonNull String groupId, @NonNull UploadSelection selection,UploadQueueEngine.Callback progress)
-            throws UploadFailure, CancellationException {
+    public UploadedItem upload(
+            String parentId,
+            UploadSelection selection,
+            ProgressCallback cb
+    ) throws UploadFailure, CancellationException {
 
-        Log.d(TAG, "upload start parentId=" + groupId + " uri=" + selection.uri);
+        Log.d(TAG, "upload start parentId=" + parentId + " uri=" + selection.uri);
 
-        if (!UriUtils.isAccessible(appContext,selection.uri))
-            throw new UploadFailure(FailureReason.URI_NOT_FOUND, "Uri not accessible or name missing");
+        if (!UriUtils.isAccessible(appContext, selection.uri))
+            throw new UploadFailure(FailureReason.URI_NOT_FOUND, "Uri not accessible");
 
         String email = pickRandomAccount(selection.sizeBytes);
-        Drive drive = DriveClientProvider.forAccount(appContext, email);
-
+        Drive drive = getDrive(email);
 
         String thumbFileId = null;
-
         if (selection.type == UploadType.VIDEO && selection.thumbnailPath != null) {
             try {
                 thumbFileId = uploadVideoThumbnail(drive, selection.thumbnailPath);
             } catch (Exception e) {
-                Log.w(TAG, "video thumbnail upload failed, continuing without thumb", e);
+                Log.w(TAG, "thumbnail upload failed, continuing", e);
             }
         }
 
-        File metadata = new File()
+        File meta = new File()
                 .setName(selection.displayName)
                 .setMimeType(selection.mimeType)
-                .setParents(Collections.singletonList(groupId));
+                .setParents(Collections.singletonList(parentId));
 
-        if (thumbFileId != null) {
-            metadata.setAppProperties(
-                    Collections.singletonMap("thumb", thumbFileId)
-            );
+        if (thumbFileId != null)
+            meta.setAppProperties(Collections.singletonMap("thumb", thumbFileId));
+
+        if (selection.momentMillis > 0)
+            meta.setModifiedTime(new DateTime(selection.momentMillis));
+
+        InputStream in = null;
+        try {
+            AbstractInputStreamContent content =
+                    buildContent(selection.uri, selection.mimeType, selection.sizeBytes);
+
+            in = ((InputStreamContent) content).getInputStream();
+
+            UploadedItem item =
+                    uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes);
+
+            trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes, null);
+            return item;
+
+        } finally {
+            closeQuietly(in);
         }
-
-
-        if (selection.momentMillis > 0) {
-            metadata.setModifiedTime(new DateTime(selection.momentMillis));
-        }
-
-
-        AbstractInputStreamContent content =
-                buildContent(selection.uri, selection.mimeType, selection.sizeBytes);
-
-        UploadedItem item = uploadPreparedFile(groupId, drive, metadata, content, progress, selection.sizeBytes);
-        trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes, null);
-        return item;
     }
+
     /* ================= Utilities ================= */
 
-    private String uploadVideoThumbnail(
-            @NonNull Drive drive,
-            @NonNull String path
-    ) throws Exception {
+    private String uploadVideoThumbnail(Drive drive, String path) throws Exception {
 
         String folderId = DriveFolderRepository.getThumbnailsRootId(appContext);
         java.io.File file = new java.io.File(path);
@@ -135,49 +130,32 @@ public final class UploadDriveHelper {
                 .setParents(Collections.singletonList(folderId));
 
         InputStreamContent content =
-                new InputStreamContent("image/jpeg", new java.io.FileInputStream(file));
-        content.setLength(file.length()); // 👈 critical: enables true direct upload
+                new InputStreamContent("image/jpeg", new FileInputStream(file));
+        content.setLength(file.length());
 
-        Drive.Files.Create req = drive.files().create(meta, content).setFields("id");
-        req.getMediaHttpUploader().setDirectUploadEnabled(true); // 👈 skip resumable infra
+        Drive.Files.Create req =
+                drive.files().create(meta, content).setFields("id");
+        req.getMediaHttpUploader().setDirectUploadEnabled(true);
 
-        File uploaded = req.execute();
-
-        Log.d(TAG, "thumbnail uploaded id=" + uploaded.getId());
-        return uploaded.getId();
+        return req.execute().getId();
     }
-
 
     private String pickRandomAccount(long sizeBytes) throws UploadFailure {
-        List<TrustedAccount> snapshot =
-                trustedAccountsRepo.getAccountsSnapshot();
 
-        if (snapshot.isEmpty()) {
-            throw new UploadFailure(
-                    FailureReason.NO_TRUSTED_ACCOUNT,
-                    "No trusted accounts available"
-            );
-        }
+        List<TrustedAccount> snapshot = trustedAccountsRepo.getAccountsSnapshot();
+        if (snapshot.isEmpty())
+            throw new UploadFailure(FailureReason.NO_TRUSTED_ACCOUNT, "No trusted accounts");
 
         List<String> eligible = new ArrayList<>();
-        for (TrustedAccount a : snapshot) {
-            if (a.totalQuota - a.usedQuota >= sizeBytes) {
+        for (TrustedAccount a : snapshot)
+            if (a.totalQuota - a.usedQuota >= sizeBytes)
                 eligible.add(a.email);
-            }
-        }
 
-        if (eligible.isEmpty()) {
-            throw new UploadFailure(
-                    FailureReason.NO_SPACE,
-                    "No trusted account has enough free space"
-            );
-        }
+        if (eligible.isEmpty())
+            throw new UploadFailure(FailureReason.NO_SPACE, "No account has space");
 
-        return eligible.get(
-                ThreadLocalRandom.current().nextInt(eligible.size())
-        );
+        return eligible.get(ThreadLocalRandom.current().nextInt(eligible.size()));
     }
-
 
     private AbstractInputStreamContent buildContent(Uri uri, String mime, long size)
             throws UploadFailure {
@@ -191,103 +169,77 @@ public final class UploadDriveHelper {
             return c;
 
         } catch (FileNotFoundException e) {
-            throw new UploadFailure(FailureReason.URI_NOT_FOUND, "Input stream not found", e);
+            throw new UploadFailure(
+                    FailureReason.URI_NOT_FOUND,
+                    "Input stream not found",
+                    e
+            );
         }
     }
 
-    /* ================= Drive primitive (SMART UPLOAD) ================= */
+    /* ================= Drive primitive ================= */
 
     private UploadedItem uploadPreparedFile(
-            String groupId, @NonNull Drive drive,
-            @NonNull File metadata,
-            @NonNull AbstractInputStreamContent content,
-            @NonNull UploadQueueEngine.Callback listener,
-            long fileSize)
-            throws UploadFailure, CancellationException {
+            Drive drive,
+            File meta,
+            AbstractInputStreamContent content,
+            ProgressCallback cb,
+            long fileSize
+    ) throws UploadFailure, CancellationException {
 
         try {
-            Drive.Files.Create req = drive.files().create(metadata, content);
+            Drive.Files.Create req = drive.files().create(meta, content);
             req.setFields("id,name,mimeType,size,modifiedTime,thumbnailLink");
 
             MediaHttpUploader u = req.getMediaHttpUploader();
 
-
-            if (fileSize <= DIRECT_UPLOAD_MAX) {
+            if (fileSize <= FIXED_CHUNK) {
                 u.setDirectUploadEnabled(true);
             } else {
                 u.setDirectUploadEnabled(false);
-                u.setChunkSize(
-                        fileSize <= MEDIUM_FILE_MAX ? CHUNK_SMALL :
-                                fileSize <= 100L * 1024L * 1024L ? CHUNK_MEDIUM :
-                                        CHUNK_LARGE
-                );
+                u.setChunkSize(FIXED_CHUNK);
             }
 
             u.setProgressListener(p -> {
-                if (Thread.currentThread().isInterrupted()) throw new CancellationException();
-                listener.onProgress(groupId, metadata.getName(), p.getNumBytesUploaded(), content.getLength());
+                if (Thread.currentThread().isInterrupted())
+                    throw new CancellationException();
+                cb.onProgress(p.getNumBytesUploaded(), content.getLength());
             });
 
             File f = req.execute();
 
-            UploadedItem item = new UploadedItem(
+            return new UploadedItem(
                     f.getId(),
                     f.getName(),
                     f.getMimeType(),
                     f.getSize() != null ? f.getSize() : 0L,
-                    f.getModifiedTime() != null ? f.getModifiedTime().getValue() : System.currentTimeMillis(),
+                    f.getModifiedTime() != null
+                            ? f.getModifiedTime().getValue()
+                            : System.currentTimeMillis(),
                     f.getThumbnailLink()
             );
 
-            Log.d(TAG,
-                    "\nUpload successful\n" +
-                            "────────────────────────────────\n" +
-                            "File name   : " + item.name + "\n" +
-                            "File ID     : " + item.fileId + "\n" +
-                            "Type        : " + item.getType() + "\n" +
-                            "MIME        : " + item.mimeType + "\n" +
-                            "Size        : " + formatSize(item.sizeBytes) + "\n" +
-                            "Modified    : " + formatTime(item.modifiedTime) + "\n" +
-                            "Thumbnail   : " + (item.thumbnailLink != null ? "available" : "none") + "\n" +
-                            "────────────────────────────────"
-            );
-
-
-            return item;
-
         } catch (HttpResponseException e) {
-
-            int code = e.getStatusCode();
-            if (code == 401 || code == 403)
+            int c = e.getStatusCode();
+            if (c == 401 || c == 403)
                 throw new UploadFailure(FailureReason.NO_ACCESS, "Drive permission denied", e);
+            throw new UploadFailure(FailureReason.DRIVE_ERROR, "Drive HTTP " + c, e);
 
-            throw new UploadFailure(FailureReason.DRIVE_ERROR, "Drive HTTP error " + code, e);
-
+        } catch (IOException e) {
+            throw new UploadFailure(FailureReason.IO_ERROR, "IO error", e);
         } catch (CancellationException e) {
             throw e;
-        } catch (IOException e) {
-            throw new UploadFailure(FailureReason.IO_ERROR, "IO error during upload", e);
         } catch (Exception e) {
             throw new UploadFailure(FailureReason.DRIVE_ERROR, "Drive upload failed", e);
         }
     }
 
-
-    private static String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
-        return String.format("%.2f MB", bytes / (1024f * 1024f));
-    }
-
-    private static String formatTime(long millis) {
-        return java.text.DateFormat
-                .getDateTimeInstance(
-                        java.text.DateFormat.MEDIUM,
-                        java.text.DateFormat.SHORT
-                )
-                .format(new java.util.Date(millis));
-    }
-
-    public void release() {
+    private static void closeQuietly(InputStream in) {
+        if (in != null) {
+            try {
+                in.close();
+            } catch (IOException ignored) {
+            }
+        }
     }
 }
