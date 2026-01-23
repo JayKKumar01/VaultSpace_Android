@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.core.upload;
+package com.github.jaykkumar01.vaultspace.core.upload.helper;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -12,10 +12,12 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.core.upload.service.UploadForegroundService;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 
 import java.util.Map;
 
-final class UploadNotificationHelper {
+public final class UploadNotificationHelper {
 
     private static final String TAG = "VaultSpace:ForegroundAndOrchestrator";
     private static final String CHANNEL_ID = "vaultspace_uploads";
@@ -27,7 +29,7 @@ final class UploadNotificationHelper {
     private UploadForegroundService.NotificationState lastRenderedState;
     private long lastRenderTimeMs;
 
-    UploadNotificationHelper(Context context) {
+    public UploadNotificationHelper(Context context) {
         this.appContext = context.getApplicationContext();
         this.notificationManager =
                 (NotificationManager) appContext.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -36,12 +38,12 @@ final class UploadNotificationHelper {
 
     /* ========================================================== */
 
-    boolean shouldRender(long now, UploadForegroundService.NotificationState state) {
+    public boolean shouldRender(long now, UploadForegroundService.NotificationState state) {
         return lastRenderedState != state
                 || now - lastRenderTimeMs >= MIN_RENDER_INTERVAL_MS;
     }
 
-    void renderForeground(
+    public void renderForeground(
             int notificationId,
             Notification notification,
             UploadForegroundService.NotificationState state,
@@ -53,14 +55,14 @@ final class UploadNotificationHelper {
         lastRenderTimeMs = now;
     }
 
-    void postFinal(int notificationId, Notification notification) {
+    public void postFinal(int notificationId, Notification notification) {
         Log.d(TAG, "postFinal(): id=" + notificationId);
         notificationManager.notify(notificationId, notification);
     }
 
     /* ========================================================== */
 
-    Notification buildNotification(
+    public Notification buildNotification(
             UploadForegroundService.NotificationState state,
             Map<String, UploadSnapshot> snapshots
     ) {

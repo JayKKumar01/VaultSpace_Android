@@ -11,8 +11,11 @@ import com.github.jaykkumar01.vaultspace.album.AlbumUploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.service.UploadForegroundService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -175,7 +178,7 @@ public final class UploadOrchestrator {
      * ========================================================== */
 
     private void startForegroundService(){
-        Intent intent=new Intent(appContext,UploadForegroundService.class);
+        Intent intent=new Intent(appContext, UploadForegroundService.class);
         ContextCompat.startForegroundService(appContext,intent);
     }
 

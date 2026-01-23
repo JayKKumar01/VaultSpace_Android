@@ -1,11 +1,11 @@
-package com.github.jaykkumar01.vaultspace.core.upload;
+package com.github.jaykkumar01.vaultspace.core.upload.helper;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-final class UploadDispatcher {
+public final class UploadDispatcher {
 
     private static final String TAG = "VaultSpace:Dispatcher";
     private static final int MAX_PARALLEL = 3;
@@ -15,7 +15,7 @@ final class UploadDispatcher {
     private final Map<String, Set<Future<?>>> runningByGroup = new ConcurrentHashMap<>();
     private final AtomicInteger running = new AtomicInteger();
 
-    void submit(String groupId, Runnable task) {
+    public void submit(String groupId, Runnable task) {
         queue.add(new DispatchItem(groupId, task));
         trySchedule();
     }
@@ -45,24 +45,24 @@ final class UploadDispatcher {
         trySchedule();
     }
 
-    void cancelGroup(String groupId) {
+    public void cancelGroup(String groupId) {
         Set<Future<?>> set = runningByGroup.remove(groupId);
         if (set != null) for (Future<?> f : set) f.cancel(true);
         queue.removeIf(i -> i.groupId.equals(groupId));
     }
 
-    void cancelAll() {
+    public void cancelAll() {
         for (Set<Future<?>> set : runningByGroup.values())
             for (Future<?> f : set) f.cancel(true);
         runningByGroup.clear();
         queue.clear();
     }
 
-    int getActiveCount() {
+    public int getActiveCount() {
         return running.get();
     }
 
-    void shutdown() {
+    public void shutdown() {
         cancelAll();
         executor.shutdownNow();
     }

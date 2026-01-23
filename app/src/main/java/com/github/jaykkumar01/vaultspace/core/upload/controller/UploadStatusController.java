@@ -1,9 +1,11 @@
-package com.github.jaykkumar01.vaultspace.core.upload;
+package com.github.jaykkumar01.vaultspace.core.upload.controller;
 
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 
 /**
@@ -26,15 +28,19 @@ public final class UploadStatusController {
     /* ================= Fields ================= */
 
     private final UploadStatusView statusView;
+    private final ProgressStackView progressStackView;
+
     private final Callback callback;
 
     /* ================= Constructor ================= */
 
     public UploadStatusController(
             @NonNull UploadStatusView statusView,
+            @NonNull ProgressStackView progressStackView,
             @NonNull Callback callback
     ) {
         this.statusView = statusView;
+        this.progressStackView = progressStackView;
         this.callback = callback;
 
         statusView.hide();
@@ -87,13 +93,14 @@ public final class UploadStatusController {
         });
     }
 
-    public void onProgress(String name, long uploadedBytes, long totalBytes) {
+    public void onProgress(String uId, String name, long uploadedBytes, long totalBytes) {
         Log.d(
                 "VaultSpace:UploadProgress",
                 "file=" + name +
                         " uploaded=" + uploadedBytes +
                         " total=" + totalBytes
         );
+        progressStackView.render(uId,name, uploadedBytes, totalBytes);
     }
 
 

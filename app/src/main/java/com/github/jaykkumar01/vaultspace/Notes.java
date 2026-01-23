@@ -161,6 +161,15 @@ public class Notes {
 
     //crosscheck all the failed test cases with fake upload
 
+    // it supports resume so make sure to update the progress based on that on retry
+
+    // and also do something with overall progress view
+
+    // add a max height to the stack progress view, there are glitches when you select 130 files at once, something goes wrong
+    //all tasks gets submitted at once so fix that, and yeah on retry total size it not shown so fix that too
+    //in fact we don't get any uploaded bytes progress also
+    // so basically on resume you need to fix the progress bar differently
+
 
 
 

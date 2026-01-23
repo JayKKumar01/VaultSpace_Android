@@ -10,12 +10,16 @@ import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
-import com.github.jaykkumar01.vaultspace.core.upload.base.ProgressCallback;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
+import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadDispatcher;
+import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadFailureCoordinator;
+import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadSnapshotReducer;
+import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadTask;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -174,9 +178,9 @@ public final class UploadManager implements UploadTask.Callback {
 
 
     @Override
-    public void onProgress(String gid,String name,long u,long t){
+    public void onProgress(String uId, String gid,String name,long u,long t){
         UploadObserver o = observers.get(gid);
-        if(o!=null) mainHandler.post(()->o.onProgress(name,u,t));
+        if(o!=null) mainHandler.post(()->o.onProgress(uId,name,u,t));
     }
 
 

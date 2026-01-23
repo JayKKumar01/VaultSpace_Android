@@ -207,6 +207,20 @@
 
 
     <!-- ================= Upload Status Card ================= -->
+
+    <com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView
+        android:id="@+id/uploadItemProgress"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginBottom="5dp"
+        app:layout_constraintVertical_bias="1"
+        app:layout_constraintTop_toBottomOf="@id/albumHeaderCard"
+        app:layout_constraintBottom_toTopOf="@id/uploadStatusView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
     <com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView
         android:id="@+id/uploadStatusView"
         android:layout_width="0dp"
@@ -214,7 +228,7 @@
         android:visibility="gone"
         android:layout_marginHorizontal="10dp"
         app:layout_constraintVertical_bias="1"
-        app:layout_constraintTop_toTopOf="@id/albumHeaderCard"
+        app:layout_constraintTop_toBottomOf="@id/albumHeaderCard"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>

@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.core.upload;
+package com.github.jaykkumar01.vaultspace.core.upload.base;
 
 import androidx.annotation.NonNull;
 

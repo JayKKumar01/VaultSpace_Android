@@ -1,26 +1,27 @@
-package com.github.jaykkumar01.vaultspace.core.upload;
+package com.github.jaykkumar01.vaultspace.core.upload.helper;
 
 import android.content.Context;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
 import java.util.List;
 
-final class UploadSnapshotReducer {
+public final class UploadSnapshotReducer {
 
     private final Context appContext;
     private final UploadCache uploadCache;
     private final UploadRetryStore retryStore;
 
-    UploadSnapshotReducer(Context appContext,UploadCache uploadCache,UploadRetryStore retryStore) {
+    public UploadSnapshotReducer(Context appContext, UploadCache uploadCache, UploadRetryStore retryStore) {
         this.appContext = appContext;
         this.uploadCache = uploadCache;
         this.retryStore = retryStore;
     }
 
-    UploadSnapshot mergeSnapshot(String groupId,String groupName,List<UploadSelection> selections) {
+    public UploadSnapshot mergeSnapshot(String groupId, String groupName, List<UploadSelection> selections) {
         int photos = 0, videos = 0, others = 0;
         for (UploadSelection s : selections) {
             switch (s.type) {
@@ -46,7 +47,7 @@ final class UploadSnapshotReducer {
         return snapshot;
     }
 
-    UploadSnapshot onSuccess(String groupId, UploadSelection selection) {
+    public UploadSnapshot onSuccess(String groupId, UploadSelection selection) {
         UploadSnapshot old = uploadCache.getSnapshot(groupId);
         if (old == null) return null;
 
@@ -62,7 +63,7 @@ final class UploadSnapshotReducer {
     }
 
 
-    UploadSnapshot onFailure(String groupId, FailureReason reason) {
+    public UploadSnapshot onFailure(String groupId, FailureReason reason) {
         UploadSnapshot old = uploadCache.getSnapshot(groupId);
         if (old == null) return null;
 
@@ -77,7 +78,7 @@ final class UploadSnapshotReducer {
         return updated;
     }
 
-    void finalizeSnapshot(UploadSnapshot snapshot) {
+    public void finalizeSnapshot(UploadSnapshot snapshot) {
         uploadCache.putSnapshot(snapshot);
     }
 }

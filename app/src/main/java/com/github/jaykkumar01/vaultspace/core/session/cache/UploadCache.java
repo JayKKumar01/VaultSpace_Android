@@ -2,7 +2,7 @@ package com.github.jaykkumar01.vaultspace.core.session.cache;
 
 import androidx.annotation.Nullable;
 
-import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;

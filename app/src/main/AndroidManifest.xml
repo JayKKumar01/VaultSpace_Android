@@ -65,7 +65,7 @@
 
         <!-- ================= Upload Foreground Service ================= -->
         <service
-            android:name=".core.upload.UploadForegroundService"
+            android:name=".core.upload.service.UploadForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.core.upload;
+package com.github.jaykkumar01.vaultspace.core.upload.service;
 
 import android.app.Notification;
 import android.app.Service;
@@ -12,6 +12,9 @@ import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
+import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadNotificationHelper;
 
 import java.util.Map;
 
@@ -29,7 +32,7 @@ public final class UploadForegroundService extends Service {
 
     /* ========================================================== */
 
-    enum NotificationState {
+    public enum NotificationState {
         UPLOADING,
         FINISHED_SUCCESS,
         FINISHED_WITH_ISSUES,

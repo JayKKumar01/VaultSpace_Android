@@ -57,6 +57,12 @@ public final class MultiSegmentProgressBar extends View {
         syncBackgroundPaint();
     }
 
+    public void setTrackColor(int color) {
+        bgPaint.setColor(color);
+        invalidate();
+    }
+
+
     public void setColors(int[] c) {
         colors = c != null ? c.clone() : new int[0];
         invalidate();

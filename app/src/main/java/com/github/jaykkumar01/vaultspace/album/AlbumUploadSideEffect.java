@@ -5,9 +5,8 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.upload.UploadSideEffect;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
-import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 

@@ -20,13 +20,14 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
-import com.github.jaykkumar01.vaultspace.core.upload.UploadStatusController;
+import com.github.jaykkumar01.vaultspace.core.upload.controller.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
-import com.github.jaykkumar01.vaultspace.core.upload.UploadObserver;
-import com.github.jaykkumar01.vaultspace.core.upload.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadObserver;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
+import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
@@ -53,6 +54,7 @@ public class AlbumActivity extends AppCompatActivity {
     private FrameLayout contentContainer;
     private AlbumMetaInfoView albumMetaInfo;
     private UploadStatusView uploadStatusView;
+    private ProgressStackView progressStackView;
     private SwipeRefreshLayout swipeRefresh;
 
     private AlbumUiController albumUiController;
@@ -153,8 +155,8 @@ public class AlbumActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onProgress(String name, long uploadedBytes, long totalBytes) {
-            uploadStatusController.onProgress(name, uploadedBytes, totalBytes);
+        public void onProgress(String uId, String name, long uploadedBytes, long totalBytes) {
+            uploadStatusController.onProgress(uId,name, uploadedBytes, totalBytes);
         }
     };
 
@@ -223,7 +225,7 @@ public class AlbumActivity extends AppCompatActivity {
 
 
         uploadStatusController =
-                new UploadStatusController(uploadStatusView, uploadStatusCallback);
+                new UploadStatusController(uploadStatusView,progressStackView, uploadStatusCallback);
 
         uploadOrchestrator = UploadOrchestrator.getInstance(this);
         uploadOrchestrator.registerObserver(albumId, albumName, uploadObserver);
@@ -345,6 +347,7 @@ public class AlbumActivity extends AppCompatActivity {
         contentContainer = findViewById(R.id.stateContainer);
         albumMetaInfo = findViewById(R.id.albumMetaInfo);
         uploadStatusView = findViewById(R.id.uploadStatusView);
+        progressStackView = findViewById(R.id.uploadItemProgress);
         swipeRefresh = findViewById(R.id.swipeRefresh);
     }
 
