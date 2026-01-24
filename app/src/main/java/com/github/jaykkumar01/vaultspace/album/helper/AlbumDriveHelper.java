@@ -35,19 +35,13 @@ public final class AlbumDriveHelper {
         void onError(@NonNull Exception e);
     }
 
-    public AlbumDriveHelper(
-            @NonNull Context context,
-            @NonNull String albumId
-    ) {
+    public AlbumDriveHelper(@NonNull Context context, @NonNull String albumId) {
         Context appContext = context.getApplicationContext();
         this.primaryDrive = DriveClientProvider.getPrimaryDrive(context);
         this.fetcher = new AlbumMediaFetcher(appContext, albumId);
     }
 
-    public void fetchAlbumMedia(
-            @NonNull ExecutorService executor,
-            @NonNull FetchCallback callback
-    ) {
+    public void fetchAlbumMedia(@NonNull ExecutorService executor, @NonNull FetchCallback callback) {
         Log.d(TAG, "fetch start");
 
         executor.execute(() -> {

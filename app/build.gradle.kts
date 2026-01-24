@@ -62,7 +62,7 @@ dependencies {
     implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
     implementation(libs.glide)
     annotationProcessor(libs.compiler)
-    implementation(libs.swiperefreshlayout)
+//    implementation(libs.swiperefreshlayout)
     // Room (Java)
     implementation(libs.room.runtime)
     annotationProcessor(libs.room.compiler)

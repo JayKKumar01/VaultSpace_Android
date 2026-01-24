@@ -4,7 +4,7 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
@@ -12,21 +12,19 @@ import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 
 public final class AlbumUploadSideEffect implements UploadSideEffect {
 
-    private final Context appContext;
+    private final AlbumMediaRepository repo;
 
-    public AlbumUploadSideEffect(Context context){
-        appContext=context.getApplicationContext();
+    public AlbumUploadSideEffect(Context context) {
+        Context appContext = context.getApplicationContext();
+        repo = AlbumMediaRepository.getInstance(appContext);
     }
 
     @Override
-    public void onUploadSuccess(@NonNull String albumId, @NonNull UploadedItem item){
-        UserSession userSession = new UserSession(appContext);
-        AlbumMedia media=new AlbumMedia(item);
-        userSession.getVaultCache().albumMedia
-                .getOrCreateEntry(albumId)
-                .addMedia(media);
+    public void onUploadSuccess(@NonNull String albumId, @NonNull UploadedItem item) {
+        repo.addMedia(albumId, new AlbumMedia(item));
     }
 
     @Override
-    public void onUploadFailure(@NonNull String groupId, @NonNull UploadSelection selection, FailureReason reason){}
+    public void onUploadFailure(@NonNull String albumId, @NonNull UploadSelection selection, FailureReason reason) {
+    }
 }

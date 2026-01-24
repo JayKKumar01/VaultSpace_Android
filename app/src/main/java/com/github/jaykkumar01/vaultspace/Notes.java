@@ -200,6 +200,17 @@ public class Notes {
     //or not
 
 
+    // it throws error instantly on network change fix it (upload drive)
+
+
+
+
+
+
+
+
+
+
 
 
 

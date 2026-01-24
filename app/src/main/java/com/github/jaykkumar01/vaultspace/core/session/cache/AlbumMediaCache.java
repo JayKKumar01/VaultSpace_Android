@@ -26,8 +26,7 @@ public final class AlbumMediaCache extends VaultCache {
      * Storage
      * ========================================================== */
 
-    private final Map<String, AlbumMediaEntry> entriesByAlbumId =
-            new HashMap<>();
+    private final Map<String, AlbumMediaEntry> entriesByAlbumId = new HashMap<>();
 
     /* ==========================================================
      * Album routing

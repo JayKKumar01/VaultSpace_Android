@@ -10,6 +10,9 @@ import androidx.appcompat.widget.AppCompatTextView;
 
 import com.github.jaykkumar01.vaultspace.R;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class AlbumMetaInfoView extends AppCompatTextView {
 
     /* ---------------- Constants ---------------- */
@@ -19,8 +22,12 @@ public class AlbumMetaInfoView extends AppCompatTextView {
     private static final String LABEL_CAPTURED = " captured";
     private static final String LABEL_RECORDED = " recorded";
 
-    private static final String LOADING_TEXT =
-            PLACEHOLDER + LABEL_CAPTURED + SEPARATOR + PLACEHOLDER + LABEL_RECORDED;
+    private static final String LOADING_TEXT = PLACEHOLDER + LABEL_CAPTURED + SEPARATOR + PLACEHOLDER + LABEL_RECORDED;
+
+    private final AtomicInteger captured = new AtomicInteger(-1);
+    private final AtomicInteger recorded = new AtomicInteger(-1);
+    private final AtomicBoolean loading = new AtomicBoolean(true);
+
 
     /* ---------------- State ---------------- */
 
@@ -59,7 +66,9 @@ public class AlbumMetaInfoView extends AppCompatTextView {
 
     /* ---------------- Public API ---------------- */
 
-    /** Show loading placeholder */
+    /**
+     * Show loading placeholder
+     */
     public void showLoading() {
         if (isLoading) return;
 
@@ -67,7 +76,9 @@ public class AlbumMetaInfoView extends AppCompatTextView {
         render();
     }
 
-    /** Update media counts */
+    /**
+     * Update media counts
+     */
     public void setCounts(int captured, int recorded) {
         captured = Math.max(0, captured);
         recorded = Math.max(0, recorded);

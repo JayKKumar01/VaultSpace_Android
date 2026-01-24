@@ -12,14 +12,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.album.AlbumLoader;
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
+import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
 import com.github.jaykkumar01.vaultspace.core.upload.controller.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadObserver;
@@ -34,7 +33,6 @@ import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import java.util.List;
 
 public class AlbumActivity extends AppCompatActivity {
-
 
     private static final String TAG = "VaultSpace:Album";
 
@@ -55,10 +53,9 @@ public class AlbumActivity extends AppCompatActivity {
     private AlbumMetaInfoView albumMetaInfo;
     private UploadStatusView uploadStatusView;
     private ProgressStackView progressStackView;
-    private SwipeRefreshLayout swipeRefresh;
 
     private AlbumUiController albumUiController;
-    private AlbumLoader albumLoader;
+    private AlbumMediaRepository albumRepo;
     private ModalHost modalHost;
     private AlbumModalHandler albumModalHandler;
 
@@ -69,10 +66,9 @@ public class AlbumActivity extends AppCompatActivity {
 
     private boolean shouldClearGroup;
 
-
-    private final AlbumLoader.Callback loaderCallback = new AlbumLoader.Callback() {
+    private final AlbumMediaRepository.Callback repoCallback = new AlbumMediaRepository.Callback() {
         @Override
-        public void onDataLoaded() {
+        public void onLoaded() {
             if (released) return;
             renderFromCache();
         }
@@ -118,7 +114,7 @@ public class AlbumActivity extends AppCompatActivity {
     private final UploadObserver uploadObserver = new UploadObserver() {
         @Override
         public void onSnapshot(UploadSnapshot snapshot) {
-            if (snapshot == null){
+            if (snapshot == null) {
                 return;
             }
             Log.d(
@@ -139,6 +135,9 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onSuccess(UploadedItem item) {
+            if (item == null) {
+                return;
+            }
             AlbumMedia media = new AlbumMedia(item);
 
             if (state == UiState.CONTENT) {
@@ -154,7 +153,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onFailure(UploadSelection selection) {
-            if (selection == null){
+            if (selection == null) {
                 return;
             }
             uploadStatusController.onFailure(selection);
@@ -162,7 +161,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onProgress(String uId, String name, long uploadedBytes, long totalBytes) {
-            uploadStatusController.onProgress(uId,name, uploadedBytes, totalBytes);
+            uploadStatusController.onProgress(uId, name, uploadedBytes, totalBytes);
         }
     };
 
@@ -218,20 +217,20 @@ public class AlbumActivity extends AppCompatActivity {
         applyWindowInsets();
 
         bindViews();
-        setupRefresh();
         bindHeader();
         setupBackHandling();
 
         modalHost = ModalHost.attach(this);
         albumModalHandler = new AlbumModalHandler(modalHost);
 
-        albumLoader = new AlbumLoader(this, albumId);
+        albumRepo = AlbumMediaRepository.getInstance(this);
+        albumRepo.addCountListener(albumId,this::onCountChanged);
+
         albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
-        actionCoordinator = new AlbumActionCoordinator(this,albumId, actionListener);
+        actionCoordinator = new AlbumActionCoordinator(this, albumId, actionListener);
 
 
-        uploadStatusController =
-                new UploadStatusController(uploadStatusView,progressStackView, uploadStatusCallback);
+        uploadStatusController = new UploadStatusController(uploadStatusView, progressStackView, uploadStatusCallback);
 
         uploadOrchestrator = UploadOrchestrator.getInstance(this);
         uploadOrchestrator.registerObserver(albumId, albumName, uploadObserver);
@@ -242,37 +241,31 @@ public class AlbumActivity extends AppCompatActivity {
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
     }
 
+    private void onCountChanged(int photos,int videos) {
+        albumMetaInfo.setCounts(photos,videos);
+    }
+
 
     /* ---------------- Load / Refresh ---------------- */
 
     private void loadAlbum() {
         if (released || state != UiState.UNINITIALIZED) return;
         transitionTo(UiState.LOADING);
-        albumLoader.load(loaderCallback);
+        albumRepo.loadAlbum(this, albumId, repoCallback);
     }
 
     private void refreshAlbum() {
         if (released) {
-            swipeRefresh.setRefreshing(false);
             return;
         }
         transitionTo(UiState.LOADING);
-        albumLoader.refresh(loaderCallback);
+        albumRepo.refreshAlbum(this, albumId, repoCallback);
     }
 
     /* ---------------- Rendering ---------------- */
 
     private void renderFromCache() {
-        int photos = 0;
-        int videos = 0;
-
-        List<AlbumMedia> snapshot = albumLoader.getMedia();
-        for (AlbumMedia m : snapshot) {
-            if (m.isVideo) videos++;
-            else photos++;
-        }
-
-        albumMetaInfo.setCounts(photos, videos);
+        List<AlbumMedia> snapshot = albumRepo.getMediaSnapshot(albumId);
 
         transitionTo(snapshot.isEmpty() ? UiState.EMPTY : UiState.CONTENT);
     }
@@ -284,10 +277,6 @@ public class AlbumActivity extends AppCompatActivity {
 
         Log.d(TAG, "state " + state + " → " + newState);
         state = newState;
-
-        if (newState != UiState.LOADING) {
-            swipeRefresh.setRefreshing(false);
-        }
 
         switch (newState) {
             case LOADING:
@@ -326,20 +315,13 @@ public class AlbumActivity extends AppCompatActivity {
 
     private void renderContent() {
         albumModalHandler.dismissAll();
-        albumUiController.showContent(albumLoader.getMedia());
+        albumUiController.showContent(albumRepo.getMediaSnapshot(albumId));
+
     }
 
 
 
     /* ---------------- Setup ---------------- */
-
-    private void setupRefresh() {
-        swipeRefresh.setOnRefreshListener(this::refreshAlbum);
-        swipeRefresh.setColorSchemeResources(
-                R.color.vs_accent_primary,
-                R.color.vs_brand_text
-        );
-    }
 
     private boolean readIntent() {
         albumId = getIntent().getStringExtra(EXTRA_ALBUM_ID);
@@ -354,7 +336,6 @@ public class AlbumActivity extends AppCompatActivity {
         albumMetaInfo = findViewById(R.id.albumMetaInfo);
         uploadStatusView = findViewById(R.id.uploadStatusView);
         progressStackView = findViewById(R.id.uploadItemProgress);
-        swipeRefresh = findViewById(R.id.swipeRefresh);
     }
 
     private void bindHeader() {
@@ -391,11 +372,11 @@ public class AlbumActivity extends AppCompatActivity {
         super.onDestroy();
         released = true;
         albumModalHandler.dismissAll();
-        albumLoader.release();
         actionCoordinator.release();
         uploadOrchestrator.unregisterObserver(albumId);
         if (shouldClearGroup) {
             uploadOrchestrator.clearGroup(albumId);
         }
+        albumRepo.removeCountListener(albumId, this::onCountChanged);
     }
 }
