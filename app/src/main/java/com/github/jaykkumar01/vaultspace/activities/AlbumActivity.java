@@ -154,7 +154,10 @@ public class AlbumActivity extends AppCompatActivity {
 
         @Override
         public void onFailure(UploadSelection selection) {
-            //TODO
+            if (selection == null){
+                return;
+            }
+            uploadStatusController.onFailure(selection);
         }
 
         @Override

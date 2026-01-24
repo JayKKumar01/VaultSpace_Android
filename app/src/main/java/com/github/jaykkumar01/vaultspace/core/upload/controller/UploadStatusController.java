@@ -4,6 +4,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
@@ -77,13 +78,14 @@ public final class UploadStatusController {
                     v -> callback.onRetryRequested(),
                     v -> callback.onCancelRequested()
             );
+            progressStackView.reset();
             return;
         }
 
         if (snapshot.hasOnlyNonRetryableFailures()) {
             statusView.renderNoAccess(v -> {
                 statusView.hide();
-                progressStackView.hide();
+                progressStackView.reset();
                 callback.onNoAccessInfo();
             });
             return;
@@ -91,7 +93,7 @@ public final class UploadStatusController {
 
         statusView.renderCompleted(v -> {
             statusView.hide();
-            progressStackView.hide();
+            progressStackView.reset();
             callback.onAcknowledge();
         });
     }
@@ -107,6 +109,10 @@ public final class UploadStatusController {
     }
 
 
+    public void onFailure(UploadSelection selection) {
+//        progressStackView.hide();
+//        progressStackView.reset();
+    }
 
 
     public void onCancelled() {
