@@ -14,7 +14,6 @@ import com.github.jaykkumar01.vaultspace.core.upload.base.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
-import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadDispatcher;
 import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadFailureCoordinator;
 import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadSnapshotReducer;
@@ -130,9 +129,9 @@ public final class UploadManager implements UploadTask.Callback {
             uploadCache.putSnapshot(snapshot);
             notifyStateChanged();
 
-            failureCoordinator.recordRetriesIfMissing(groupId, selections);
+            failureCoordinator.recordRetriesIfMissing(selections);
 
-            dispatcher.enqueue(groupId,selections,this);
+            dispatcher.enqueue(selections,this);
 
         });
     }
@@ -163,7 +162,7 @@ public final class UploadManager implements UploadTask.Callback {
         controlExecutor.execute(()->{
             orchestrator.dispatchUploadFailure(gid,s,r);
             emitFailure(gid,s);
-            failureCoordinator.updateReason(gid,s, r);
+            failureCoordinator.updateReason(s, r);
             UploadSnapshot u = snapshotReducer.onFailure(gid,r);
             snapshotReducer.finalizeSnapshot(u);
             emitSnapshot(gid,u);

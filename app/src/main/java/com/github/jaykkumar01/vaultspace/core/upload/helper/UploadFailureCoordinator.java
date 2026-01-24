@@ -6,6 +6,7 @@ import android.util.Log;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadContext;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 
@@ -28,16 +29,17 @@ public final class UploadFailureCoordinator {
     }
 
 
-
-    public void recordRetriesIfMissing(String groupId, List<UploadSelection> selections) {
+    public void recordRetriesIfMissing(List<UploadSelection> selections) {
         List<UploadSelection> out = new ArrayList<>();
         for (UploadSelection s : selections)
-            if (!retryStore.contains(groupId, s)) out.add(s);
-        if (!out.isEmpty()) retryStore.addRetryBatch(groupId, out);
+            if (!retryStore.contains(s.id)) {
+                out.add(s);
+            }
+        if (!out.isEmpty()) retryStore.addRetryBatch(out);
     }
 
-    public void updateReason(String groupId, UploadSelection selection, FailureReason reason) {
-        retryStore.updateFailureReason(groupId, selection, reason);
+    public void updateReason(UploadSelection selection, FailureReason reason) {
+        retryStore.updateFailureReason(selection, reason);
     }
 
     public List<UploadSelection> retry(String groupId, String groupName) {
@@ -50,7 +52,8 @@ public final class UploadFailureCoordinator {
         List<UploadSelection> retryable = new ArrayList<>();
 
         for (UploadSelection s : all) {
-            if (s.failureReason == null || s.failureReason.isRetryable()) retryable.add(s);
+            UploadContext c = s.context;
+            if (c.failureReason == null || c.failureReason.isRetryable()) retryable.add(s);
             else {
                 nonRetryable++;
                 switch (s.type) {
@@ -81,7 +84,8 @@ public final class UploadFailureCoordinator {
         int nonRetryable = 0, photos = 0, videos = 0, others = 0;
 
         for (UploadSelection s : list) {
-            boolean accessible = s.failureReason == null || s.failureReason.isRetryable();
+            UploadContext c = s.context;
+            boolean accessible = c.failureReason == null || c.failureReason.isRetryable();
             if (!accessible) {
                 nonRetryable++;
                 Log.d(TAG, "restoreFromRetry: NON-retryable uri=" + s.uri);

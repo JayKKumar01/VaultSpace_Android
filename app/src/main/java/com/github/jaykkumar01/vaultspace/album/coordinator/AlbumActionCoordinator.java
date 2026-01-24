@@ -41,12 +41,12 @@ public final class AlbumActionCoordinator {
      * Constructor
      * ============================================================ */
 
-    public AlbumActionCoordinator(AppCompatActivity activity, Listener listener) {
+    public AlbumActionCoordinator(AppCompatActivity activity,String albumId,Listener listener) {
         this.listener = listener;
 
         // 🔑 Coordinator OWNS executor
         this.executor = Executors.newSingleThreadExecutor();
-        this.uploadHelper = new UploadSelectionHelper(activity);
+        this.uploadHelper = new UploadSelectionHelper(activity, albumId);
 
         this.uriSelection = new UriSelection(activity, uris -> {
             if (released || uris.isEmpty()) return;

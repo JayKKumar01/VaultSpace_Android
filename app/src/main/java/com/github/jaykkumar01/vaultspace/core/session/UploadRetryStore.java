@@ -2,20 +2,12 @@ package com.github.jaykkumar01.vaultspace.core.session;
 
 import android.content.Context;
 import android.net.Uri;
-
 import androidx.annotation.NonNull;
-
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDao;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDatabase;
 import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
-import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
-import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
-import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.github.jaykkumar01.vaultspace.core.upload.base.*;
+import java.util.*;
 import java.util.concurrent.Executors;
 
 public final class UploadRetryStore {
@@ -28,32 +20,25 @@ public final class UploadRetryStore {
 
     /* ================= Write ================= */
 
-    public void addRetry(@NonNull String groupId, @NonNull UploadSelection s) {
-        dao.insert(toEntity(groupId, s));
+    public void addRetry(@NonNull UploadSelection s) {
+        dao.insert(toEntity(s));
     }
 
-    public void addRetryBatch(@NonNull String groupId, @NonNull List<UploadSelection> selections) {
+    public void addRetryBatch(@NonNull List<UploadSelection> selections) {
         if (selections.isEmpty()) return;
         List<UploadRetryEntity> list = new ArrayList<>(selections.size());
-        for (UploadSelection s : selections) list.add(toEntity(groupId, s));
+        for (UploadSelection s : selections) list.add(toEntity(s));
         dao.insertAll(list);
     }
 
-    public void removeRetry(@NonNull String groupId, @NonNull UploadSelection s) {
-        dao.delete(groupId, s.uri.toString(), s.type.name());
-    }
-
-    public void removeRetryByUris(@NonNull String groupId, @NonNull List<Uri> uris) {
-        if (uris.isEmpty()) return;
-        List<String> list = new ArrayList<>(uris.size());
-        for (Uri u : uris) list.add(u.toString());
-        dao.deleteByUris(groupId, list);
+    public void removeRetry(@NonNull UploadSelection s) {
+        dao.deleteById(s.id);
     }
 
     /* ================= Read ================= */
 
-    public boolean contains(@NonNull String groupId, @NonNull UploadSelection s) {
-        return dao.contains(groupId, s.uri.toString(), s.type.name());
+    public boolean contains(@NonNull String uploadId) {
+        return dao.containsId(uploadId);
     }
 
     @NonNull
@@ -65,28 +50,17 @@ public final class UploadRetryStore {
     }
 
     @NonNull
-    public Map<String, List<UploadSelection>> getAllRetries() {
+    public Map<String,List<UploadSelection>> getAllRetries() {
         List<UploadRetryEntity> rows = dao.getAll();
-        Map<String, List<UploadSelection>> map = new HashMap<>();
+        Map<String,List<UploadSelection>> map = new HashMap<>();
         for (UploadRetryEntity e : rows)
-            map.computeIfAbsent(e.groupId, k -> new ArrayList<>()).add(fromEntity(e));
+            map.computeIfAbsent(e.groupId,k->new ArrayList<>()).add(fromEntity(e));
         return map;
     }
 
-    public void updateFailureReason(
-            @NonNull String groupId,
-            @NonNull UploadSelection s,
-            @NonNull FailureReason reason
-    ) {
-        s.failureReason = reason;
-        dao.updateFailureReason(
-                groupId,
-                s.uri.toString(),
-                s.type.name(),
-                reason.name()
-        );
+    public void updateFailureReason(@NonNull UploadSelection s,@NonNull FailureReason r) {
+        dao.updateFailureReason(s.id, r.name());
     }
-
 
     /* ================= Clear ================= */
 
@@ -104,40 +78,34 @@ public final class UploadRetryStore {
 
     /* ================= Mapping ================= */
 
-    private static UploadRetryEntity toEntity(
-            @NonNull String groupId,
-            @NonNull UploadSelection s
-    ) {
-        String reason = s.failureReason != null
-                ? s.failureReason.name()
-                : FailureReason.DRIVE_ERROR.name();
-
+    private static UploadRetryEntity toEntity(@NonNull UploadSelection s) {
+        UploadContext c = s.context;
+        String reason = c.failureReason != null ? c.failureReason.name() : FailureReason.DRIVE_ERROR.name();
         return new UploadRetryEntity(
-                groupId,
+                s.id,
+                c.groupId,
                 s.uri.toString(),
                 s.mimeType,
-                s.type.name(),
                 s.displayName,
+                s.sizeBytes,
+                s.momentMillis,
                 s.thumbnailPath,
                 reason
         );
     }
 
-
-
     private static UploadSelection fromEntity(@NonNull UploadRetryEntity e) {
         UploadSelection s = new UploadSelection(
+                e.id,
+                e.groupId,
                 Uri.parse(e.uri),
-                e.mimeType,              // may be null
+                e.mimeType,
                 e.displayName,
-                -1L,
-                System.currentTimeMillis(),
+                e.sizeBytes,
+                e.momentMillis,
                 e.thumbnailPath
         );
-        s.failureReason = FailureReason.valueOf(e.failureReason);
+        s.context.failureReason = FailureReason.valueOf(e.failureReason);
         return s;
     }
-
-
-
 }

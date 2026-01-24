@@ -23,10 +23,10 @@ public final class UploadDispatcher {
         this.driveHelper = new UploadDriveHelper(context);
     }
 
-    public void enqueue(String groupId, List<UploadSelection> selections, UploadTask.Callback callback) {
+    public void enqueue(List<UploadSelection> selections, UploadTask.Callback callback) {
         if (selections == null || selections.isEmpty()) return;
         for (UploadSelection s : selections) {
-            queue.add(new UploadTask(groupId, s, driveHelper, callback));
+            queue.add(new UploadTask(s, driveHelper, callback));
         }
         trySchedule();
     }

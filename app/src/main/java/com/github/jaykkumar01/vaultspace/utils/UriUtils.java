@@ -21,6 +21,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.UUID;
 
 public final class UriUtils {
 
@@ -30,20 +31,20 @@ public final class UriUtils {
      * Public API
      * ============================================================ */
 
-    public static boolean isAccessible(@NonNull Context context, @NonNull Uri uri) {
+    public static boolean isPermissionRevoked(@NonNull Context context, @NonNull Uri uri) {
         try (Cursor c = context.getContentResolver().query(
                 uri,
                 new String[]{OpenableColumns.DISPLAY_NAME},
                 null, null, null
         )) {
-            return c != null && c.moveToFirst();
+            return c == null || !c.moveToFirst();
         } catch (Exception e) {
-            return false;
+            return true;
         }
     }
 
     @NonNull
-    public static UploadSelection resolve(@NonNull Context context, @NonNull Uri uri) {
+    public static UploadSelection resolve(@NonNull Context context, @NonNull String groupId, @NonNull Uri uri) {
         ContentResolver cr = context.getContentResolver();
 
         BaseMeta meta = resolveBaseMeta(cr, uri);
@@ -61,8 +62,9 @@ public final class UriUtils {
             thumbPath = ThumbnailGenerator.generate(context, uri, type, dir);
         }
 
+        String id = UUID.randomUUID().toString();
         return new UploadSelection(
-                uri, mime, meta.displayName, meta.sizeBytes, moment, thumbPath
+                id,groupId,uri, mime, meta.displayName, meta.sizeBytes, moment, thumbPath
         );
     }
 

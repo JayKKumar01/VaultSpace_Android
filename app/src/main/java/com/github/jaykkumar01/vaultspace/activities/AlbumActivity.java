@@ -224,7 +224,7 @@ public class AlbumActivity extends AppCompatActivity {
 
         albumLoader = new AlbumLoader(this, albumId);
         albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
-        actionCoordinator = new AlbumActionCoordinator(this, actionListener);
+        actionCoordinator = new AlbumActionCoordinator(this,albumId, actionListener);
 
 
         uploadStatusController =

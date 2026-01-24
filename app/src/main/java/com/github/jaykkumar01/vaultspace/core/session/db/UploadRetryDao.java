@@ -4,7 +4,6 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
-
 import java.util.List;
 
 @Dao
@@ -17,51 +16,40 @@ public interface UploadRetryDao {
     void insertAll(List<UploadRetryEntity> entities);
 
     @Query("""
-                SELECT EXISTS(
-                    SELECT 1 FROM upload_retry
-                    WHERE groupId = :groupId
-                      AND uri = :uri
-                      AND type = :type
-                )
-            """)
-    boolean contains(String groupId, String uri, String type);
+            SELECT EXISTS(
+                SELECT 1 FROM upload_retry
+                WHERE id = :id
+            )
+           """)
+    boolean containsId(String id);
 
     @Query("""
-                UPDATE upload_retry
-                SET failureReason = :reason
-                WHERE groupId = :groupId
-                  AND uri = :uri
-                  AND type = :type
-            """)
-    void updateFailureReason(
-            String groupId,
-            String uri,
-            String type,
-            String reason
-    );
+        UPDATE upload_retry
+        SET failureReason = :reason
+        WHERE id = :id
+       """)
+    void updateFailureReason(String id, String reason);
+
 
     @Query("""
-                DELETE FROM upload_retry
-                WHERE groupId = :groupId
-                  AND uri = :uri
-                  AND type = :type
-            """)
-    void delete(String groupId, String uri, String type);
+            DELETE FROM upload_retry
+            WHERE id = :id
+           """)
+    void deleteById(String id);
 
     @Query("""
-                DELETE FROM upload_retry
-                WHERE groupId = :groupId
-                  AND uri IN (:uris)
-            """)
-    void deleteByUris(String groupId, List<String> uris);
-
-    @Query("DELETE FROM upload_retry WHERE groupId = :groupId")
+            DELETE FROM upload_retry
+            WHERE groupId = :groupId
+           """)
     void deleteGroup(String groupId);
 
     @Query("DELETE FROM upload_retry")
     void deleteAll();
 
-    @Query("SELECT * FROM upload_retry WHERE groupId = :groupId")
+    @Query("""
+            SELECT * FROM upload_retry
+            WHERE groupId = :groupId
+           """)
     List<UploadRetryEntity> getByGroup(String groupId);
 
     @Query("SELECT * FROM upload_retry")

@@ -12,13 +12,18 @@ import java.util.concurrent.Future;
 
 public final class UploadSelectionHelper {
 
+
+
     public interface Callback { void onResolved(List<UploadSelection> selections); }
 
     private final AppCompatActivity context;
+    private final String groupId;
+
     private volatile boolean released;
 
-    public UploadSelectionHelper(AppCompatActivity activity) {
+    public UploadSelectionHelper(AppCompatActivity activity,String groupId) {
         this.context = activity;
+        this.groupId = groupId;
     }
 
     public void resolve(List<Uri> uris, Callback callback) {
@@ -55,8 +60,8 @@ public final class UploadSelectionHelper {
     private UploadSelection resolveSingle(Uri uri) {
         if (released) return null;
         try {
-            if (!UriUtils.isAccessible(context, uri)) return null;
-            return UriUtils.resolve(context, uri);
+            if (UriUtils.isPermissionRevoked(context, uri)) return null;
+            return UriUtils.resolve(context, groupId, uri);
         } catch (Exception ignored) {
             return null;
         }

@@ -6,18 +6,20 @@ import androidx.annotation.Nullable;
 
 public final class UploadSelection {
 
-    @NonNull  public final Uri uri;
+    @NonNull public final String id;
+    @NonNull public final Uri uri;
     @Nullable public final String mimeType;
-    @NonNull  public final UploadType type;
-    @NonNull  public final String displayName;
+    @NonNull public final UploadType type;
+    @NonNull public final String displayName;
     public final long sizeBytes;
     public final long momentMillis;
     @Nullable public final String thumbnailPath;
 
-    // Optional & mutable – populated only on failure
-    @Nullable public FailureReason failureReason;
+    @NonNull public final UploadContext context;
 
     public UploadSelection(
+            @NonNull String id,
+            @NonNull String groupId,
             @NonNull Uri uri,
             @Nullable String mimeType,
             @NonNull String displayName,
@@ -25,6 +27,7 @@ public final class UploadSelection {
             long momentMillis,
             @Nullable String thumbnailPath
     ) {
+        this.id = id;
         this.uri = uri;
         this.mimeType = mimeType;
         this.type = mimeType != null ? UploadType.fromMime(mimeType) : UploadType.FILE;
@@ -32,7 +35,6 @@ public final class UploadSelection {
         this.sizeBytes = sizeBytes;
         this.momentMillis = momentMillis;
         this.thumbnailPath = thumbnailPath;
-        this.failureReason = null;
+        this.context = new UploadContext(id, groupId);
     }
-
 }

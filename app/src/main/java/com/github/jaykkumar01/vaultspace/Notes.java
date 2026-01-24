@@ -190,6 +190,16 @@ public class Notes {
     // maybe that's why deleting is a problem
 
 
+    // resume almost fix, just getting some duplicates, need to think why
+
+    // get the email from retry but, validate eligibility if not then simply restart for that upload
+    //using another email
+
+    //maybe only direct uploads are happening like this, just check the chunk size while taking email from store
+    // there is no resuming it is getting simply restart, debug the email whether it is taking the email correctly
+    //or not
+
+
 
 
 

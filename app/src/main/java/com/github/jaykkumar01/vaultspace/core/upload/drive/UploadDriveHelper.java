@@ -74,10 +74,11 @@ public final class UploadDriveHelper {
 
         Log.d(TAG, "upload start parentId=" + parentId + " uri=" + selection.uri);
 
-        if (!UriUtils.isAccessible(appContext, selection.uri))
+        if (UriUtils.isPermissionRevoked(appContext, selection.uri))
             throw new UploadFailure(FailureReason.URI_NOT_FOUND, "Uri not accessible");
 
         String email = pickRandomAccount(selection.sizeBytes);
+
         Drive drive = getDrive(email);
 
         String thumbFileId = null;

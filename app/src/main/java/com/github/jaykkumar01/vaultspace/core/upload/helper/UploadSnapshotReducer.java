@@ -51,7 +51,7 @@ public final class UploadSnapshotReducer {
         UploadSnapshot old = uploadCache.getSnapshot(groupId);
         if (old == null) return null;
 
-        retryStore.removeRetry(groupId, selection);
+        retryStore.removeRetry(selection);
 
         UploadSnapshot updated = new UploadSnapshot(
                 old.groupId, old.groupName,
