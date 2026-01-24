@@ -31,7 +31,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class UploadDriveHelper {
 
     private static final String TAG = "VaultSpace:UploadDrive";
-    private static final int FIXED_CHUNK = 512 * 1024; // 512 KB
+
+    private static final int CHUNK = MediaHttpUploader.MINIMUM_CHUNK_SIZE;
 
     public static final class UploadFailure extends Exception {
         public final FailureReason reason;
@@ -106,8 +107,7 @@ public final class UploadDriveHelper {
 
             in = ((InputStreamContent) content).getInputStream();
 
-            UploadedItem item =
-                    uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes);
+            UploadedItem item = uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes);
 
             trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes, null);
             return item;
@@ -193,11 +193,11 @@ public final class UploadDriveHelper {
 
             MediaHttpUploader u = req.getMediaHttpUploader();
 
-            if (fileSize <= FIXED_CHUNK) {
+            if (fileSize <= CHUNK) {
                 u.setDirectUploadEnabled(true);
             } else {
                 u.setDirectUploadEnabled(false);
-                u.setChunkSize(FIXED_CHUNK);
+                u.setChunkSize(CHUNK);
             }
 
             u.setProgressListener(p -> {

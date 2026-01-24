@@ -29,15 +29,14 @@ public final class AlbumsDriveHelper {
     private final Drive primaryDrive;
     private final Context appContext;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private TrustedAccountsRepository trustedAccountsRepository;
+    private final TrustedAccountsRepository trustedAccountsRepository;
 
     /* ================= Constructor ================= */
 
-    public AlbumsDriveHelper(@NonNull Context context, TrustedAccountsRepository trustedAccountsRepository) {
+    public AlbumsDriveHelper(@NonNull Context context) {
         appContext = context.getApplicationContext();
-        UserSession session = new UserSession(appContext);
         primaryDrive = DriveClientProvider.getPrimaryDrive(appContext);
-        this.trustedAccountsRepository = trustedAccountsRepository;
+        this.trustedAccountsRepository = TrustedAccountsRepository.getInstance(context);
         Log.d(TAG, "Initialized primaryDrive");
     }
 

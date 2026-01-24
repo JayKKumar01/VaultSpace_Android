@@ -55,7 +55,10 @@ public final class ProgressStackView extends FrameLayout {
 
         ScrollView scroll = new ScrollView(getContext());
         scroll.setOverScrollMode(OVER_SCROLL_NEVER);
-        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setVerticalScrollBarEnabled(true);
+        scroll.setScrollbarFadingEnabled(true);
+        scroll.setScrollBarStyle(SCROLLBARS_INSIDE_OVERLAY);
+
 
         LayoutParams scrollLp =
                 new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);

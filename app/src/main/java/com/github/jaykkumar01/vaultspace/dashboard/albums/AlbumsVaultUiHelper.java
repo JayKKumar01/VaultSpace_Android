@@ -45,8 +45,8 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     private AlbumsContentView albumsContentView;
 
     private final DeleteStatusRenderer deleteRenderer = new DeleteStatusRenderer();
+    private final AlbumsDeleteHelper deleteHelper;
     private final AtomicBoolean deleteCancelled = new AtomicBoolean(false);
-    private final TrustedAccountsRepository trustedAccountsRepository;
 
 
 
@@ -56,10 +56,9 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
             ModalHost hostView
     ) {
         super(context, container, hostView);
-        trustedAccountsRepository = TrustedAccountsRepository.getInstance(context);
-        drive = new AlbumsDriveHelper(context, trustedAccountsRepository);
+        drive = new AlbumsDriveHelper(context);
         cache = new UserSession(context).getVaultCache().albums;
-
+        this.deleteHelper = new AlbumsDeleteHelper(context);
         initStaticUi();
     }
 
@@ -300,17 +299,23 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         albumsContentView.deleteAlbum(album.id);
         if (albumsContentView.isEmpty()) moveToState(UiState.EMPTY);
 
-        drive.deleteAlbum(
-                executor,
+        deleteHelper.deleteAlbum(
                 album.id,
                 new DeleteProgressCallback() {
 
-                    int total = 1;
-
                     @Override
                     public void onStart(int totalFiles) {
-                        total = Math.max(1, totalFiles);
+                        albumsContentView.showDeleteStatus(
+                                deleteRenderer.render(
+                                        album.name,
+                                        "Preparing…",
+                                        0,
+                                        Math.max(1, totalFiles),
+                                        v -> deleteCancelled.set(true)
+                                )
+                        );
                     }
+
 
                     @Override
                     public void onFileDeleting(String file, int done, int total) {
@@ -322,12 +327,10 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                                         file,
                                         done,
                                         total,
-                                        v -> deleteCancelled.set(true) // ONLY signal
+                                        v -> deleteCancelled.set(true)
                                 )
                         );
                     }
-
-
 
                     @Override
                     public void onCompleted() {
@@ -344,11 +347,11 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                         moveToState(UiState.CONTENT);
                         Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
                     }
-
                 },
                 deleteCancelled
         );
     }
+
 
 
     /* ==========================================================
@@ -385,5 +388,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     public void onRelease() {
         released = true;
         executor.shutdownNow();
+        deleteHelper.shutdown();
     }
+
 }

@@ -88,20 +88,23 @@ public final class UploadStatusRenderer {
                 resolveProgressText(completed, total),
                 ACTION_CANCEL,
                 R.drawable.bg_upload_action_cancel,
-                action
+                action,
+                null
         );
     }
 
     @NonNull
     public UploadStatusRenderModel renderFailed(
-            @NonNull View.OnClickListener action
+            @NonNull View.OnClickListener action,
+            @NonNull View.OnClickListener dismiss
     ) {
         return render(
                 UploadStatusRenderModel.State.FAILED_RETRYABLE,
                 TEXT_ALMOST_DONE,
                 ACTION_RETRY,
                 R.drawable.bg_upload_action_retry,
-                action
+                action,
+                dismiss
         );
     }
 
@@ -114,7 +117,8 @@ public final class UploadStatusRenderer {
                 TEXT_NO_ACCESS,
                 ACTION_INFO,
                 R.drawable.bg_upload_action_info,
-                action
+                action,
+                null
         );
     }
 
@@ -127,7 +131,8 @@ public final class UploadStatusRenderer {
                 TEXT_COMPLETED,
                 ACTION_OK,
                 R.drawable.bg_upload_action_ok,
-                action
+                action,
+                null
         );
     }
 
@@ -138,20 +143,20 @@ public final class UploadStatusRenderer {
             String uploadingText,
             String actionText,
             int actionBg,
-            View.OnClickListener actionClick
-    ) {
+            View.OnClickListener actionClick,
+            View.OnClickListener dismissClick) {
 
         float[] fractions = computeFractions();
 
         boolean showRetry = failedCount > 0 && failedCount > noAccessCount;
         boolean showNoAccess = noAccessCount > 0;
 
+
         UploadStatusRenderModel model = new UploadStatusRenderModel(
                 state,
                 buildMediaInfoText(),
                 uploadingText,
                 buildRatioText(),
-                state == UploadStatusRenderModel.State.FAILED_RETRYABLE,
                 showRetry,
                 showNoAccess,
                 showRetry ? String.valueOf(failedCount - noAccessCount) : "",
@@ -159,6 +164,7 @@ public final class UploadStatusRenderer {
                 actionText,
                 actionBg,
                 actionClick,
+                dismissClick,
                 fractions
         );
 
@@ -177,8 +183,7 @@ public final class UploadStatusRenderer {
         if (!lastModel.mediaInfoText.equals(m.mediaInfoText)) return false;
         if (!lastModel.uploadingStateText.equals(m.uploadingStateText)) return false;
         if (!lastModel.uploadRatioText.equals(m.uploadRatioText)) return false;
-
-        if (lastModel.showDismiss != m.showDismiss) return false;
+        if ((lastModel.dismissClick == null) != (m.dismissClick == null)) return false;
         if (lastModel.showRetryWarning != m.showRetryWarning) return false;
         if (lastModel.showNoAccessWarning != m.showNoAccessWarning) return false;
 

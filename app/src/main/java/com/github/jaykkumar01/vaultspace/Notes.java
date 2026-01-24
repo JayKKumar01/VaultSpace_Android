@@ -183,8 +183,11 @@ public class Notes {
 
     // once cancelled, notificaiton always shows some items were not uploaded, fix that
 
+    // something is wrong in delete, loosing storage somehow
 
+    // listing the media in album fails, not correct, some counts are missing
 
+    // maybe that's why deleting is a problem
 
 
 

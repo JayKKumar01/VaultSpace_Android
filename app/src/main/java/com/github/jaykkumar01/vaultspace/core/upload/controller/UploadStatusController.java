@@ -74,7 +74,8 @@ public final class UploadStatusController {
 
         if (snapshot.hasRetryableFailures()) {
             statusView.renderFailed(
-                    v -> callback.onRetryRequested()
+                    v -> callback.onRetryRequested(),
+                    v -> callback.onCancelRequested()
             );
             return;
         }
@@ -82,6 +83,7 @@ public final class UploadStatusController {
         if (snapshot.hasOnlyNonRetryableFailures()) {
             statusView.renderNoAccess(v -> {
                 statusView.hide();
+                progressStackView.hide();
                 callback.onNoAccessInfo();
             });
             return;
@@ -89,6 +91,7 @@ public final class UploadStatusController {
 
         statusView.renderCompleted(v -> {
             statusView.hide();
+            progressStackView.hide();
             callback.onAcknowledge();
         });
     }

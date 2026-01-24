@@ -51,36 +51,35 @@ final class AlbumMediaFetcher {
 
     private void fetchFromAccountInternal(@NonNull Drive drive,
                                           @NonNull Map<String, AlbumMedia> out) throws Exception {
-        int attempts = 0;
-        Exception lastError = null;
 
-        while (attempts < MAX_ATTEMPTS) {
+        String pageToken = null;
+        int attempts = 0;
+
+        do {
             try {
                 FileList list = drive.files().list()
                         .setQ("'" + albumId + "' in parents and trashed=false")
-                        .setFields("files(id,name,mimeType,modifiedTime,size,thumbnailLink,appProperties)")
+                        .setFields("nextPageToken,files(id,name,mimeType,modifiedTime,size,thumbnailLink,appProperties)")
+                        .setPageSize(200)
+                        .setPageToken(pageToken)
                         .execute();
 
                 if (list.getFiles() != null) {
                     for (File f : list.getFiles()) {
-                        out.computeIfAbsent(f.getId(),
-                                id -> createAlbumMedia(f));
+                        out.computeIfAbsent(f.getId(), id -> createAlbumMedia(f));
                     }
                 }
-                return;
+
+                pageToken = list.getNextPageToken();
+                attempts = 0; // reset on success
+
             } catch (Exception e) {
-                lastError = e;
-                attempts++;
-                Log.w(TAG, "fetch failed, attempt=" + attempts, e);
-
-                if (attempts < MAX_ATTEMPTS) {
-                    SystemClock.sleep(RETRY_DELAY_MS);
-                }
+                if (++attempts >= MAX_ATTEMPTS) throw e;
+                SystemClock.sleep(RETRY_DELAY_MS);
             }
-        }
-
-        throw lastError;
+        } while (pageToken != null);
     }
+
 
     private AlbumMedia createAlbumMedia(@NonNull File file) {
 

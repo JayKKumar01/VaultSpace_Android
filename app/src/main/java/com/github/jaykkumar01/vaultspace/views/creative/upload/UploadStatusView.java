@@ -133,8 +133,8 @@ public final class UploadStatusView extends FrameLayout {
         apply(renderer.renderUploading(action, completed, total));
     }
 
-    public void renderFailed(OnClickListener action) {
-        apply(renderer.renderFailed(action));
+    public void renderFailed(OnClickListener action, OnClickListener dismiss) {
+        apply(renderer.renderFailed(action, dismiss));
     }
 
     public void renderNoAccess(OnClickListener action) {
@@ -157,8 +157,13 @@ public final class UploadStatusView extends FrameLayout {
         tvUploadingState.setText(m.uploadingStateText);
         tvUploadRatio.setText(m.uploadRatioText);
 
-        ivDismiss.setVisibility(m.showDismiss ? VISIBLE : GONE);
-        updateCardOffsets(m.showDismiss);
+
+
+        boolean showDismiss = m.dismissClick != null;
+        ivDismiss.setVisibility(showDismiss ? VISIBLE : GONE);
+        if (showDismiss) ivDismiss.setOnClickListener(m.dismissClick);
+        updateCardOffsets(showDismiss);
+
 
         ivWarning.setVisibility(m.showRetryWarning ? VISIBLE : GONE);
         tvFailedCount.setVisibility(m.showRetryWarning ? VISIBLE : GONE);
@@ -201,7 +206,6 @@ public final class UploadStatusView extends FrameLayout {
         LayoutParams lp = new LayoutParams(s, s);
         lp.gravity = Gravity.TOP | Gravity.END;
         iv.setLayoutParams(lp);
-        iv.setOnClickListener(v -> hide());
         addView(iv);
         expandTouchArea(iv, 16);
         return iv;
