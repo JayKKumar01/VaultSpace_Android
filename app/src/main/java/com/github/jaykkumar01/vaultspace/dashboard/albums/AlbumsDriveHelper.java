@@ -10,16 +10,14 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
-import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
-import com.github.jaykkumar01.vaultspace.views.creative.delete.DeleteProgressCallback;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class AlbumsDriveHelper {
@@ -124,114 +122,97 @@ public final class AlbumsDriveHelper {
     public void deleteAlbum(
             @NonNull ExecutorService executor,
             @NonNull String albumId,
-            @NonNull DeleteProgressCallback cb,
-            @NonNull AtomicBoolean cancelled
+            @NonNull DeleteAlbumCallback cb
     ) {
-        // Immediate UI visibility (0 progress)
-        post(() -> cb.onStart(0));
 
         executor.execute(() -> {
             try {
-                deleteInternal(albumId, cb, cancelled);
-
-                if (!cancelled.get()) {
-                    post(cb::onCompleted);
-                }
-
+                deleteInternal(albumId, cb);
             } catch (Exception e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
                 post(() -> cb.onError(e));
             }
         });
     }
 
-    private void deleteInternal(
-            String albumId,
-            DeleteProgressCallback cb,
-            AtomicBoolean cancelled
-    ) throws Exception {
+    private void deleteInternal(String albumId, DeleteAlbumCallback cb) throws Exception {
 
-        FileList list = primaryDrive.files().list()
-                .setQ("'" + albumId + "' in parents and trashed=false")
-                .setFields("files(id,name,size,owners(emailAddress),appProperties)")
-                .execute();
+        Map<String, Drive> driveCache = new ConcurrentHashMap<>();
+        String pageToken = null;
+        AtomicInteger deletedCount = new AtomicInteger();
 
-        List<File> files = list.getFiles();
-        if (files == null || files.isEmpty()) {
-            if (cancelled.get()) throw new Exception("Delete cancelled");
-            primaryDrive.files().delete(albumId).execute();
-            return;
-        }
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
 
-        final int total = files.size();
-        post(() -> cb.onStart(total));
+            do {
+                FileList list = primaryDrive.files().list()
+                        .setQ("'" + albumId + "' in parents and trashed=false")
+                        .setPageSize(200)
+                        .setPageToken(pageToken)
+                        .setFields("nextPageToken,files(id,name,size,owners(emailAddress),appProperties)")
+                        .execute();
 
-        Map<String, List<File>> byOwner = new HashMap<>();
-        for (File f : files) {
-            if (f.getOwners() == null || f.getOwners().isEmpty()) continue;
-            byOwner.computeIfAbsent(
-                    f.getOwners().get(0).getEmailAddress(),
-                    k -> new ArrayList<>()
-            ).add(f);
-        }
+                List<File> files = list.getFiles();
+                if (files != null && !files.isEmpty()) {
 
-        AtomicInteger deleted = new AtomicInteger();
-        int threads = Math.max(
-                1,
-                Math.min(byOwner.size(),
-                        Math.min(Runtime.getRuntime().availableProcessors(), 4))
-        );
+                    List<Future<?>> tasks = new ArrayList<>();
 
-        try (ExecutorService ownerExec = Executors.newFixedThreadPool(threads)) {
+                    for (File f : files) {
+                        tasks.add(pool.submit(() -> {
 
-            List<Callable<Void>> tasks = new ArrayList<>();
+                            if (f.getOwners() == null || f.getOwners().isEmpty()) return null;
 
-            for (Map.Entry<String, List<File>> entry : byOwner.entrySet()) {
-                tasks.add(() -> {
-                    Drive drive = DriveClientProvider.forAccount(
-                            appContext,
-                            entry.getKey()
-                    );
+                            String ownerEmail = f.getOwners().get(0).getEmailAddress();
+                            Drive drive = driveCache.computeIfAbsent(
+                                    ownerEmail,
+                                    e -> DriveClientProvider.forAccount(appContext, e)
+                            );
 
-                    for (File f : entry.getValue()) {
-                        if (cancelled.get())
-                            throw new Exception("Delete cancelled");
-
-                        Map<String, String> props = f.getAppProperties();
-                        if (props != null) {
-                            String thumbId = props.get("thumb");
-                            if (thumbId != null) {
-                                try {
-                                    drive.files().delete(thumbId).execute();
-                                } catch (Exception ignored) {
+                            Map<String,String> props = f.getAppProperties();
+                            if (props != null) {
+                                String thumbId = props.get("thumb");
+                                if (thumbId != null) {
+                                    try { drive.files().delete(thumbId).execute(); }
+                                    catch (Exception ignored) {}
                                 }
                             }
-                        }
 
-                        drive.files().delete(f.getId()).execute();
+                            drive.files().delete(f.getId()).execute();
 
-                        int done = deleted.incrementAndGet();
-                        post(() -> cb.onFileDeleting(f.getName(), done, total));
+                            int count = deletedCount.incrementAndGet();
+                            Log.d(TAG, "deleted=" + count + " file=" + f.getId());
 
-                        Long size = f.getSize();
-                        if (size != null && size > 0) {
-                            trustedAccountsRepository.recordDeleteUsage(entry.getKey(), size, null);
+                            Long size = f.getSize();
+                            if (size != null && size > 0)
+                                trustedAccountsRepository.recordDeleteUsage(ownerEmail, size, null);
+
+                            return null;
+                        }));
+                    }
+
+                    for (Future<?> task : tasks) {
+                        try {
+                            task.get();
+                        } catch (ExecutionException e) {
+                            Throwable cause = e.getCause();
+                            if (cause instanceof Exception) throw (Exception) cause;
+                            throw new Exception(cause);
                         }
                     }
-                    return null;
-                });
-            }
+                }
 
-            ownerExec.invokeAll(tasks);
+                pageToken = list.getNextPageToken();
+
+            } while (pageToken != null);
+
+            primaryDrive.files().delete(albumId).execute();
+            Log.d(TAG, "album delete complete, totalFiles=" + deletedCount.get());
+            post(() -> cb.onSuccess(albumId));
         }
-
-        if (cancelled.get())
-            throw new Exception("Delete cancelled");
-
-        primaryDrive.files().delete(albumId).execute();
     }
+
+
+
+
+
 
 
 
