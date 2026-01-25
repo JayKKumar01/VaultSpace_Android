@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.core.picker;
+package com.github.jaykkumar01.vaultspace.core.selection;
 
 import android.accounts.AccountManager;
 import android.content.Intent;
@@ -13,7 +13,7 @@ import com.google.android.gms.common.AccountPicker.AccountChooserOptions;
 
 import java.util.Collections;
 
-public final class AccountPickerHelper {
+public final class AccountSelectionHelper {
 
     private static final String TAG = "VaultSpace:AccountPicker";
 
@@ -27,7 +27,7 @@ public final class AccountPickerHelper {
 
     /* ---------------- Constructor ---------------- */
 
-    public AccountPickerHelper(AppCompatActivity activity) {
+    public AccountSelectionHelper(AppCompatActivity activity) {
 
         // ✅ Registered ONCE and EARLY
         this.pickerLauncher =

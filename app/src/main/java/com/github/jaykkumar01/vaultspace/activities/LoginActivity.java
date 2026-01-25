@@ -10,7 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
-import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.selection.AccountSelectionHelper;
 import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
@@ -22,7 +22,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Login";
 
-    private AccountPickerHelper accountPickerHelper;
+    private AccountSelectionHelper accountSelectionHelper;
     private PrimaryAccountConsentHelper primaryConsentHelper;
 
     private ModalHost modalHost;
@@ -54,7 +54,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void initHelpers() {
         primaryConsentHelper = new PrimaryAccountConsentHelper(this);
-        accountPickerHelper = new AccountPickerHelper(this);
+        accountSelectionHelper = new AccountSelectionHelper(this);
     }
 
     private void initUI() {
@@ -64,7 +64,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void onSelectAccountClicked() {
         showLoading();
-        accountPickerHelper.launch(new AccountPickerHelper.Callback() {
+        accountSelectionHelper.launch(new AccountSelectionHelper.Callback() {
 
             @Override
             public void onAccountSelected(String email) {

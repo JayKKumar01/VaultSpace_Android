@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
+import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -72,17 +73,8 @@ public class DriveConsentHelper {
 
         executor.execute(() -> {
             try {
-                GoogleAccountCredential credential =
-                        GoogleCredentialFactory.forDrive(activity, email);
 
-                Drive drive =
-                        new Drive.Builder(
-                                new NetHttpTransport(),
-                                GsonFactory.getDefaultInstance(),
-                                credential
-                        )
-                                .setApplicationName("VaultSpace")
-                                .build();
+                Drive drive = DriveClientProvider.forAccount(activity,email);
 
                 drive.about().get().setFields("user").execute();
 

@@ -12,12 +12,7 @@ import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
 public final class AlbumUiController {
 
-    public void onMediaAdded(AlbumMedia media) {
-    }
 
-    public void onMediaRemoved(String mediaId) {
-
-    }
 
     public interface Callback {
         void onAddMediaClicked();
@@ -77,8 +72,12 @@ public final class AlbumUiController {
         contentView.setMedia(mediaList);
     }
 
-    public void addMedia(AlbumMedia media) {
+    public void onMediaAdded(AlbumMedia media) {
         contentView.addMedia(media);
+    }
+
+    public void onMediaRemoved(String mediaId) {
+
     }
 
     /* ---------------- Setup ---------------- */

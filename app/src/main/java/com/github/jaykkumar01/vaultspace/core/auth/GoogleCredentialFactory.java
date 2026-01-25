@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.auth;
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.content.Context;
 
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
@@ -15,44 +17,31 @@ public final class GoogleCredentialFactory {
 
     /* ---------------- Profile only ---------------- */
 
-    public static GoogleAccountCredential forProfile(Context context, String email) {
-        return create(
-                context,
-                email,
-                Collections.singleton("https://www.googleapis.com/auth/userinfo.profile")
-        );
+    public static GoogleAccountCredential forProfile(Context context,String email) {
+        return create(context,email,
+                Collections.singleton("https://www.googleapis.com/auth/userinfo.profile"));
     }
 
     /* ---------------- Drive only ---------------- */
 
     public static GoogleAccountCredential forPrimaryDrive(Context context) {
         String email = new UserSession(context).getPrimaryAccountEmail();
-        return create(
-                context,
-                email,
-                Collections.singleton("https://www.googleapis.com/auth/drive")
-        );
+        return create(context,email,
+                Collections.singleton("https://www.googleapis.com/auth/drive"));
     }
 
-    public static GoogleAccountCredential forDrive(Context context, String email) {
-        return create(
-                context,
-                email,
-                Collections.singleton("https://www.googleapis.com/auth/drive.file")
-        );
+    public static GoogleAccountCredential forDrive(Context context,String email) {
+        return create(context,email,
+                Collections.singleton("https://www.googleapis.com/auth/drive.file"));
     }
 
     /* ---------------- Primary Account (Drive + Profile) ---------------- */
 
-    public static GoogleAccountCredential forPrimaryAccount(Context context, String email) {
-        return create(
-                context,
-                email,
+    public static GoogleAccountCredential forPrimaryAccount(Context context,String email) {
+        return create(context,email,
                 Arrays.asList(
                         "https://www.googleapis.com/auth/drive",
-                        "https://www.googleapis.com/auth/userinfo.profile"
-                )
-        );
+                        "https://www.googleapis.com/auth/userinfo.profile"));
     }
 
     /* ---------------- Core ---------------- */
@@ -62,9 +51,30 @@ public final class GoogleCredentialFactory {
             String email,
             Collection<String> scopes
     ) {
+        if (email == null || email.isBlank())
+            throw new IllegalArgumentException("Google account email is required");
+
+        if (!canAccessAccount(context,email))
+            throw new IllegalStateException(
+                    "Cannot access Google account: " + email);
+
         GoogleAccountCredential credential =
-                GoogleAccountCredential.usingOAuth2(context.getApplicationContext(), scopes);
+                GoogleAccountCredential.usingOAuth2(
+                        context.getApplicationContext(),scopes);
+
         credential.setSelectedAccountName(email);
         return credential;
     }
+
+    private static boolean canAccessAccount(Context context,String email) {
+        Account[] accounts =
+                AccountManager.get(context)
+                        .getAccountsByType("com.google");
+
+        for (Account a : accounts) {
+            if (email.equalsIgnoreCase(a.name)) return true;
+        }
+        return false;
+    }
+
 }

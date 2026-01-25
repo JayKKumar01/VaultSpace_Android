@@ -182,7 +182,7 @@ public final class AlbumsDriveHelper {
 
                             Long size = f.getSize();
                             if (size != null && size > 0)
-                                trustedAccountsRepository.recordDeleteUsage(ownerEmail, size, null);
+                                trustedAccountsRepository.recordDeleteUsage(ownerEmail, size);
 
                             return null;
                         }));

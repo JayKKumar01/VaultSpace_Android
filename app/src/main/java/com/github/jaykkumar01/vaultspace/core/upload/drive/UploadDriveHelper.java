@@ -110,7 +110,7 @@ public final class UploadDriveHelper {
 
             UploadedItem item = uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes);
 
-            trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes, null);
+            trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes);
             return item;
 
         } finally {
@@ -143,8 +143,8 @@ public final class UploadDriveHelper {
 
     private String pickRandomAccount(long sizeBytes) throws UploadFailure {
 
-        List<TrustedAccount> snapshot = trustedAccountsRepo.getAccountsSnapshot();
-        if (snapshot.isEmpty())
+        Iterable<TrustedAccount> snapshot = trustedAccountsRepo.getAccountsSnapshot();
+        if (!snapshot.iterator().hasNext())
             throw new UploadFailure(FailureReason.NO_TRUSTED_ACCOUNT, "No trusted accounts");
 
         List<String> eligible = new ArrayList<>();

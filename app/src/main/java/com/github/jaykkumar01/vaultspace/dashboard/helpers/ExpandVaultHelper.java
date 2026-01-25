@@ -9,10 +9,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.core.consent.DriveConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
-import com.github.jaykkumar01.vaultspace.core.picker.AccountPickerHelper;
+import com.github.jaykkumar01.vaultspace.core.selection.AccountSelectionHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
-import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,7 +39,7 @@ public final class ExpandVaultHelper {
 
     private final TrustedAccountsRepository repo;
     private final TrustedAccountsDriveHelper driveHelper;
-    private final AccountPickerHelper accountPicker;
+    private final AccountSelectionHelper accountSelection;
     private final DriveConsentHelper consentHelper;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -63,7 +62,7 @@ public final class ExpandVaultHelper {
         }
         this.repo = repo;
         this.driveHelper = new TrustedAccountsDriveHelper(activity.getApplicationContext());
-        this.accountPicker = new AccountPickerHelper(activity);
+        this.accountSelection = new AccountSelectionHelper(activity);
         this.consentHelper = new DriveConsentHelper(activity);
     }
 
@@ -74,7 +73,7 @@ public final class ExpandVaultHelper {
     public void launchExpandVault(@NonNull ExpandAccountListener listener) {
         this.actionListener = listener;
 
-        accountPicker.launch(new AccountPickerHelper.Callback() {
+        accountSelection.launch(new AccountSelectionHelper.Callback() {
             @Override
             public void onAccountSelected(String email) {
                 handleAccountPicked(email);
@@ -130,19 +129,12 @@ public final class ExpandVaultHelper {
                 new TrustedAccountsDriveHelper.AddCallback() {
                     @Override
                     public void onAdded(TrustedAccount account) {
-                        repo.addAccount(account, new TrustedAccountsRepository.MutationCallback() {
-                            @Override public void onSuccess() {
-                                succeedAction();
-                            }
-                            @Override public void onError(Exception e) {
-                                failAction("Failed to save account");
-                            }
-                        });
-
+                        repo.addAccount(account);
                     }
 
                     @Override
-                    public void onAlreadyExists() {
+                    public void onAlreadyExists(TrustedAccount account) {
+                        repo.addAccount(account);
                         failAction("Account already has access");
                     }
 

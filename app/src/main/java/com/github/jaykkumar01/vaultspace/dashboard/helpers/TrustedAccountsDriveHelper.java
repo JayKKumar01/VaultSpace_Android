@@ -19,11 +19,11 @@ import java.util.concurrent.ExecutorService;
 
 /**
  * TrustedAccountsDriveHelper
- *
+ * <p>
  * Responsibilities:
  * - Fetch trusted accounts from Drive
  * - Add trusted account permissions
- *
+ * <p>
  * Non-responsibilities:
  * - Caching
  * - UI state
@@ -44,12 +44,15 @@ public final class TrustedAccountsDriveHelper {
 
     public interface FetchCallback {
         void onResult(List<TrustedAccount> accounts);
+
         void onError(Exception e);
     }
 
     public interface AddCallback {
         void onAdded(TrustedAccount account);
-        void onAlreadyExists();
+
+        void onAlreadyExists(TrustedAccount account);
+
         void onError(Exception e);
     }
 
@@ -70,16 +73,8 @@ public final class TrustedAccountsDriveHelper {
      * Fetch (delegated)
      * ========================================================== */
 
-    public void fetchTrustedAccounts(
-            ExecutorService executor,
-            FetchCallback callback
-    ) {
-        TrustedAccountsFetchWorker.fetch(
-                executor,
-                appContext,
-                primaryDrive,
-                primaryEmail,
-                new TrustedAccountsFetchWorker.Callback() {
+    public void fetchTrustedAccounts(ExecutorService executor, FetchCallback callback) {
+        TrustedAccountsFetchWorker.fetch(executor, appContext, primaryDrive, primaryEmail, new TrustedAccountsFetchWorker.Callback() {
                     @Override
                     public void onSuccess(List<TrustedAccount> accounts) {
                         postResult(callback, accounts);
@@ -97,22 +92,18 @@ public final class TrustedAccountsDriveHelper {
      * Add trusted account (UNCHANGED)
      * ========================================================== */
 
-    public void addTrustedAccount(
-            ExecutorService executor,
-            String trustedEmail,
-            AddCallback callback
-    ) {
+    public void addTrustedAccount(ExecutorService executor, String trustedEmail, AddCallback callback) {
         executor.execute(() -> {
             try {
-                String rootFolderId =
-                        DriveFolderRepository.getRootFolderId(appContext);
+                String rootFolderId = DriveFolderRepository.getRootFolderId(appContext);
 
-                if (DrivePermissionRepository.hasWriterAccess(
-                        primaryDrive,
-                        rootFolderId,
-                        trustedEmail
-                )) {
-                    postAlreadyExists(callback);
+                Drive drive;
+                TrustedAccount account;
+
+                if (DrivePermissionRepository.hasWriterAccess(primaryDrive, rootFolderId, trustedEmail)) {
+                    drive = DriveClientProvider.forAccount(appContext, trustedEmail);
+                    account = DriveStorageRepository.fetchStorageInfo(drive, trustedEmail);
+                    postAlreadyExists(callback, account);
                     return;
                 }
 
@@ -126,11 +117,9 @@ public final class TrustedAccountsDriveHelper {
                         .setSendNotificationEmail(true)
                         .execute();
 
-                Drive drive =
-                        DriveClientProvider.forAccount(appContext, trustedEmail);
+                drive = DriveClientProvider.forAccount(appContext, trustedEmail);
 
-                TrustedAccount account =
-                        DriveStorageRepository.fetchStorageInfo(drive, trustedEmail);
+                account = DriveStorageRepository.fetchStorageInfo(drive, trustedEmail);
 
                 postAdded(callback, account);
 
@@ -157,8 +146,8 @@ public final class TrustedAccountsDriveHelper {
         mainHandler.post(() -> cb.onAdded(account));
     }
 
-    private void postAlreadyExists(AddCallback cb) {
-        mainHandler.post(cb::onAlreadyExists);
+    private void postAlreadyExists(AddCallback cb, TrustedAccount account) {
+        mainHandler.post(() -> cb.onAlreadyExists(account));
     }
 
     private void postError(AddCallback cb, Exception e) {

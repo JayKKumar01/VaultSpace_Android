@@ -206,11 +206,16 @@ public class Notes {
 
 
 
+    // on every install ask users to add the email account to the app once
+
+    // on login ask use to give consent to all the accounts they have already added as trusted users,
+    // then only move ahead
 
 
-
-
-
+    // for each trusted accounts
+    //ACCESSIBLE
+    //NOT_ON_DEVICE
+    //CONSENT_REQUIRED
 
 
 

@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class AlbumMediaRepository {
+    private static final String TAG = "VaultSpace:AlbumRepo";
 
     /* ================= Singleton ================= */
 
@@ -192,6 +193,7 @@ public final class AlbumMediaRepository {
         synchronized (lock) {
             stateListenerByAlbum.put(albumId,l);
         }
+
     }
 
     public void removeAlbumStateListener(String albumId,AlbumStateListener l) {

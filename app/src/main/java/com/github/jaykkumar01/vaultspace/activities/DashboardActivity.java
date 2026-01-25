@@ -33,8 +33,6 @@ import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
-import java.util.function.Consumer;
-
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
 
@@ -129,6 +127,7 @@ public class DashboardActivity extends AppCompatActivity {
         profileHelper = new DashboardProfileHelper(this);
         consentHelper = new PrimaryAccountConsentHelper(this);
         trustedAccountsRepository = TrustedAccountsRepository.getInstance(this);
+        trustedAccountsRepository.addListener(this::onVaultStorageState);
         expandVaultHelper = new ExpandVaultHelper(this, trustedAccountsRepository);
     }
 
@@ -243,13 +242,7 @@ public class DashboardActivity extends AppCompatActivity {
     private void activateGrantedState() {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
-        trustedAccountsRepository.getAccounts(accounts -> {
-            onVaultStorageState(accounts);
-            trustedAccountsRepository.addListener(this::onVaultStorageState);
-        }, e -> {
-            Log.e(TAG, "Failed to load trusted accounts", e);
-            showToast("Failed to load storage info. Please check your connection.");
-        });
+        trustedAccountsRepository.refresh();
 
         applyViewMode(VaultViewMode.ALBUMS);
         segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));

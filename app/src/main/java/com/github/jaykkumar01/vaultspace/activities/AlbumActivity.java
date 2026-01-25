@@ -1,10 +1,12 @@
 package com.github.jaykkumar01.vaultspace.activities;
 
+import android.nfc.Tag;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
@@ -25,6 +27,7 @@ import com.github.jaykkumar01.vaultspace.album.listener.AlbumUiCallbackImpl;
 import com.github.jaykkumar01.vaultspace.album.listener.UploadObserverImpl;
 import com.github.jaykkumar01.vaultspace.album.listener.UploadStatusCallbackImpl;
 import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
+import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadObserver;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
@@ -69,6 +72,7 @@ public class AlbumActivity extends AppCompatActivity {
 
     /* ---------- Domain ---------- */
     private AlbumMediaRepository repo;
+    private TrustedAccountsRepository trustedAccountsRepo;
 
     /* ---------- Actions & Uploads ---------- */
     private AlbumActionCoordinator actionCoordinator;
@@ -141,6 +145,7 @@ public class AlbumActivity extends AppCompatActivity {
 
     private void setupRepository() {
         repo = AlbumMediaRepository.getInstance(this);
+        trustedAccountsRepo = TrustedAccountsRepository.getInstance(this);
         repo.addAlbumStateListener(albumId, stateListener);
         repo.addDeltaListener(albumId, deltaListener);
         repo.addCountListener(albumId, this::onCountChanged);
@@ -191,7 +196,13 @@ public class AlbumActivity extends AppCompatActivity {
     /* ---------- UI Callbacks ---------- */
 
     private void handleAddMediaClicked() {
-        actionCoordinator.onAddMediaClicked();
+        trustedAccountsRepo.getAccounts( accounts -> {
+            if (!accounts.iterator().hasNext()){
+                Toast.makeText(this, "Add a trusted account first to upload media.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            actionCoordinator.onAddMediaClicked();
+        });
     }
 
     private void handleMediaClicked(AlbumMedia m, int p) {
@@ -264,24 +275,30 @@ public class AlbumActivity extends AppCompatActivity {
 
     private void transitionTo(UiState next) {
         if (uiState == next || !isValidTransition(uiState, next)) return;
+
         uiState = next;
+
         switch (next) {
             case LOADING -> uiController.showLoading();
             case READY -> renderReady();
             case ERROR -> renderError();
-            case IDLE -> {
-            }
+            case IDLE -> {}
         }
     }
 
+
+
     private boolean isValidTransition(UiState from, UiState to) {
         return switch (from) {
-            case IDLE, READY, ERROR -> to == UiState.LOADING;
+            case IDLE -> to == UiState.LOADING || to == UiState.READY || to == UiState.ERROR;
             case LOADING -> to == UiState.READY || to == UiState.ERROR;
+            case READY, ERROR -> to == UiState.LOADING;
         };
     }
 
+
     private void renderReady() {
+        Log.d(TAG,"renderReady called");
         if (currentMedia == null) return;
         if (!currentMedia.iterator().hasNext()) uiController.showEmpty();
         else uiController.showContent(currentMedia);
