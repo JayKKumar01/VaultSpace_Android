@@ -36,17 +36,19 @@ public final class AlbumMediaRepository {
 
     /* ================= APIs ================= */
 
-    public interface Callback {
-        void onLoaded();
+    public interface AlbumStateListener {
+        void onLoading();
+        void onMedia(Iterable<AlbumMedia> media);
         void onError(Exception e);
     }
 
-    /** Bulk listener – used for initial load / refresh */
-    public interface MediaListener {
-        void onAlbumChanged(Iterable<AlbumMedia> media);
+    /** Used for RecyclerView delta updates (O(1)) */
+    public interface MediaDeltaListener {
+        void onMediaAdded(AlbumMedia media);
+        void onMediaRemoved(String mediaId);
     }
 
-    /** O(1) listener – used for AlbumMetaInfo */
+    /** Used by AlbumMetaInfoView (O(1)) */
     public interface CountListener {
         void onCountsChanged(int photos,int videos);
     }
@@ -60,8 +62,11 @@ public final class AlbumMediaRepository {
     private final Object lock = new Object();
 
     private final Map<String,Boolean> loading = new HashMap<>();
-    private final Map<String,MediaListener> mediaListenerByAlbum = new HashMap<>();
+
+    private final Map<String,AlbumStateListener> stateListenerByAlbum = new HashMap<>();
+    private final Map<String,MediaDeltaListener> deltaListenerByAlbum = new HashMap<>();
     private final Map<String,CountListener> countListenerByAlbum = new HashMap<>();
+
 
     /** Derived state (owned by repo) */
     private final Map<String,Integer> photoCountByAlbum = new HashMap<>();
@@ -73,30 +78,31 @@ public final class AlbumMediaRepository {
 
     /* ================= Load / Init ================= */
 
-    public void loadAlbum(Context c,String albumId,Callback cb) {
+    public void openAlbum(Context c,String albumId) {
         AlbumMediaEntry entry = cache.getOrCreateEntry(albumId);
 
         synchronized (lock) {
+            AlbumStateListener l = stateListenerByAlbum.get(albumId);
+            if (l == null) return;
+
             if (entry.isInitialized()) {
+                notifyMedia(albumId);
                 notifyCounts(albumId);
-                cb.onLoaded();
                 return;
             }
+
             if (Boolean.TRUE.equals(loading.get(albumId))) return;
             loading.put(albumId,true);
         }
 
+        notifyLoading(albumId);
+
         AlbumDriveHelper drive = new AlbumDriveHelper(c,albumId);
         drive.fetchAlbumMedia(executor,new AlbumDriveHelper.FetchCallback() {
-
-            @Override
-            public void onResult(@NonNull List<AlbumMedia> items) {
-                int photos = 0;
-                int videos = 0;
-
+            @Override public void onResult(@NonNull List<AlbumMedia> items) {
+                int photos = 0, videos = 0;
                 for (AlbumMedia m : items) {
-                    if (m.isVideo) videos++;
-                    else photos++;
+                    if (m.isVideo) videos++; else photos++;
                 }
 
                 synchronized (lock) {
@@ -108,18 +114,17 @@ public final class AlbumMediaRepository {
 
                 notifyMedia(albumId);
                 notifyCounts(albumId);
-                cb.onLoaded();
             }
 
-            @Override
-            public void onError(@NonNull Exception e) {
+            @Override public void onError(@NonNull Exception e) {
                 synchronized (lock) {
                     loading.remove(albumId);
                 }
-                cb.onError(e);
+                notifyError(albumId,e);
             }
         });
     }
+
 
     /* ================= Reads ================= */
 
@@ -146,8 +151,7 @@ public final class AlbumMediaRepository {
                 photoCountByAlbum.compute(albumId,(k,v) -> v == null ? 1 : v + 1);
         }
 
-
-        notifyMedia(albumId);
+        notifyDeltaAdded(albumId,media);
         notifyCounts(albumId);
     }
 
@@ -165,34 +169,51 @@ public final class AlbumMediaRepository {
                 photoCountByAlbum.compute(albumId,(k,v) -> v == null || v <= 1 ? 0 : v - 1);
         }
 
-        notifyMedia(albumId);
+        notifyDeltaRemoved(albumId,media.fileId);
         notifyCounts(albumId);
     }
 
     /* ================= Refresh ================= */
 
-    public void refreshAlbum(Context c,String albumId,Callback cb) {
+    public void refreshAlbum(Context c,String albumId) {
         synchronized (lock) {
             cache.invalidateAlbum(albumId);
             photoCountByAlbum.remove(albumId);
             videoCountByAlbum.remove(albumId);
         }
-        loadAlbum(c,albumId,cb);
+        openAlbum(c,albumId);
     }
+
 
     /* ================= Listeners ================= */
 
-    public void addMediaListener(String albumId,MediaListener l) {
+    public void addAlbumStateListener(String albumId,AlbumStateListener l) {
         if (albumId == null || l == null) return;
         synchronized (lock) {
-            mediaListenerByAlbum.put(albumId,l);
+            stateListenerByAlbum.put(albumId,l);
         }
     }
 
-    public void removeMediaListener(String albumId,MediaListener l) {
+    public void removeAlbumStateListener(String albumId,AlbumStateListener l) {
         if (albumId == null || l == null) return;
         synchronized (lock) {
-            if (mediaListenerByAlbum.get(albumId) == l) mediaListenerByAlbum.remove(albumId);
+            if (stateListenerByAlbum.get(albumId) == l)
+                stateListenerByAlbum.remove(albumId);
+        }
+    }
+
+
+    public void addDeltaListener(String albumId,MediaDeltaListener l) {
+        if (albumId == null || l == null) return;
+        synchronized (lock) {
+            deltaListenerByAlbum.put(albumId,l);
+        }
+    }
+
+    public void removeDeltaListener(String albumId,MediaDeltaListener l) {
+        if (albumId == null || l == null) return;
+        synchronized (lock) {
+            if (deltaListenerByAlbum.get(albumId) == l) deltaListenerByAlbum.remove(albumId);
         }
     }
 
@@ -212,17 +233,54 @@ public final class AlbumMediaRepository {
 
     /* ================= Notify helpers ================= */
 
+    private void notifyLoading(String albumId) {
+        AlbumStateListener l;
+        synchronized (lock) {
+            l = stateListenerByAlbum.get(albumId);
+            if (l == null) return;
+        }
+        mainHandler.post(l::onLoading);
+    }
+
     private void notifyMedia(String albumId) {
-        MediaListener l;
+        AlbumStateListener l;
         Iterable<AlbumMedia> snapshot;
 
         synchronized (lock) {
-            l = mediaListenerByAlbum.get(albumId);
+            l = stateListenerByAlbum.get(albumId);
             if (l == null) return;
             snapshot = cache.getOrCreateEntry(albumId).getMediaView();
         }
 
-        mainHandler.post(() -> l.onAlbumChanged(snapshot));
+        mainHandler.post(() -> l.onMedia(snapshot));
+    }
+
+    private void notifyError(String albumId,Exception e) {
+        AlbumStateListener l;
+        synchronized (lock) {
+            l = stateListenerByAlbum.get(albumId);
+            if (l == null) return;
+        }
+        mainHandler.post(() -> l.onError(e));
+    }
+
+
+    private void notifyDeltaAdded(String albumId,AlbumMedia media) {
+        MediaDeltaListener l;
+        synchronized (lock) {
+            l = deltaListenerByAlbum.get(albumId);
+            if (l == null) return;
+        }
+        mainHandler.post(() -> l.onMediaAdded(media));
+    }
+
+    private void notifyDeltaRemoved(String albumId,String mediaId) {
+        MediaDeltaListener l;
+        synchronized (lock) {
+            l = deltaListenerByAlbum.get(albumId);
+            if (l == null) return;
+        }
+        mainHandler.post(() -> l.onMediaRemoved(mediaId));
     }
 
     private void notifyCounts(String albumId) {
@@ -242,6 +300,4 @@ public final class AlbumMediaRepository {
 
         mainHandler.post(() -> l.onCountsChanged(photos,videos));
     }
-
-
 }

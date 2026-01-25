@@ -2,7 +2,6 @@ package com.github.jaykkumar01.vaultspace.album;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -12,8 +11,6 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.R;
-
-import java.util.List;
 
 public class AlbumContentView extends FrameLayout {
 
@@ -60,7 +57,7 @@ public class AlbumContentView extends FrameLayout {
         tv.setPadding(0,24,0,24);
         return tv;
     }
-    public void setMedia(List<AlbumMedia> snapshotList){
+    public void setMedia(Iterable<AlbumMedia> snapshotList){
         listContainer.removeAllViews();
         Context context=getContext();
         for(AlbumMedia media:snapshotList){

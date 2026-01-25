@@ -18,16 +18,22 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
+import com.github.jaykkumar01.vaultspace.album.listener.AlbumActionListenerImpl;
+import com.github.jaykkumar01.vaultspace.album.listener.AlbumMediaDeltaListenerImpl;
+import com.github.jaykkumar01.vaultspace.album.listener.AlbumStateListenerImpl;
+import com.github.jaykkumar01.vaultspace.album.listener.AlbumUiCallbackImpl;
+import com.github.jaykkumar01.vaultspace.album.listener.UploadObserverImpl;
+import com.github.jaykkumar01.vaultspace.album.listener.UploadStatusCallbackImpl;
 import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
-import com.github.jaykkumar01.vaultspace.core.upload.controller.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadObserver;
-import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
+import com.github.jaykkumar01.vaultspace.core.upload.controller.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.views.creative.AlbumMetaInfoView;
-import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
+import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.List;
@@ -35,18 +41,13 @@ import java.util.List;
 public class AlbumActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Album";
-
     public static final String EXTRA_ALBUM_ID = "album_id";
     public static final String EXTRA_ALBUM_NAME = "album_name";
 
-    private enum UiState {UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR}
+    /* ---------- Intent ---------- */
+    private String albumId, albumName;
 
-    private String albumId;
-    private String albumName;
-
-    private UiState state = UiState.UNINITIALIZED;
-    private boolean released;
-
+    /* ---------- UI Views ---------- */
     private TextView tvAlbumName;
     private ImageView btnBack;
     private FrameLayout contentContainer;
@@ -54,279 +55,252 @@ public class AlbumActivity extends AppCompatActivity {
     private UploadStatusView uploadStatusView;
     private ProgressStackView progressStackView;
 
-    private AlbumUiController albumUiController;
-    private AlbumMediaRepository albumRepo;
+    /* ---------- UI State ---------- */
+    private enum UiState {IDLE, LOADING, READY, ERROR}
+
+    private UiState uiState = UiState.IDLE;
+    private boolean released;
+    private Iterable<AlbumMedia> currentMedia;
+
+    /* ---------- UI Helpers ---------- */
+    private AlbumUiController uiController;
     private ModalHost modalHost;
     private AlbumModalHandler albumModalHandler;
 
+    /* ---------- Domain ---------- */
+    private AlbumMediaRepository repo;
+
+    /* ---------- Actions & Uploads ---------- */
     private AlbumActionCoordinator actionCoordinator;
     private UploadOrchestrator uploadOrchestrator;
-
     private UploadStatusController uploadStatusController;
-
     private boolean shouldClearGroup;
 
-    private final AlbumMediaRepository.Callback repoCallback = new AlbumMediaRepository.Callback() {
-        @Override
-        public void onLoaded() {
-            if (released) return;
-            renderFromCache();
-        }
+    /* ---------- Listeners ---------- */
 
-        @Override
-        public void onError(Exception e) {
-            if (released) return;
-            Log.e(TAG, "Album load failed", e);
-            transitionTo(UiState.ERROR);
-        }
-    };
+    private final AlbumMediaRepository.AlbumStateListener stateListener =
+            new AlbumStateListenerImpl(this::handleAlbumLoading, this::handleAlbumMedia, this::handleAlbumError);
 
-    private final AlbumActionCoordinator.Listener actionListener = new AlbumActionCoordinator.Listener() {
-        @Override
-        public void onMediaSelected(int size) {
-            // show something to user till it get's snapshot
-        }
+    private final AlbumMediaRepository.MediaDeltaListener deltaListener =
+            new AlbumMediaDeltaListenerImpl(this::handleMediaAdded, this::handleMediaRemoved);
 
-        @Override
-        public void onMediaResolved(List<UploadSelection> selections) {
-            shouldClearGroup = false;
-            uploadOrchestrator.enqueue(albumId, albumName, selections);
-        }
-    };
+    private final UploadObserver uploadObserver =
+            new UploadObserverImpl(this::handleUploadSnapshot, this::handleUploadCancelled,
+                    this::handleUploadSuccess, this::handleUploadFailure, this::handleUploadProgress);
 
-    private final AlbumUiController.Callback uiCallback = new AlbumUiController.Callback() {
-        @Override
-        public void onAddMediaClicked() {
-            actionCoordinator.onAddMediaClicked();
-        }
+    private final AlbumUiController.Callback uiCallback =
+            new AlbumUiCallbackImpl(this::handleAddMediaClicked, this::handleMediaClicked, this::handleMediaLongPressed);
 
-        @Override
-        public void onMediaClicked(AlbumMedia media, int position) {
-            actionCoordinator.onMediaClicked(media, position);
-        }
+    private final AlbumActionCoordinator.Listener actionListener =
+            new AlbumActionListenerImpl(this::handleMediaSelected, this::handleMediaResolved);
 
-        @Override
-        public void onMediaLongPressed(AlbumMedia media, int position) {
-            actionCoordinator.onMediaLongPressed(media, position);
-        }
-    };
+    private final UploadStatusController.Callback uploadStatusCallback =
+            new UploadStatusCallbackImpl(this::handleUploadCancel, this::handleUploadRetry,
+                    this::handleUploadAcknowledge, this::handleUploadNoAccess);
 
-    private final UploadObserver uploadObserver = new UploadObserver() {
-        @Override
-        public void onSnapshot(UploadSnapshot snapshot) {
-            if (snapshot == null) {
-                return;
-            }
-            Log.d(
-                    TAG,
-                    "Upload snapshot → album=" + snapshot.groupId
-                            + " uploaded=" + snapshot.uploaded
-                            + " failed=" + snapshot.failed
-                            + " total=" + snapshot.total
-                            + " inProgress=" + snapshot.isInProgress()
-            );
-            uploadStatusController.onSnapshot(snapshot);
-        }
-
-        @Override
-        public void onCancelled() {
-            uploadStatusController.onCancelled();
-        }
-
-        @Override
-        public void onSuccess(UploadedItem item) {
-            if (item == null) {
-                return;
-            }
-            AlbumMedia media = new AlbumMedia(item);
-
-            if (state == UiState.CONTENT) {
-                albumUiController.addMedia(media);
-                return;
-            }
-
-            if (state != UiState.UNINITIALIZED) {
-                renderFromCache();
-            }
-        }
-
-
-        @Override
-        public void onFailure(UploadSelection selection) {
-            if (selection == null) {
-                return;
-            }
-            uploadStatusController.onFailure(selection);
-        }
-
-        @Override
-        public void onProgress(String uId, String name, long uploadedBytes, long totalBytes) {
-            uploadStatusController.onProgress(uId, name, uploadedBytes, totalBytes);
-        }
-    };
-
-    private final UploadStatusController.Callback uploadStatusCallback = new UploadStatusController.Callback() {
-        @Override
-        public void onCancelRequested() {
-            albumModalHandler.showCancelConfirm(() -> uploadOrchestrator.cancelUploads(albumId));
-        }
-
-        @Override
-        public void onRetryRequested() {
-            uploadOrchestrator.retryUploads(albumId, albumName);
-        }
-
-        @Override
-        public void onAcknowledge() {
-            uploadOrchestrator.clearGroup(albumId);
-        }
-
-        @Override
-        public void onNoAccessInfo() {
-            shouldClearGroup = true;
-            uploadOrchestrator.getFailuresForGroup(albumId, failures -> {
-                if (failures == null || failures.isEmpty()) {
-                    Log.d(TAG, "onNoAccessInfo(): no failures for groupId=" + albumId);
-                    return;
-                }
-
-
-                albumModalHandler.showUploadFailures(failures, () -> {
-                    Log.d(TAG, "onNoAccessInfo(): groupId=" + albumId + ", totalFailures=" + failures.size());
-
-                    uploadOrchestrator.clearGroup(albumId);
-                    shouldClearGroup = false;
-                });
-            });
-        }
-
-    };
-
+    /* ---------- Lifecycle ---------- */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        if (!readIntent()) {
+        if (noIntent()) {
             finish();
             return;
         }
 
-        EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_album);
-        applyWindowInsets();
+        setupWindow();
+        setupViews();
+        setupUiHelpers();
+        setupRepository();
+        setupActions();
+        setupUploads();
 
-        bindViews();
-        bindHeader();
-        setupBackHandling();
-
-        modalHost = ModalHost.attach(this);
-        albumModalHandler = new AlbumModalHandler(modalHost);
-
-        albumRepo = AlbumMediaRepository.getInstance(this);
-        albumRepo.addCountListener(albumId,this::onCountChanged);
-
-        albumUiController = new AlbumUiController(this, contentContainer, uiCallback);
-        actionCoordinator = new AlbumActionCoordinator(this, albumId, actionListener);
-
-
-        uploadStatusController = new UploadStatusController(uploadStatusView, progressStackView, uploadStatusCallback);
-
-        uploadOrchestrator = UploadOrchestrator.getInstance(this);
-        uploadOrchestrator.registerObserver(albumId, albumName, uploadObserver);
-
-
-        loadAlbum();
-
+        repo.openAlbum(this, albumId);
         Log.d(TAG, "Opened album: " + albumName + " (" + albumId + ")");
     }
 
-    private void onCountChanged(int photos,int videos) {
-        albumMetaInfo.setCounts(photos,videos);
+    /* ---------- Setup ---------- */
+
+    private void setupWindow() {
+        EdgeToEdge.enable(this);
+        setContentView(R.layout.activity_album);
+        applyWindowInsets();
     }
 
+    private void setupViews() {
+        bindViews();
+        bindHeader();
+        setupBackHandling();
+    }
 
-    /* ---------------- Load / Refresh ---------------- */
+    private void setupUiHelpers() {
+        modalHost = ModalHost.attach(this);
+        albumModalHandler = new AlbumModalHandler(modalHost);
+        uiController = new AlbumUiController(this, contentContainer, uiCallback);
+    }
 
-    private void loadAlbum() {
-        if (released || state != UiState.UNINITIALIZED) return;
+    private void setupRepository() {
+        repo = AlbumMediaRepository.getInstance(this);
+        repo.addAlbumStateListener(albumId, stateListener);
+        repo.addDeltaListener(albumId, deltaListener);
+        repo.addCountListener(albumId, this::onCountChanged);
+    }
+
+    private void setupActions() {
+        actionCoordinator = new AlbumActionCoordinator(this, albumId, actionListener);
+    }
+
+    private void setupUploads() {
+        uploadStatusController = new UploadStatusController(uploadStatusView, progressStackView, uploadStatusCallback);
+        uploadOrchestrator = UploadOrchestrator.getInstance(this);
+        uploadOrchestrator.registerObserver(albumId, albumName, uploadObserver);
+    }
+
+    /* ---------- Repository Callbacks ---------- */
+
+    private void handleAlbumLoading() {
+        if (released) return;
         transitionTo(UiState.LOADING);
-        albumRepo.loadAlbum(this, albumId, repoCallback);
     }
 
-    private void refreshAlbum() {
-        if (released) {
-            return;
+    private void handleAlbumMedia(Iterable<AlbumMedia> media) {
+        if (released) return;
+        currentMedia = media;
+        transitionTo(UiState.READY);
+    }
+
+    private void handleAlbumError(Exception e) {
+        if (released) return;
+        transitionTo(UiState.ERROR);
+    }
+
+    private void handleMediaAdded(AlbumMedia media) {
+        if (released || uiState != UiState.READY) return;
+        uiController.onMediaAdded(media);
+    }
+
+    private void handleMediaRemoved(String mediaId) {
+        if (released || uiState != UiState.READY) return;
+        uiController.onMediaRemoved(mediaId);
+    }
+
+    private void onCountChanged(int photos, int videos) {
+        albumMetaInfo.setCounts(photos, videos);
+    }
+
+    /* ---------- UI Callbacks ---------- */
+
+    private void handleAddMediaClicked() {
+        actionCoordinator.onAddMediaClicked();
+    }
+
+    private void handleMediaClicked(AlbumMedia m, int p) {
+        actionCoordinator.onMediaClicked(m, p);
+    }
+
+    private void handleMediaLongPressed(AlbumMedia m, int p) {
+        actionCoordinator.onMediaLongPressed(m, p);
+    }
+
+    /* ---------- Action Callbacks ---------- */
+
+    private void handleMediaSelected(int size) { /* future hook */ }
+
+    private void handleMediaResolved(List<UploadSelection> selections) {
+        shouldClearGroup = false;
+        uploadOrchestrator.enqueue(albumId, albumName, selections);
+    }
+
+    /* ---------- Upload Observer ---------- */
+
+    private void handleUploadSnapshot(UploadSnapshot s) {
+        if (s == null) return;
+        Log.d(TAG, "Upload snapshot → album=" + s.groupId + " uploaded=" + s.uploaded +
+                " failed=" + s.failed + " total=" + s.total + " inProgress=" + s.isInProgress());
+        uploadStatusController.onSnapshot(s);
+    }
+
+    private void handleUploadCancelled() {
+        uploadStatusController.onCancelled();
+    }
+
+    private void handleUploadSuccess(UploadedItem item) {
+    }
+
+    private void handleUploadFailure(UploadSelection s) {
+        if (s != null) uploadStatusController.onFailure(s);
+    }
+
+    private void handleUploadProgress(String id, String name, long up, long total) {
+        uploadStatusController.onProgress(id, name, up, total);
+    }
+
+    /* ---------- Upload UI Callbacks ---------- */
+
+    private void handleUploadCancel() {
+        albumModalHandler.showCancelConfirm(() -> uploadOrchestrator.cancelUploads(albumId));
+    }
+
+    private void handleUploadRetry() {
+        uploadOrchestrator.retryUploads(albumId, albumName);
+    }
+
+    private void handleUploadAcknowledge() {
+        uploadOrchestrator.clearGroup(albumId);
+    }
+
+    private void handleUploadNoAccess() {
+        shouldClearGroup = true;
+        uploadOrchestrator.getFailuresForGroup(albumId, failures -> {
+            if (failures == null || failures.isEmpty()) return;
+            albumModalHandler.showUploadFailures(failures, () -> {
+                uploadOrchestrator.clearGroup(albumId);
+                shouldClearGroup = false;
+            });
+        });
+    }
+
+    /* ---------- State Machine ---------- */
+
+    private void transitionTo(UiState next) {
+        if (uiState == next || !isValidTransition(uiState, next)) return;
+        uiState = next;
+        switch (next) {
+            case LOADING -> uiController.showLoading();
+            case READY -> renderReady();
+            case ERROR -> renderError();
+            case IDLE -> {
+            }
         }
-        transitionTo(UiState.LOADING);
-        albumRepo.refreshAlbum(this, albumId, repoCallback);
     }
 
-    /* ---------------- Rendering ---------------- */
-
-    private void renderFromCache() {
-        List<AlbumMedia> snapshot = albumRepo.getMediaSnapshot(albumId);
-
-        transitionTo(snapshot.isEmpty() ? UiState.EMPTY : UiState.CONTENT);
+    private boolean isValidTransition(UiState from, UiState to) {
+        return switch (from) {
+            case IDLE, READY, ERROR -> to == UiState.LOADING;
+            case LOADING -> to == UiState.READY || to == UiState.ERROR;
+        };
     }
 
-    /* ---------------- State Machine ---------------- */
-
-    private void transitionTo(UiState newState) {
-        if (state == newState) return;
-
-        Log.d(TAG, "state " + state + " → " + newState);
-        state = newState;
-
-        switch (newState) {
-            case LOADING:
-                renderLoading();
-                break;
-
-            case EMPTY:
-                renderEmpty();
-                break;
-
-            case ERROR:
-                renderError();
-                break;
-
-            case CONTENT:
-                renderContent();
-                break;
-
-            case UNINITIALIZED:
-                // no-op
-                break;
-        }
-    }
-
-    private void renderLoading() {
-        albumUiController.showLoading();
-    }
-
-    private void renderEmpty() {
-        albumUiController.showEmpty();
+    private void renderReady() {
+        if (currentMedia == null) return;
+        if (!currentMedia.iterator().hasNext()) uiController.showEmpty();
+        else uiController.showContent(currentMedia);
     }
 
     private void renderError() {
         albumModalHandler.showRetryLoad(this::refreshAlbum, this::finish);
     }
 
-    private void renderContent() {
-        albumModalHandler.dismissAll();
-        albumUiController.showContent(albumRepo.getMediaSnapshot(albumId));
+    /* ---------- Misc ---------- */
 
+    private void refreshAlbum() {
+        repo.refreshAlbum(this, albumId);
     }
 
-
-
-    /* ---------------- Setup ---------------- */
-
-    private boolean readIntent() {
+    private boolean noIntent() {
         albumId = getIntent().getStringExtra(EXTRA_ALBUM_ID);
         albumName = getIntent().getStringExtra(EXTRA_ALBUM_NAME);
-        return albumId != null && !albumId.isEmpty();
+        return albumId == null || albumName == null || albumId.isEmpty() || albumName.isEmpty();
     }
 
     private void bindViews() {
@@ -347,23 +321,18 @@ public class AlbumActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-
                 if (modalHost.onBackPressed()) return;
-
                 finish();
-                overridePendingTransition(
-                        R.anim.album_return_enter,
-                        R.anim.album_return_exit
-                );
+                overridePendingTransition(R.anim.album_return_enter, R.anim.album_return_exit);
             }
         });
     }
 
     private void applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, i) -> {
+            Insets b = i.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(b.left, b.top, b.right, b.bottom);
+            return i;
         });
     }
 
@@ -374,9 +343,9 @@ public class AlbumActivity extends AppCompatActivity {
         albumModalHandler.dismissAll();
         actionCoordinator.release();
         uploadOrchestrator.unregisterObserver(albumId);
-        if (shouldClearGroup) {
-            uploadOrchestrator.clearGroup(albumId);
-        }
-        albumRepo.removeCountListener(albumId, this::onCountChanged);
+        if (shouldClearGroup) uploadOrchestrator.clearGroup(albumId);
+        repo.removeAlbumStateListener(albumId, stateListener);
+        repo.removeDeltaListener(albumId, deltaListener);
+        repo.removeCountListener(albumId, this::onCountChanged);
     }
 }

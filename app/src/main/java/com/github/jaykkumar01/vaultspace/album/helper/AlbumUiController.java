@@ -10,9 +10,14 @@ import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
-import java.util.List;
-
 public final class AlbumUiController {
+
+    public void onMediaAdded(AlbumMedia media) {
+    }
+
+    public void onMediaRemoved(String mediaId) {
+
+    }
 
     public interface Callback {
         void onAddMediaClicked();
@@ -65,7 +70,7 @@ public final class AlbumUiController {
         contentView.setVisibility(View.GONE);
     }
 
-    public void showContent(List<AlbumMedia> mediaList) {
+    public void showContent(Iterable<AlbumMedia> mediaList) {
         loadingView.setVisibility(View.GONE);
         emptyView.setVisibility(View.GONE);
         contentView.setVisibility(View.VISIBLE);
