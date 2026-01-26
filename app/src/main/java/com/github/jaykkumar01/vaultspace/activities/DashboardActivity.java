@@ -28,6 +28,7 @@ import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardModalCoordinator;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper.*;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
@@ -67,7 +68,7 @@ public class DashboardActivity extends AppCompatActivity {
     /* Helpers */
     private DashboardProfileHelper profileHelper;
     private ExpandVaultHelper expandVaultHelper;
-    private TrustedAccountsRepository trustedAccountsRepository;
+    private TrustedAccountsRepository trustedAccountsRepo;
     private List<String> lastAccountEmails;
 
 
@@ -135,9 +136,9 @@ public class DashboardActivity extends AppCompatActivity {
         userSession = new UserSession(this);
         profileHelper = new DashboardProfileHelper(this);
         consentHelper = new PrimaryAccountConsentHelper(this);
-        trustedAccountsRepository = TrustedAccountsRepository.getInstance(this);
-        trustedAccountsRepository.addListener(this::onVaultStorageState);
-        expandVaultHelper = new ExpandVaultHelper(this, trustedAccountsRepository);
+        trustedAccountsRepo = TrustedAccountsRepository.getInstance(this);
+        trustedAccountsRepo.addListener(this::onVaultStorageState);
+        expandVaultHelper = new ExpandVaultHelper(this);
     }
 
     private void initViews() {
@@ -251,7 +252,7 @@ public class DashboardActivity extends AppCompatActivity {
     private void activateGrantedState() {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
-        trustedAccountsRepository.refresh();
+        trustedAccountsRepo.refresh();
         setUpAccounts.setOnClickListener(v -> navigateToSetup());
 
         applyViewMode(VaultViewMode.ALBUMS);
@@ -260,7 +261,7 @@ public class DashboardActivity extends AppCompatActivity {
 
         btnExpandVault.setOnClickListener(v -> {
             modalCoordinator.showLoading();
-            expandVaultHelper.launchExpandVault(expandAccountListener);
+            expandVaultHelper.launch(expandAccountListener);
         });
     }
 
@@ -347,17 +348,18 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
 
-    private final ExpandVaultHelper.ExpandAccountListener expandAccountListener = new ExpandVaultHelper.ExpandAccountListener() {
+    private final ExpandAccountListener expandAccountListener = new ExpandAccountListener() {
         @Override
-        public void onSuccess() {
+        public void onSuccess(@NonNull TrustedAccount account, @NonNull ExpandResult result) {
+            trustedAccountsRepo.addAccount(account);
+            showToast(result.getMessage());
             modalCoordinator.clearLoading();
-            showToast("Account added to your vault successfully");
         }
 
         @Override
-        public void onError(@NonNull String message) {
+        public void onError(@NonNull ExpandError error) {
+            showToast(error.getMessage());
             modalCoordinator.clearLoading();
-            showToast(message);
         }
     };
 
@@ -384,7 +386,7 @@ public class DashboardActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        trustedAccountsRepository.removeListener(this::onVaultStorageState);
+        trustedAccountsRepo.removeListener(this::onVaultStorageState);
         albumsUi.onRelease();
         filesUi.onRelease();
         expandVaultHelper.release();
