@@ -76,9 +76,9 @@ public class ProfileInfoView extends ConstraintLayout {
         tvEmail.setId(generateViewId());
         tvEmail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         tvEmail.setTextColor(context.getColor(R.color.vs_text_content));
-        tvName.setMaxLines(1);
-        tvName.setSingleLine(true);
-        tvName.setEllipsize(TextUtils.TruncateAt.END);
+        tvEmail.setMaxLines(1);
+        tvEmail.setSingleLine(true);
+        tvEmail.setEllipsize(TextUtils.TruncateAt.END);
 
 
         addView(tvEmail, new LayoutParams(0, LayoutParams.WRAP_CONTENT));
