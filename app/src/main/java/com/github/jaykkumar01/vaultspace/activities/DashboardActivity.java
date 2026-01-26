@@ -347,20 +347,19 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
 
-    private final ExpandVaultHelper.ExpandAccountListener expandAccountListener =
-            new ExpandVaultHelper.ExpandAccountListener() {
-                @Override
-                public void onSuccess() {
-                    modalCoordinator.clearLoading();
-                    showToast("Account added to your vault successfully");
-                }
+    private final ExpandVaultHelper.ExpandAccountListener expandAccountListener = new ExpandVaultHelper.ExpandAccountListener() {
+        @Override
+        public void onSuccess() {
+            modalCoordinator.clearLoading();
+            showToast("Account added to your vault successfully");
+        }
 
-                @Override
-                public void onError(@NonNull String message) {
-                    modalCoordinator.clearLoading();
-                    showToast(message);
-                }
-            };
+        @Override
+        public void onError(@NonNull String message) {
+            modalCoordinator.clearLoading();
+            showToast(message);
+        }
+    };
 
     /* ==========================================================
      * Exit

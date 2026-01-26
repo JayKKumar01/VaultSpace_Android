@@ -82,7 +82,7 @@ public final class AlbumsDriveHelper {
 
         executor.execute(() -> {
             try {
-                File created = DriveFolderRepository.createFolder(
+                File created = DriveFolderRepository.resolveFolder(
                         primaryDrive,
                         name,
                         DriveFolderRepository.getAlbumsRootId(appContext)

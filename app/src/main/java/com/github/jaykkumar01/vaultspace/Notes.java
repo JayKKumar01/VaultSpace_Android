@@ -219,6 +219,34 @@ public class Notes {
 
     //fix the sweep, if open album once it will start sweeping again so fix that
 
+    // make sure only the owner of the folder will be considered as primary not the writers
+
+    // there is a continious loop in the add trusted method, fix that
+    // folder creation is messed! fix that too
+
+    // drive does not allow creating folder with same name in the root so
+    // smartly fix that maybe add the name inside the root
+
+
+    //fix the continuous loop
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

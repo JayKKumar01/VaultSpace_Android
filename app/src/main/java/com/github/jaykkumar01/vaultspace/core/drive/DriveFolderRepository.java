@@ -16,82 +16,75 @@ public final class DriveFolderRepository {
     private static final String FILES_FOLDER_NAME = "Files";
     private static final String THUMBNAILS_FOLDER_NAME = "Media Registry";
 
-    private static String rootFolderId;
-    private static String albumsRootId;
-    private static String filesRootId;
-    private static String thumbnailsRootId;
+    private static String rootFolderId, albumsRootId, filesRootId, thumbnailsRootId;
 
-    private DriveFolderRepository() {
-    }
+    private DriveFolderRepository() {}
 
     /* ------------ Public API ------------ */
 
-    public static String getRootFolderId(Context context) throws Exception {
+    public static synchronized String getRootFolderId(Context c) throws Exception {
         if (rootFolderId != null) return rootFolderId;
-        Drive drive = DriveClientProvider.getPrimaryDrive(context);
-        rootFolderId = resolveFolder(drive, ROOT_FOLDER_NAME, null);
+        Drive d = DriveClientProvider.getPrimaryDrive(c);
+        rootFolderId = resolveFolder(d, ROOT_FOLDER_NAME, null).getId();
         return rootFolderId;
     }
 
-    public static String getAlbumsRootId(Context context) throws Exception {
+    public static synchronized String getAlbumsRootId(Context c) throws Exception {
         if (albumsRootId != null) return albumsRootId;
-        Drive drive = DriveClientProvider.getPrimaryDrive(context);
-        albumsRootId = resolveFolder(drive, ALBUMS_FOLDER_NAME, getRootFolderId(context));
+        Drive d = DriveClientProvider.getPrimaryDrive(c);
+        albumsRootId = resolveFolder(d, ALBUMS_FOLDER_NAME, getRootFolderId(c)).getId();
         return albumsRootId;
     }
 
-    public static String getFilesRootId(Context context) throws Exception {
+    public static synchronized String getFilesRootId(Context c) throws Exception {
         if (filesRootId != null) return filesRootId;
-        Drive drive = DriveClientProvider.getPrimaryDrive(context);
-        filesRootId = resolveFolder(drive, FILES_FOLDER_NAME, getRootFolderId(context));
+        Drive d = DriveClientProvider.getPrimaryDrive(c);
+        filesRootId = resolveFolder(d, FILES_FOLDER_NAME, getRootFolderId(c)).getId();
         return filesRootId;
     }
-    public static synchronized String getThumbnailsRootId(Context context) throws Exception {
+
+    public static synchronized String getThumbnailsRootId(Context c) throws Exception {
         if (thumbnailsRootId != null) return thumbnailsRootId;
-        Drive drive = DriveClientProvider.getPrimaryDrive(context);
-        thumbnailsRootId = resolveFolder(drive, THUMBNAILS_FOLDER_NAME, getRootFolderId(context));
+        Drive d = DriveClientProvider.getPrimaryDrive(c);
+        thumbnailsRootId = resolveFolder(d, THUMBNAILS_FOLDER_NAME, getRootFolderId(c)).getId();
         return thumbnailsRootId;
     }
 
-
-
     /* ------------ Core Resolver ------------ */
 
-    private static String resolveFolder(Drive drive, String name, String parentId) throws Exception {
-        String id = findFolderId(drive, name, parentId);
-        if (id != null) return id;
-        return createFolder(drive, name, parentId).getId();
+    public static File resolveFolder(Drive d, String name, String parentId) throws Exception {
+        File f = findFolder(d, name, parentId);
+        return (f != null && f.getId() != null) ? f : createFolder(d, name, parentId);
     }
 
     /* ------------ Drive Primitives ------------ */
 
-    public static File createFolder(Drive drive, String name, String parentId) throws Exception {
-        File folder = new File().setName(name).setMimeType(FOLDER_MIME);
-        if (parentId != null) folder.setParents(Collections.singletonList(parentId));
-        return drive.files().create(folder).setFields("id,name,createdTime,modifiedTime").execute();
+    private static File createFolder(Drive d, String name, String parentId) throws Exception {
+        File f = new File().setName(name).setMimeType(FOLDER_MIME);
+        if (parentId != null) f.setParents(Collections.singletonList(parentId));
+        return d.files().create(f).setFields("id,name,createdTime,modifiedTime").execute();
     }
 
-    private static String findFolderId(Drive drive, String name, String parentId) throws Exception {
+    private static File findFolder(Drive d, String name, String parentId) throws Exception {
         StringBuilder q = new StringBuilder()
                 .append("mimeType='").append(FOLDER_MIME).append("'")
                 .append(" and name='").append(name).append("'")
-                .append(" and trashed=false");
+                .append(" and trashed=false")
+                .append(" and 'me' in owners");
         if (parentId != null) q.append(" and '").append(parentId).append("' in parents");
 
-        FileList list = drive.files().list()
+        FileList list = d.files().list()
                 .setQ(q.toString())
-                .setFields("files(id)")
+                .setFields("files(id,name,createdTime,parents)")
                 .setPageSize(1)
                 .execute();
 
-        return list.getFiles().isEmpty() ? null : list.getFiles().get(0).getId();
+        return list.getFiles().isEmpty() ? null : list.getFiles().get(0);
     }
+
+    /* ------------ Lifecycle ------------ */
 
     public static void onSessionCleared() {
-        rootFolderId = null;
-        albumsRootId = null;
-        filesRootId = null;
-        thumbnailsRootId = null;
+        rootFolderId = albumsRootId = filesRootId = thumbnailsRootId = null;
     }
-
 }
