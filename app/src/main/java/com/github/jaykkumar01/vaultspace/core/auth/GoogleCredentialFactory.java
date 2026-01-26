@@ -66,7 +66,7 @@ public final class GoogleCredentialFactory {
         return credential;
     }
 
-    private static boolean canAccessAccount(Context context,String email) {
+    public static boolean canAccessAccount(Context context,String email) {
         Account[] accounts =
                 AccountManager.get(context)
                         .getAccountsByType("com.google");

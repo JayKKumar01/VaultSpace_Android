@@ -7,28 +7,24 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
-public final class SetupAdapter
-        extends RecyclerView.Adapter<SetupViewHolder> {
+public final class SetupAdapter extends RecyclerView.Adapter<SetupViewHolder> {
 
     private final List<SetupRow> rows;
     private final SetupActionListener listener;
 
-    public SetupAdapter(List<SetupRow> rows,
-                        SetupActionListener listener) {
+    public SetupAdapter(List<SetupRow> rows, SetupActionListener listener) {
         this.rows = rows;
         this.listener = listener;
     }
 
     @NonNull
     @Override
-    public SetupViewHolder onCreateViewHolder(
-            @NonNull ViewGroup parent, int viewType) {
+    public SetupViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         return SetupViewHolder.create(parent);
     }
 
     @Override
-    public void onBindViewHolder(
-            @NonNull SetupViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull SetupViewHolder holder, int position) {
         holder.bind(rows.get(position), listener);
     }
 

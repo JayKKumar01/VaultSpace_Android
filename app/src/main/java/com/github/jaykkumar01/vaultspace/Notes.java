@@ -230,6 +230,8 @@ public class Notes {
 
     //fix the continuous loop
 
+    //once the setup is done we will handle the back pressed with modal
+
 
 
 

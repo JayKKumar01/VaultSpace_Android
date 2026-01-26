@@ -6,12 +6,10 @@ import com.google.api.services.drive.model.About.StorageQuota;
 
 public final class DriveStorageRepository {
 
-    private DriveStorageRepository() {}
+    private DriveStorageRepository() {
+    }
 
-    public static TrustedAccount fetchStorageInfo(
-            Drive drive,
-            String email
-    ) throws Exception {
+    public static TrustedAccount fetchStorageInfo(Drive drive, String email) throws Exception {
 
         StorageQuota storageQuota =
                 drive.about()
