@@ -45,7 +45,7 @@ public final class TrustedAccountsRepository {
     /* ================= Interfaces ================= */
 
     public interface Listener {
-        void onAccountsChanged(Iterable<TrustedAccount> accounts);
+        void onAccountsChanged(Iterable<TrustedAccount> accounts, Set<String> linkedEmails);
     }
 
     /* ================= Core fields ================= */
@@ -78,12 +78,13 @@ public final class TrustedAccountsRepository {
                 synchronized (initLock) {
                     if (!cache.isInitialized())
                         cache.initializeFromDrive(accounts);
-                    if (linkedEmails == null)
-                        linkedEmails = new HashSet<>(linkedEmailsFromDrive);
+
+                    linkedEmails = new HashSet<>(linkedEmailsFromDrive); // always overwrite
                 }
                 afterInit.run();
                 notifyListeners();
             }
+
 
             @Override
             public void onError(Exception e) {
@@ -140,12 +141,22 @@ public final class TrustedAccountsRepository {
         ));
     }
 
+    public Set<String> getLinkedEmailsSnapshot() {
+        initBlockingIfNeeded();
+        synchronized (initLock) {
+            return linkedEmails != null ? new HashSet<>(linkedEmails) : Set.of();
+        }
+    }
+
+
 
     /* ================= Mutations ================= */
 
     public void addAccount(TrustedAccount a) {
         if (cache.isInitialized()) {
             cache.addAccount(a);
+            if (linkedEmails == null) linkedEmails = new HashSet<>();
+            linkedEmails.add(a.email);
             notifyListeners();
             return;
         }
@@ -158,6 +169,7 @@ public final class TrustedAccountsRepository {
     public void removeAccount(String email) {
         if (cache.isInitialized()) {
             cache.removeAccount(email);
+            if (linkedEmails != null) linkedEmails.remove(email);
             notifyListeners();
             return;
         }
@@ -217,7 +229,7 @@ public final class TrustedAccountsRepository {
         Iterable<TrustedAccount> snap = cache.getAccountsView();
         mainHandler.post(() -> {
             for (Listener l : listeners)
-                l.onAccountsChanged(snap);
+                l.onAccountsChanged(snap, linkedEmails);
         });
     }
 

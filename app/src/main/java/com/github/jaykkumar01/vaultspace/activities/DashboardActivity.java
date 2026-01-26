@@ -31,7 +31,6 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
-import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
@@ -252,7 +251,7 @@ public class DashboardActivity extends AppCompatActivity {
     private void activateGrantedState() {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
-        trustedAccountsRepository.getAccountsAndLinkedEmails(this::checkLinkedAccounts);
+        trustedAccountsRepository.refresh();
         setUpAccounts.setOnClickListener(v -> navigateToSetup());
 
         applyViewMode(VaultViewMode.ALBUMS);
@@ -275,19 +274,25 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
 
-    private void checkLinkedAccounts(TrustedAccountsRepository.AccountsAndLinks r) {
-        if (r == null) return;
+    private void onVaultStorageState(Iterable<TrustedAccount> accounts, Set<String> linkedEmails) {
+        if (accounts == null || linkedEmails == null) return;
 
-        List<String> trustedEmails = new ArrayList<>();
+        // ---------- Setup-state computation ----------
         Set<String> trustedSet = new HashSet<>();
+        long totalBytes = 0L, usedBytes = 0L;
 
-        for (TrustedAccount a : r.accounts()) {
-            if (a != null && a.email != null && trustedSet.add(a.email))
-                trustedEmails.add(a.email);
+        for (TrustedAccount a : accounts) {
+            if (a == null) continue;
+
+            if (a.email != null)
+                trustedSet.add(a.email);
+
+            totalBytes += a.totalQuota;
+            usedBytes += a.usedQuota;
         }
 
         boolean setupRequired = false;
-        for (String email : r.linkedEmails()) {
+        for (String email : linkedEmails) {
             if (!trustedSet.contains(email)) {
                 setupRequired = true;
                 break;
@@ -298,11 +303,26 @@ public class DashboardActivity extends AppCompatActivity {
         if (setupRequired) setup.markSetupRequired();
         else setup.markSetupComplete();
 
-        lastAccountEmails = new ArrayList<>(r.linkedEmails());
+        lastAccountEmails = new ArrayList<>(linkedEmails);
+
+        // ---------- Storage UI ----------
+        boolean hasStorage = totalBytes > 0L;
+        setUpAccounts.setVisibility(setupRequired ? View.VISIBLE : View.GONE);
+
+        if (setupRequired && !hasStorage) {
+            storageBar.showGuidance();
+            return;
+        }
+
+        float used = (float) (usedBytes / BYTES_IN_GB);
+        float total = (float) (totalBytes / BYTES_IN_GB);
+
+        storageBar.setUsage(used, total, UNIT_GB);
+
+        if (setupRequired) {
+            storageBar.showGuidanceWithUsage();
+        }
     }
-
-
-
 
 
 
@@ -324,39 +344,6 @@ public class DashboardActivity extends AppCompatActivity {
 
         if (showAlbums) albumsUi.show();
         else filesUi.show();
-    }
-
-    private void onVaultStorageState(Iterable<TrustedAccount> accounts) {
-        if (accounts == null) return;
-
-        long totalBytes = 0L, usedBytes = 0L;
-        for (TrustedAccount a : accounts) {
-            totalBytes += a.totalQuota;
-            usedBytes += a.usedQuota;
-        }
-
-        VaultSetupState setup = VaultSetupState.get();
-        boolean setupRequired = setup.isSetupRequired();
-        boolean hasStorage = totalBytes > 0L;
-
-        setUpAccounts.setVisibility(setupRequired ? View.VISIBLE : View.GONE);
-
-        // ---- Guidance-only (setup required + no accessible storage)
-        if (setupRequired && !hasStorage) {
-            storageBar.showGuidance();
-            return;
-        }
-
-        // ---- Normal / partial / first-time users
-        float used = (float) (usedBytes / BYTES_IN_GB);
-        float total = (float) (totalBytes / BYTES_IN_GB);
-
-        storageBar.setUsage(used, total, UNIT_GB);
-
-        // ---- Partial access hint
-        if (setupRequired) {
-            storageBar.showGuidanceWithUsage();
-        }
     }
 
 

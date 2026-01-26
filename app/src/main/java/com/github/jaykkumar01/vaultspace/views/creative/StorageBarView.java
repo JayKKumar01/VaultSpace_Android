@@ -157,6 +157,7 @@ public final class StorageBarView extends View {
     /* ---------- public ---------- */
 
     public void setUsage(float used, float total, @NonNull String unit) {
+        showGuidance = false;
 
         boolean firstUsage = !hasUsage;
 
