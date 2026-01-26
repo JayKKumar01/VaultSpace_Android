@@ -3,19 +3,21 @@ package com.github.jaykkumar01.vaultspace.core.session;
 import android.content.Context;
 import android.net.Uri;
 import androidx.annotation.NonNull;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDao;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryDatabase;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
+
+import com.github.jaykkumar01.vaultspace.core.session.db.SessionStore;
+import com.github.jaykkumar01.vaultspace.core.session.db.VaultSessionDatabase;
+import com.github.jaykkumar01.vaultspace.core.session.db.retry.UploadRetryDao;
+import com.github.jaykkumar01.vaultspace.core.session.db.retry.UploadRetryEntity;
 import com.github.jaykkumar01.vaultspace.core.upload.base.*;
 import java.util.*;
 import java.util.concurrent.Executors;
 
-public final class UploadRetryStore {
+public final class UploadRetryStore implements SessionStore{
 
-    private final UploadRetryDao dao;
+    public final UploadRetryDao dao;
 
     public UploadRetryStore(@NonNull Context context) {
-        this.dao = UploadRetryDatabase.get(context).dao();
+        this.dao = VaultSessionDatabase.get(context).uploadRetryDao();
     }
 
     /* ================= Write ================= */
@@ -72,9 +74,7 @@ public final class UploadRetryStore {
         dao.deleteAll();
     }
 
-    public void onSessionCleared() {
-        Executors.newSingleThreadExecutor().execute(dao::deleteAll);
-    }
+
 
     /* ================= Mapping ================= */
 
@@ -107,5 +107,10 @@ public final class UploadRetryStore {
         );
         s.context.failureReason = FailureReason.valueOf(e.failureReason);
         return s;
+    }
+
+    @Override
+    public void onSessionCleared() {
+        Executors.newSingleThreadExecutor().execute(dao::deleteAll);
     }
 }

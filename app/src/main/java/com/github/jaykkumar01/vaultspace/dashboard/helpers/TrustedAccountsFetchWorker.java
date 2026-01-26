@@ -28,7 +28,7 @@ public final class TrustedAccountsFetchWorker {
     /* ================= Listener ================= */
 
     public interface Callback {
-        void onSuccess(List<TrustedAccount> accounts);
+        void onSuccess(List<TrustedAccount> accounts, List<String> linkedEmails);
 
         void onError(Exception e);
     }
@@ -42,14 +42,13 @@ public final class TrustedAccountsFetchWorker {
             try {
                 String rootId = DriveFolderRepository.getRootFolderId(appContext);
                 if (rootId == null) {
-                    callback.onSuccess(List.of());
+                    callback.onSuccess(List.of(), List.of());
                     return;
                 }
 
-                List<String> emails =
-                        fetchWriterEmails(primaryDrive, rootId, primaryEmail);
+                List<String> emails = fetchWriterEmails(primaryDrive, rootId, primaryEmail);
                 if (emails.isEmpty()) {
-                    callback.onSuccess(List.of());
+                    callback.onSuccess(List.of(), emails);
                     return;
                 }
 
@@ -59,13 +58,12 @@ public final class TrustedAccountsFetchWorker {
                 Log.d(TAG, "fetch start emails=" + emails.size() +
                         " cpu=" + cpu + " workers=" + workers);
 
-                List<TrustedAccount> accounts =
-                        fetchAccountsParallel(appContext, emails, workers);
+                List<TrustedAccount> accounts = fetchAccountsParallel(appContext, emails, workers);
 
                 Log.d(TAG, "fetch done accounts=" + accounts.size() +
                         " took=" + (SystemClock.elapsedRealtime() - startMs) + "ms");
 
-                callback.onSuccess(accounts);
+                callback.onSuccess(accounts, emails);
 
             } catch (Exception e) {
                 Log.e(TAG, "fetchTrustedAccounts failed", e);

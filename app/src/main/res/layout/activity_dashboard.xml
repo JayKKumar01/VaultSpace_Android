@@ -94,9 +94,23 @@
                 android:id="@+id/storageBar"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
                 app:layout_constraintTop_toTopOf="@id/profileInfo"
                 app:layout_constraintBottom_toBottomOf="@id/profileInfo"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toStartOf="@id/setUpAccounts"/>
+            <ImageView
+                android:id="@+id/setUpAccounts"
+                android:layout_width="30dp"
+                android:layout_height="0dp"
+                android:visibility="gone"
+                android:src="@drawable/ic_storage_manage"
+                android:clickable="true"
+                android:contentDescription="@string/todo"
+                android:focusable="true"
+                app:layout_constraintTop_toTopOf="@id/storageBar"
+                app:layout_constraintBottom_toBottomOf="@id/storageBar"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -23,6 +23,35 @@ public final class StorageBarView extends View {
     private static final String LABEL = "Your Space · ";
     private static final String LOADING = "–";
     private static final int DECIMALS = 1;
+    private boolean showGuidance;
+    private boolean showGuidanceWithUsage;
+    private static final String SETUP_REQUIRED_SUFFIX = " *";
+    private static final String SETUP_REQUIRED_FULL = LABEL + "Setup required";
+
+
+    public void showGuidance() {
+        stopSweep();
+
+        showGuidance = true;
+        showGuidanceWithUsage = false;
+        hasUsage = false;
+
+        used = total = fraction = 0f;
+
+        contentWidth = textPaint.measureText(text());
+        requestLayout();
+        invalidate();
+    }
+
+    public void showGuidanceWithUsage() {
+        showGuidance = true;
+        showGuidanceWithUsage = true;
+
+        contentWidth = textPaint.measureText(text());
+        requestLayout();
+        invalidate();
+    }
+
 
     /* ---------- paints ---------- */
 
@@ -211,9 +240,17 @@ public final class StorageBarView extends View {
     /* ---------- helpers ---------- */
 
     private String text() {
+        if (showGuidance) {
+            if (showGuidanceWithUsage) {
+                return LABEL + fmt(used) + " / " + fmt(total) + " " + unit + SETUP_REQUIRED_SUFFIX;
+            }
+            return SETUP_REQUIRED_FULL;
+        }
+
         if (!hasUsage) return LABEL + LOADING;
         return LABEL + fmt(used) + " / " + fmt(total) + " " + unit;
     }
+
 
     private String fmt(float v) {
         return String.format(Locale.US, "%." + DECIMALS + "f", v);

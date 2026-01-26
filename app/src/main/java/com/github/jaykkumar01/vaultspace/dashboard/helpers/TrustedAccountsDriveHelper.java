@@ -43,7 +43,7 @@ public final class TrustedAccountsDriveHelper {
      * ========================================================== */
 
     public interface FetchCallback {
-        void onResult(List<TrustedAccount> accounts);
+        void onResult(List<TrustedAccount> accounts, List<String> linkedEmails);
 
         void onError(Exception e);
     }
@@ -76,8 +76,8 @@ public final class TrustedAccountsDriveHelper {
     public void fetchTrustedAccounts(ExecutorService executor, FetchCallback callback) {
         TrustedAccountsFetchWorker.fetch(executor, appContext, primaryDrive, primaryEmail, new TrustedAccountsFetchWorker.Callback() {
                     @Override
-                    public void onSuccess(List<TrustedAccount> accounts) {
-                        postResult(callback, accounts);
+                    public void onSuccess(List<TrustedAccount> accounts, List<String> linkedEmails) {
+                        postResult(callback, accounts, linkedEmails);
                     }
 
                     @Override
@@ -134,8 +134,8 @@ public final class TrustedAccountsDriveHelper {
      * Main-thread helpers
      * ========================================================== */
 
-    private void postResult(FetchCallback cb, List<TrustedAccount> accounts) {
-        mainHandler.post(() -> cb.onResult(accounts));
+    private void postResult(FetchCallback cb, List<TrustedAccount> accounts, List<String> linkedEmails) {
+        mainHandler.post(() -> cb.onResult(accounts,linkedEmails));
     }
 
     private void postError(FetchCallback cb, Exception e) {

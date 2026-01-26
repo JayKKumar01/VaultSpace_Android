@@ -14,7 +14,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.google.android.material.button.MaterialButton;
 

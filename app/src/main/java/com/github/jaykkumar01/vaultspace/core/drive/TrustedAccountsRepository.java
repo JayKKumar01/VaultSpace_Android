@@ -57,6 +57,8 @@ public final class TrustedAccountsRepository {
 
     private final Object initLock = new Object();
     private final Set<Listener> listeners = new HashSet<>();
+    private volatile Set<String> linkedEmails;
+
 
     /* ================= Constructor ================= */
 
@@ -71,16 +73,20 @@ public final class TrustedAccountsRepository {
 
     private void initIfNeeded(Runnable afterInit) {
         driveHelper.fetchTrustedAccounts(executor, new TrustedAccountsDriveHelper.FetchCallback() {
-            @Override public void onResult(List<TrustedAccount> accounts) {
+            @Override
+            public void onResult(List<TrustedAccount> accounts, List<String> linkedEmailsFromDrive) {
                 synchronized (initLock) {
                     if (!cache.isInitialized())
                         cache.initializeFromDrive(accounts);
+                    if (linkedEmails == null)
+                        linkedEmails = new HashSet<>(linkedEmailsFromDrive);
                 }
                 afterInit.run();
                 notifyListeners();
             }
 
-            @Override public void onError(Exception e) {
+            @Override
+            public void onError(Exception e) {
                 afterInit.run();
             }
         });
@@ -119,6 +125,21 @@ public final class TrustedAccountsRepository {
         initBlockingIfNeeded();
         return cache.getAccount(email);
     }
+
+
+    public record AccountsAndLinks(Iterable<TrustedAccount> accounts, Set<String> linkedEmails) {}
+    public void getAccountsAndLinkedEmails(Consumer<AccountsAndLinks> cb) {
+        if (cache.isInitialized() && linkedEmails != null) {
+            post(cb, new AccountsAndLinks(cache.getAccountsView(), new HashSet<>(linkedEmails)));
+            return;
+        }
+
+        initIfNeeded(() -> post(cb, new AccountsAndLinks(
+                cache.getAccountsView(), linkedEmails != null ?
+                new HashSet<>(linkedEmails) : Set.of())
+        ));
+    }
+
 
     /* ================= Mutations ================= */
 
@@ -176,8 +197,10 @@ public final class TrustedAccountsRepository {
     public void refresh() {
         synchronized (initLock) {
             cache.clear();
+            linkedEmails = null;
         }
-        initIfNeeded(() -> {});
+        initIfNeeded(() -> {
+        });
     }
 
     /* ================= Listeners ================= */

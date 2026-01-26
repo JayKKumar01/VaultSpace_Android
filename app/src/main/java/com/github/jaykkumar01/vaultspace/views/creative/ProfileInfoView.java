@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.widget.ImageView;
@@ -62,6 +63,10 @@ public class ProfileInfoView extends ConstraintLayout {
         tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         tvName.setTextColor(context.getColor(R.color.vs_text_header));
         tvName.setTypeface(tvName.getTypeface(), android.graphics.Typeface.BOLD);
+        tvName.setMaxLines(1);
+        tvName.setSingleLine(true);
+        tvName.setEllipsize(TextUtils.TruncateAt.END);
+
 
         addView(tvName, new LayoutParams(0, LayoutParams.WRAP_CONTENT));
 
@@ -71,6 +76,10 @@ public class ProfileInfoView extends ConstraintLayout {
         tvEmail.setId(generateViewId());
         tvEmail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         tvEmail.setTextColor(context.getColor(R.color.vs_text_content));
+        tvName.setMaxLines(1);
+        tvName.setSingleLine(true);
+        tvName.setEllipsize(TextUtils.TruncateAt.END);
+
 
         addView(tvEmail, new LayoutParams(0, LayoutParams.WRAP_CONTENT));
 

@@ -217,6 +217,8 @@ public class Notes {
     //NOT_ON_DEVICE
     //CONSENT_REQUIRED
 
+    //fix the sweep, if open album once it will start sweeping again so fix that
+
 
 
 

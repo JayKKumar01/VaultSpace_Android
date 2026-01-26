@@ -1,10 +1,8 @@
-package com.github.jaykkumar01.vaultspace.core.session.db;
+package com.github.jaykkumar01.vaultspace.core.session.db.retry;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.room.Entity;
-
-import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
 
 @Entity(
         tableName = "upload_retry",

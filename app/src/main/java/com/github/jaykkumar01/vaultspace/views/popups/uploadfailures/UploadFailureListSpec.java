@@ -1,6 +1,5 @@
 package com.github.jaykkumar01.vaultspace.views.popups.uploadfailures;
 
-import com.github.jaykkumar01.vaultspace.core.session.db.UploadRetryEntity;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.views.popups.core.Modal;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalSpec;

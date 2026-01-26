@@ -5,8 +5,8 @@ import android.content.SharedPreferences;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
+import com.github.jaykkumar01.vaultspace.core.session.db.SessionStoreRegistry;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
-
 public class UserSession {
 
     private static final String PREF_NAME = "vaultspace_session";
@@ -17,21 +17,13 @@ public class UserSession {
     private final SharedPreferences prefs;
     private final Context appContext;
 
-    // Session-scoped cache holder
     private static VaultSessionCache vaultCache;
-
-    // Session-scoped retry store (persisted)
-    private UploadRetryStore uploadRetryStore;
-
-
-
+    private final SessionStoreRegistry storeRegistry;
 
     public UserSession(Context context) {
         this.appContext = context.getApplicationContext();
-        this.prefs = appContext.getSharedPreferences(
-                PREF_NAME,
-                Context.MODE_PRIVATE
-        );
+        this.prefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        this.storeRegistry = new SessionStoreRegistry(appContext);
     }
 
     /* ---------------- Primary Account ---------------- */
@@ -57,21 +49,19 @@ public class UserSession {
     /* ---------------- Vault Cache ---------------- */
 
     public VaultSessionCache getVaultCache() {
-        if (vaultCache == null) {
-            vaultCache = new VaultSessionCache();
-        }
+        if (vaultCache == null) vaultCache = new VaultSessionCache();
         return vaultCache;
     }
 
-    /* ---------------- Upload Retry Store ---------------- */
+    /* ---------------- Session Stores ---------------- */
 
     public UploadRetryStore getUploadRetryStore() {
-        if (uploadRetryStore == null) {
-            uploadRetryStore = new UploadRetryStore(appContext);
-        }
-        return uploadRetryStore;
+        return storeRegistry.get(UploadRetryStore.class);
     }
 
+    public SetupIgnoreStore getSetupIgnoreStore() {
+        return storeRegistry.get(SetupIgnoreStore.class);
+    }
 
     /* ---------------- Session ---------------- */
 
@@ -80,17 +70,10 @@ public class UserSession {
     }
 
     public void clearSession() {
-        // clear persisted session data
         prefs.edit().clear().apply();
 
-        // clear retry store
-        if (uploadRetryStore != null) {
-            uploadRetryStore.onSessionCleared();
-            uploadRetryStore = null;
-        }
+        storeRegistry.clearAll();
 
-
-        // clear in-memory vault cache
         if (vaultCache != null) {
             vaultCache.clear();
             vaultCache = null;

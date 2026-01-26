@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.core.session.db;
+package com.github.jaykkumar01.vaultspace.core.session.db.retry;
 
 import androidx.room.Dao;
 import androidx.room.Insert;

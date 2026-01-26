@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,6 +22,7 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.core.state.VaultSetupState;
 import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardModalCoordinator;
@@ -32,6 +34,11 @@ import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.models.VaultStorageState;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @SuppressLint("SetTextI18n")
 public class DashboardActivity extends AppCompatActivity {
@@ -62,9 +69,12 @@ public class DashboardActivity extends AppCompatActivity {
     private DashboardProfileHelper profileHelper;
     private ExpandVaultHelper expandVaultHelper;
     private TrustedAccountsRepository trustedAccountsRepository;
+    private List<String> lastAccountEmails;
+
 
     /* UI */
     private StorageBarView storageBar;
+    private ImageView setUpAccounts;
     private TextView segmentAlbums, segmentFiles;
     private FrameLayout albumsContainer, filesContainer;
     private View btnExpandVault, btnLogout;
@@ -133,12 +143,12 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void initViews() {
         storageBar = findViewById(R.id.storageBar);
+        setUpAccounts = findViewById(R.id.setUpAccounts);
         segmentAlbums = findViewById(R.id.segmentAlbums);
         segmentFiles = findViewById(R.id.segmentFiles);
         albumsContainer = findViewById(R.id.albumsContainer);
         filesContainer = findViewById(R.id.filesContainer);
         btnExpandVault = findViewById(R.id.btnExpandVault);
-
         btnLogout = findViewById(R.id.btnLogout);
     }
 
@@ -242,7 +252,8 @@ public class DashboardActivity extends AppCompatActivity {
     private void activateGrantedState() {
         modalCoordinator.reset();
         profileHelper.attach(isFromLogin);
-        trustedAccountsRepository.refresh();
+        trustedAccountsRepository.getAccountsAndLinkedEmails(this::checkLinkedAccounts);
+        setUpAccounts.setOnClickListener(v -> navigateToSetup());
 
         applyViewMode(VaultViewMode.ALBUMS);
         segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
@@ -253,6 +264,45 @@ public class DashboardActivity extends AppCompatActivity {
             expandVaultHelper.launchExpandVault(expandAccountListener);
         });
     }
+
+    private void navigateToSetup() {
+        if (lastAccountEmails == null) return;
+
+        startActivity(new Intent(this, SetupActivity.class).putStringArrayListExtra(
+                SetupActivity.EXTRA_ACCOUNT_EMAILS,
+                new ArrayList<>(lastAccountEmails)
+        ));
+    }
+
+
+    private void checkLinkedAccounts(TrustedAccountsRepository.AccountsAndLinks r) {
+        if (r == null) return;
+
+        List<String> trustedEmails = new ArrayList<>();
+        Set<String> trustedSet = new HashSet<>();
+
+        for (TrustedAccount a : r.accounts()) {
+            if (a != null && a.email != null && trustedSet.add(a.email))
+                trustedEmails.add(a.email);
+        }
+
+        boolean setupRequired = false;
+        for (String email : r.linkedEmails()) {
+            if (!trustedSet.contains(email)) {
+                setupRequired = true;
+                break;
+            }
+        }
+
+        VaultSetupState setup = VaultSetupState.get();
+        if (setupRequired) setup.markSetupRequired();
+        else setup.markSetupComplete();
+
+        lastAccountEmails = new ArrayList<>(r.linkedEmails());
+    }
+
+
+
 
 
 
@@ -277,21 +327,38 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void onVaultStorageState(Iterable<TrustedAccount> accounts) {
-        long total = 0L;
-        long used = 0L;
+        if (accounts == null) return;
 
-        for (TrustedAccount account : accounts) {
-            total += account.totalQuota;
-            used += account.usedQuota;
+        long totalBytes = 0L, usedBytes = 0L;
+        for (TrustedAccount a : accounts) {
+            totalBytes += a.totalQuota;
+            usedBytes += a.usedQuota;
         }
 
-        VaultStorageState state = new VaultStorageState(
-                (float) (used / BYTES_IN_GB),
-                (float) (total / BYTES_IN_GB),
-                UNIT_GB
-        );
-        storageBar.setUsage(state.used, state.total, state.unit);
+        VaultSetupState setup = VaultSetupState.get();
+        boolean setupRequired = setup.isSetupRequired();
+        boolean hasStorage = totalBytes > 0L;
+
+        setUpAccounts.setVisibility(setupRequired ? View.VISIBLE : View.GONE);
+
+        // ---- Guidance-only (setup required + no accessible storage)
+        if (setupRequired && !hasStorage) {
+            storageBar.showGuidance();
+            return;
+        }
+
+        // ---- Normal / partial / first-time users
+        float used = (float) (usedBytes / BYTES_IN_GB);
+        float total = (float) (totalBytes / BYTES_IN_GB);
+
+        storageBar.setUsage(used, total, UNIT_GB);
+
+        // ---- Partial access hint
+        if (setupRequired) {
+            storageBar.showGuidanceWithUsage();
+        }
     }
+
 
     private final ExpandVaultHelper.ExpandAccountListener expandAccountListener =
             new ExpandVaultHelper.ExpandAccountListener() {
