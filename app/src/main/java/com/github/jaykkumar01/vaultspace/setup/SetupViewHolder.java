@@ -8,87 +8,98 @@ import android.widget.TextView;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.google.android.material.button.MaterialButton;
 
-final class SetupViewHolder extends RecyclerView.ViewHolder {
+public final class SetupViewHolder extends RecyclerView.ViewHolder {
 
-    private final TextView txtEmail;
-    private final TextView txtStatus;
-    private final TextView btnPrimary;
-    private final TextView btnSecondary;
+    private final View root, actionsRow;
+    private final TextView txtEmail, txtStatus;
+    private final MaterialButton btnPrimary, btnSecondary;
 
-    private SetupViewHolder(View itemView) {
-        super(itemView);
-        txtEmail = itemView.findViewById(R.id.txtEmail);
-        txtStatus = itemView.findViewById(R.id.txtStatus);
-        btnPrimary = itemView.findViewById(R.id.btnPrimaryAction);
-        btnSecondary = itemView.findViewById(R.id.btnSecondaryAction);
+    private SetupViewHolder(View v) {
+        super(v);
+        root = v;
+        txtEmail = v.findViewById(R.id.txtEmail);
+        txtStatus = v.findViewById(R.id.txtStatus);
+        actionsRow = v.findViewById(R.id.actionsRow);
+        btnPrimary = v.findViewById(R.id.btnPrimaryAction);
+        btnSecondary = v.findViewById(R.id.btnSecondaryAction);
     }
 
-    static SetupViewHolder create(ViewGroup parent) {
-        View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.row_setup_account, parent, false);
-        return new SetupViewHolder(v);
+    public static SetupViewHolder create(ViewGroup parent) {
+        return new SetupViewHolder(
+                LayoutInflater.from(parent.getContext())
+                        .inflate(R.layout.row_setup_account, parent, false)
+        );
     }
 
-    void bind(SetupRow row) {
+    public void bind(SetupRow row, SetupActionListener listener) {
         txtEmail.setText(row.email);
 
-        // Reset recycled state
+        root.setAlpha(1f);
+        actionsRow.setVisibility(View.GONE);
         btnPrimary.setVisibility(View.GONE);
         btnSecondary.setVisibility(View.GONE);
+        btnPrimary.setTextColor(color(R.color.vs_accent_primary));
+        btnPrimary.setOnClickListener(null);
+        btnSecondary.setOnClickListener(null);
+        btnPrimary.setTextColor(color(R.color.vs_accent_primary));
+
 
         switch (row.state) {
 
             case HEALTHY:
-                txtStatus.setText("Healthy");
-                txtStatus.setTextColor(
-                        txtStatus.getContext().getColor(R.color.vs_accent_primary)
-                );
+                setStatus("Healthy", R.color.vs_accent_primary);
                 break;
 
             case PARTIAL:
-                txtStatus.setText("Limited access");
-                txtStatus.setTextColor(
-                        txtStatus.getContext().getColor(R.color.vs_warning)
-                );
-                btnSecondary.setVisibility(View.VISIBLE);
-                btnSecondary.setText("Ignore");
+                setStatus("Limited access", R.color.vs_warning);
+                showSecondary(row.email, listener);
                 break;
 
             case OAUTH_REQUIRED:
-                txtStatus.setText("Permission required");
-                txtStatus.setTextColor(
-                        txtStatus.getContext().getColor(R.color.vs_warning)
-                );
-                btnPrimary.setVisibility(View.VISIBLE);
-                btnPrimary.setText("Grant access");
-                btnSecondary.setVisibility(View.VISIBLE);
-                btnSecondary.setText("Ignore");
+                setStatus("Permission required", R.color.vs_warning);
+                showPrimary("Grant access", row.email, listener);
+                showSecondary(row.email, listener);
                 break;
 
             case NOT_KNOWN_TO_APP:
-                txtStatus.setText("Account not trusted");
-                txtStatus.setTextColor(
-                        txtStatus.getContext().getColor(R.color.vs_error)
-                );
-                btnPrimary.setVisibility(View.VISIBLE);
-                btnPrimary.setText("Add account");
-                btnSecondary.setVisibility(View.VISIBLE);
-                btnSecondary.setText("Ignore");
+                setStatus("Account not trusted", R.color.vs_error);
+                showPrimary("Pick account", row.email, listener);
+                showSecondary(row.email, listener);
                 break;
 
             case IGNORED:
-                txtStatus.setText("Ignored");
-                txtStatus.setTextColor(
-                        txtStatus.getContext().getColor(R.color.vs_text_content)
-                );
-                btnPrimary.setVisibility(View.VISIBLE);
-                btnPrimary.setText("Restore");
-                btnPrimary.setTextColor(
-                        btnPrimary.getContext().getColor(R.color.vs_accent_soft)
-                );
+                root.setAlpha(0.55f);
+                setStatus("Ignored", R.color.vs_text_content);
+                btnPrimary.setTextColor(color(R.color.vs_accent_soft));
+                showPrimary("Restore", row.email, listener);
                 break;
         }
     }
 
+    private void setStatus(String text, int colorRes) {
+        txtStatus.setText(text);
+        txtStatus.setTextColor(color(colorRes));
+    }
+
+    private void showPrimary(String text, String email, SetupActionListener l) {
+        actionsRow.setVisibility(View.VISIBLE);
+        btnPrimary.setVisibility(View.VISIBLE);
+        btnPrimary.setText(text);
+        btnPrimary.setOnClickListener(v ->
+                l.onAction(email, SetupAction.PRIMARY));
+    }
+
+    private void showSecondary(String email, SetupActionListener l) {
+        actionsRow.setVisibility(View.VISIBLE);
+        btnSecondary.setVisibility(View.VISIBLE);
+        btnSecondary.setText(R.string.ignore);
+        btnSecondary.setOnClickListener(v ->
+                l.onAction(email, SetupAction.SECONDARY));
+    }
+
+    private int color(int res) {
+        return itemView.getContext().getColor(res);
+    }
 }

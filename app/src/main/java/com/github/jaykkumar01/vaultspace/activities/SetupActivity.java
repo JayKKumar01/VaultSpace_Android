@@ -15,6 +15,7 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.SetupIgnoreStore;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.setup.SetupAction;
 import com.github.jaykkumar01.vaultspace.setup.SetupAdapter;
 import com.github.jaykkumar01.vaultspace.setup.SetupRow;
 import com.github.jaykkumar01.vaultspace.setup.SetupState;
@@ -32,6 +33,8 @@ public class SetupActivity extends AppCompatActivity {
     private SetupIgnoreStore ignoreStore;
 
     private RecyclerView setupList;
+    private List<SetupRow> rows;
+    private SetupAdapter adapter;
 
     /* ==========================================================
      * Lifecycle
@@ -44,9 +47,9 @@ public class SetupActivity extends AppCompatActivity {
         setContentView(R.layout.activity_setup);
         applyWindowInsets();
 
-        ArrayList<String> extras =
+        ArrayList<String> emails =
                 getIntent().getStringArrayListExtra(EXTRA_ACCOUNT_EMAILS);
-        if (extras == null || extras.isEmpty()) {
+        if (emails == null || emails.isEmpty()) {
             finish();
             return;
         }
@@ -57,55 +60,97 @@ public class SetupActivity extends AppCompatActivity {
 
         setupList = findViewById(R.id.setupList);
         setupList.setLayoutManager(new LinearLayoutManager(this));
+        RecyclerView.ItemAnimator animator = setupList.getItemAnimator();
+        if (animator instanceof androidx.recyclerview.widget.SimpleItemAnimator) {
+            ((androidx.recyclerview.widget.SimpleItemAnimator) animator)
+                    .setSupportsChangeAnimations(false);
+        }
 
-        // ---- Load ignore store FIRST, then build rows
-        ignoreStore.load(() -> buildAndBindRows(extras));
+
+        ignoreStore.load(() -> buildAndBindRows(emails));
     }
 
     /* ==========================================================
-     * Row building (PURE after load)
+     * Row building (ONE-TIME)
      * ========================================================== */
 
     private void buildAndBindRows(List<String> emails) {
-        List<SetupRow> rows = new ArrayList<>(emails.size());
-
+        rows = new ArrayList<>(emails.size());
         for (String email : emails) {
-            SetupState state = evaluateInitialState(email);
+            SetupState state = evaluateState(email);
             rows.add(new SetupRow(email, state));
             Log.d(TAG, email + " → " + state);
         }
-
-        setupList.setAdapter(new SetupAdapter(rows));
+        adapter = new SetupAdapter(rows, this::onSetupAction);
+        setupList.setAdapter(adapter);
     }
 
     /* ==========================================================
-     * Initial evaluator (PURE, ORDER IS LOCKED)
+     * Action handling (row-scoped)
      * ========================================================== */
 
-    private SetupState evaluateInitialState(String email) {
+    private void onSetupAction(String email, SetupAction action) {
+        int index = findRowIndex(email);
+        if (index == -1) return;
 
-        // 0️⃣ Explicitly ignored by user
-        if (ignoreStore.isIgnored(email)) {
-            return SetupState.IGNORED;
+        SetupRow row = rows.get(index);
+        SetupState state = row.state;
+
+        if (action == SetupAction.SECONDARY) {
+            if (state != SetupState.IGNORED) {
+                ignoreStore.ignore(email);
+                rows.set(index, new SetupRow(email, SetupState.IGNORED));
+                adapter.notifyItemChanged(index);
+            }
+            return;
         }
 
-        // 1️⃣ App does not know / trust this account
-        if (trustedRepo.getAccountSnapshot(email) == null) {
+        switch (state) {
+
+            case OAUTH_REQUIRED:
+                Log.d(TAG, "Grant OAuth for " + email);
+                // startOAuthFlow(email);
+                break;
+
+            case NOT_KNOWN_TO_APP:
+                Log.d(TAG, "Add account " + email);
+                // startAddAccountFlow(email);
+                break;
+
+            case IGNORED:
+                ignoreStore.unignore(email);
+                rows.set(index, new SetupRow(email, evaluateState(email)));
+                adapter.notifyItemChanged(index);
+                break;
+
+            default:
+                Log.w(TAG, "Unhandled primary action: " + state + " for " + email);
+        }
+    }
+
+    /* ==========================================================
+     * State evaluation (PURE, ORDER LOCKED)
+     * ========================================================== */
+
+    private SetupState evaluateState(String email) {
+
+        if (ignoreStore.isIgnored(email)) return SetupState.IGNORED;
+        if (trustedRepo.getAccountSnapshot(email) == null)
             return SetupState.NOT_KNOWN_TO_APP;
-        }
+        if (requiresOAuth(email)) return SetupState.OAUTH_REQUIRED;
+        if (isPartial(email)) return SetupState.PARTIAL;
 
-        // 2️⃣ OAuth unusable (placeholder)
-        if (requiresOAuth(email)) {
-            return SetupState.OAUTH_REQUIRED;
-        }
-
-        // 3️⃣ Partial / degraded (placeholder)
-        if (isPartial(email)) {
-            return SetupState.PARTIAL;
-        }
-
-        // 4️⃣ Fully healthy
         return SetupState.HEALTHY;
+    }
+
+    /* ==========================================================
+     * Lookup helpers
+     * ========================================================== */
+
+    private int findRowIndex(String email) {
+        for (int i = 0; i < rows.size(); i++)
+            if (rows.get(i).email.equals(email)) return i;
+        return -1;
     }
 
     /* ==========================================================
@@ -113,12 +158,10 @@ public class SetupActivity extends AppCompatActivity {
      * ========================================================== */
 
     private boolean requiresOAuth(String email) {
-        // TODO: Drive OAuth / UserRecoverableAuthIOException
         return false;
     }
 
     private boolean isPartial(String email) {
-        // TODO: quota fetch fail-soft / permission downgrade
         return false;
     }
 
@@ -127,10 +170,12 @@ public class SetupActivity extends AppCompatActivity {
      * ========================================================== */
 
     private void applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
-        });
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main),
+                (v, insets) -> {
+                    Insets bars =
+                            insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                    v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                    return insets;
+                });
     }
 }

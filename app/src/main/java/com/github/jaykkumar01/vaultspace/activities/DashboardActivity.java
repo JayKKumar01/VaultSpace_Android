@@ -14,6 +14,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatButton;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -34,6 +35,7 @@ import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -74,7 +76,7 @@ public class DashboardActivity extends AppCompatActivity {
 
     /* UI */
     private StorageBarView storageBar;
-    private ImageView setUpAccounts;
+    private AppCompatButton setUpAccounts;
     private TextView segmentAlbums, segmentFiles;
     private FrameLayout albumsContainer, filesContainer;
     private View btnExpandVault, btnLogout;

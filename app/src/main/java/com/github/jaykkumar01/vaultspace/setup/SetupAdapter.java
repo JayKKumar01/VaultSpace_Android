@@ -7,12 +7,16 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
-public final class SetupAdapter extends RecyclerView.Adapter<SetupViewHolder> {
+public final class SetupAdapter
+        extends RecyclerView.Adapter<SetupViewHolder> {
 
     private final List<SetupRow> rows;
+    private final SetupActionListener listener;
 
-    public SetupAdapter(List<SetupRow> rows) {
+    public SetupAdapter(List<SetupRow> rows,
+                        SetupActionListener listener) {
         this.rows = rows;
+        this.listener = listener;
     }
 
     @NonNull
@@ -25,7 +29,7 @@ public final class SetupAdapter extends RecyclerView.Adapter<SetupViewHolder> {
     @Override
     public void onBindViewHolder(
             @NonNull SetupViewHolder holder, int position) {
-        holder.bind(rows.get(position));
+        holder.bind(rows.get(position), listener);
     }
 
     @Override
