@@ -1,7 +1,8 @@
 package com.github.jaykkumar01.vaultspace.core.session;
 
 import android.content.Context;
-
+import android.os.Handler;
+import android.os.Looper;
 
 import com.github.jaykkumar01.vaultspace.core.session.db.SessionStore;
 import com.github.jaykkumar01.vaultspace.core.session.db.VaultSessionDatabase;
@@ -11,61 +12,88 @@ import com.github.jaykkumar01.vaultspace.core.session.db.setup.SetupIgnoreEntity
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
-public final class SetupIgnoreStore implements SessionStore{
+public final class SetupIgnoreStore implements SessionStore {
 
     private final SetupIgnoreDao dao;
-    private Set<String> ignoredCache;
+    private final Executor executor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    private volatile Set<String> ignoredCache;
+    private volatile boolean loaded;
 
     public SetupIgnoreStore(Context c) {
         dao = VaultSessionDatabase.get(c).setupIgnoreDao();
     }
 
-    /* ================= Reads ================= */
+    /* ================= Lifecycle ================= */
 
-    public synchronized boolean isIgnored(String email) {
-        ensureLoaded();
+    /**
+     * Must be called once before reads.
+     * Safe to call multiple times.
+     */
+    public void load(Runnable onReady) {
+        if (loaded) {
+            onReady.run();
+            return;
+        }
+
+        executor.execute(() -> {
+            List<String> emails = dao.getAllIgnoredEmails();
+            Set<String> set = new HashSet<>(emails.size());
+            set.addAll(emails);
+
+            ignoredCache = set;
+            loaded = true;
+
+            mainHandler.post(onReady);
+        });
+    }
+
+    /* ================= Reads (PURE) ================= */
+
+    public boolean isIgnored(String email) {
+        if (!loaded || ignoredCache == null) return false;
         return ignoredCache.contains(email);
     }
 
-    public synchronized Set<String> getAllIgnored() {
-        ensureLoaded();
+    public Set<String> getAllIgnoredSnapshot() {
+        if (!loaded || ignoredCache == null) return new HashSet<>();
         return new HashSet<>(ignoredCache);
     }
 
     /* ================= Writes ================= */
 
-    public synchronized void ignore(String email) {
-        ensureLoaded();
+    public void ignore(String email) {
+        if (!loaded) return;
+
         if (ignoredCache.add(email)) {
-            dao.insert(new SetupIgnoreEntity(
-                    email,
-                    System.currentTimeMillis()
-            ));
+            executor.execute(() ->
+                    dao.insert(new SetupIgnoreEntity(
+                            email,
+                            System.currentTimeMillis()
+                    ))
+            );
         }
     }
 
-    public synchronized void unignore(String email) {
-        ensureLoaded();
+    public void unignore(String email) {
+        if (!loaded) return;
+
         if (ignoredCache.remove(email)) {
-            dao.delete(email);
+            executor.execute(() -> dao.delete(email));
         }
     }
 
-    public synchronized void clear() {
+    public void clear() {
         ignoredCache = null;
-        dao.clear();
+        loaded = false;
+        executor.execute(dao::clear);
     }
 
-    /* ================= Internals ================= */
-
-    private void ensureLoaded() {
-        if (ignoredCache != null) return;
-
-        List<String> emails = dao.getAllIgnoredEmails();
-        ignoredCache = new HashSet<>(emails.size());
-        ignoredCache.addAll(emails);
-    }
+    /* ================= Session ================= */
 
     @Override
     public void onSessionCleared() {

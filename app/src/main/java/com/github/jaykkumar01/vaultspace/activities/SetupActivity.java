@@ -8,9 +8,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
+import com.github.jaykkumar01.vaultspace.core.session.SetupIgnoreStore;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.setup.SetupAdapter;
+import com.github.jaykkumar01.vaultspace.setup.SetupRow;
+import com.github.jaykkumar01.vaultspace.setup.SetupState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,19 +27,11 @@ public class SetupActivity extends AppCompatActivity {
     public static final String EXTRA_ACCOUNT_EMAILS = "trusted_account_emails";
     private static final String TAG = "VaultSpace:Setup";
 
-    private List<String> accountEmails;
+    private UserSession userSession;
     private TrustedAccountsRepository trustedRepo;
+    private SetupIgnoreStore ignoreStore;
 
-    /* ==========================================================
-     * Setup states (DISPLAY STATES — NO FIXING)
-     * ========================================================== */
-
-    private enum SetupState {
-        NOT_KNOWN_TO_APP,
-        OAUTH_REQUIRED,
-        PARTIAL,
-        HEALTHY
-    }
+    private RecyclerView setupList;
 
     /* ==========================================================
      * Lifecycle
@@ -47,27 +46,51 @@ public class SetupActivity extends AppCompatActivity {
 
         ArrayList<String> extras =
                 getIntent().getStringArrayListExtra(EXTRA_ACCOUNT_EMAILS);
-        if (extras == null || extras.isEmpty()) { finish(); return; }
-
-        accountEmails = new ArrayList<>(extras);
-        trustedRepo = TrustedAccountsRepository.getInstance(this);
-
-        // ---- Initial scan ONLY (no fixes)
-        for (String email : accountEmails) {
-            SetupState state = evaluateInitialState(email);
-            Log.d(TAG, email + " → " + state);
+        if (extras == null || extras.isEmpty()) {
+            finish();
+            return;
         }
+
+        userSession = new UserSession(this);
+        trustedRepo = TrustedAccountsRepository.getInstance(this);
+        ignoreStore = userSession.getSetupIgnoreStore();
+
+        setupList = findViewById(R.id.setupList);
+        setupList.setLayoutManager(new LinearLayoutManager(this));
+
+        // ---- Load ignore store FIRST, then build rows
+        ignoreStore.load(() -> buildAndBindRows(extras));
     }
 
     /* ==========================================================
-     * Initial evaluator (PLACEHOLDER ONLY)
-     * ORDER IS LOCKED
+     * Row building (PURE after load)
+     * ========================================================== */
+
+    private void buildAndBindRows(List<String> emails) {
+        List<SetupRow> rows = new ArrayList<>(emails.size());
+
+        for (String email : emails) {
+            SetupState state = evaluateInitialState(email);
+            rows.add(new SetupRow(email, state));
+            Log.d(TAG, email + " → " + state);
+        }
+
+        setupList.setAdapter(new SetupAdapter(rows));
+    }
+
+    /* ==========================================================
+     * Initial evaluator (PURE, ORDER IS LOCKED)
      * ========================================================== */
 
     private SetupState evaluateInitialState(String email) {
 
-        // 1️⃣ App does not know this account
-        if (!isKnownToApp(email)) {
+        // 0️⃣ Explicitly ignored by user
+        if (ignoreStore.isIgnored(email)) {
+            return SetupState.IGNORED;
+        }
+
+        // 1️⃣ App does not know / trust this account
+        if (trustedRepo.getAccountSnapshot(email) == null) {
             return SetupState.NOT_KNOWN_TO_APP;
         }
 
@@ -89,17 +112,13 @@ public class SetupActivity extends AppCompatActivity {
      * Placeholder checks (NO SIDE EFFECTS)
      * ========================================================== */
 
-    private boolean isKnownToApp(String email) {
-        return trustedRepo.getAccountSnapshot(email) != null;
-    }
-
     private boolean requiresOAuth(String email) {
-        // placeholder
+        // TODO: Drive OAuth / UserRecoverableAuthIOException
         return false;
     }
 
     private boolean isPartial(String email) {
-        // placeholder
+        // TODO: quota fetch fail-soft / permission downgrade
         return false;
     }
 
