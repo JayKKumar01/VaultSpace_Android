@@ -48,7 +48,10 @@ public class SetupActivity extends AppCompatActivity {
         applyWindowInsets();
 
         ArrayList<String> emails = getIntent().getStringArrayListExtra(EXTRA_ACCOUNT_EMAILS);
-        if (emails == null || emails.isEmpty()) { finish(); return; }
+        if (emails == null || emails.isEmpty()) {
+            finish();
+            return;
+        }
 
         modalHost = ModalHost.attach(this);
         ignoreStore = new UserSession(this).getSetupIgnoreStore();
@@ -58,48 +61,58 @@ public class SetupActivity extends AppCompatActivity {
         list.setLayoutManager(new LinearLayoutManager(this));
         RecyclerView.ItemAnimator a = list.getItemAnimator();
         if (a instanceof androidx.recyclerview.widget.SimpleItemAnimator)
-            ((androidx.recyclerview.widget.SimpleItemAnimator)a).setSupportsChangeAnimations(false);
+            ((androidx.recyclerview.widget.SimpleItemAnimator) a).setSupportsChangeAnimations(false);
+
+        findViewById(R.id.btnFinishSetup).setOnClickListener(v -> finish());
 
         ignoreStore.load(() -> buildRows(emails, list));
     }
 
-    private void buildRows(List<String> emails, RecyclerView list){
+    private void buildRows(List<String> emails, RecyclerView list) {
         rows = new ArrayList<>(emails.size());
         for (String e : emails) rows.add(new SetupRow(e, evaluateInitialState(e)));
         adapter = new SetupAdapter(rows, this::onAction);
         list.setAdapter(adapter);
     }
-    private void onAction(String email, SetupAction action){
-        int i = findIndex(email); if (i == -1) return;
 
-        if (action == SetupAction.SECONDARY){
-            if (rows.get(i).state != SetupState.IGNORED) {
+    private void onAction(String email, SetupAction action) {
+        int i = findIndex(email);
+        if (i == -1) return;
+
+        SetupState state = rows.get(i).state;
+
+        if (action == SetupAction.SECONDARY) {
+            if (state != SetupState.IGNORED) {
                 ignoreStore.ignore(email);
                 rows.set(i, new SetupRow(email, SetupState.IGNORED));
-            } else {
-                ignoreStore.unignore(email);
-                rows.set(i, new SetupRow(email, evaluateInitialState(email)));
             }
             adapter.notifyItemChanged(i);
             return;
         }
 
+        if (state == SetupState.IGNORED) {
+            ignoreStore.unignore(email);
+            rows.set(i, new SetupRow(email, evaluateInitialState(email)));
+            adapter.notifyItemChanged(i);
+            return;
+        }
+
         modalHost.request(loading);
-        stateHelper.resolve(email, state -> {
+        stateHelper.resolve(email, nextState -> {
             modalHost.dismiss(loading, ModalEnums.DismissResult.SYSTEM);
-            rows.set(i, new SetupRow(email, state));
+            rows.set(i, new SetupRow(email, nextState));
             adapter.notifyItemChanged(i);
         });
     }
 
-    private SetupState evaluateInitialState(String email){
+    private SetupState evaluateInitialState(String email) {
         if (ignoreStore.isIgnored(email)) return SetupState.IGNORED;
         if (stateHelper.isNotKnown(email)) return SetupState.NOT_KNOWN_TO_APP;
         if (stateHelper.isLimited(email)) return SetupState.LIMITED;
         return SetupState.HEALTHY;
     }
 
-    private int findIndex(String email){
+    private int findIndex(String email) {
         for (int i = 0; i < rows.size(); i++)
             if (rows.get(i).email.equals(email)) return i;
         return -1;

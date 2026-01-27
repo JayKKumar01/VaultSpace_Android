@@ -140,6 +140,7 @@ public class DashboardActivity extends AppCompatActivity {
         consentHelper = new PrimaryAccountConsentHelper(this);
         trustedAccountsRepo = TrustedAccountsRepository.getInstance(this);
         trustedAccountsRepo.addListener(this::onVaultStorageState);
+        trustedAccountsRepo.addUsageListener(this::onUsageChanged);
         expandVaultHelper = new ExpandVaultHelper(this);
     }
 
@@ -276,8 +277,57 @@ public class DashboardActivity extends AppCompatActivity {
         ));
     }
 
+    private void onUsageChanged(long usedBytes, long totalBytes) {
+        VaultSetupState state = VaultSetupState.get();
+
+        boolean hasStorage = totalBytes > 0L;
+
+        if (state.isSetupRequired() && !hasStorage) {
+            storageBar.showGuidance();
+            return;
+        }
+
+        float used = (float) (usedBytes / BYTES_IN_GB);
+        float total = (float) (totalBytes / BYTES_IN_GB);
+
+        storageBar.setUsage(used, total, UNIT_GB);
+
+        if (state.isSetupRequired()) {
+            storageBar.showGuidanceWithUsage();
+        }
+    }
 
     private void onVaultStorageState(Iterable<TrustedAccount> accounts, Set<String> linkedEmails) {
+        if (accounts == null || linkedEmails == null) return;
+
+        // ---------- Setup-state computation ----------
+        Set<String> trustedSet = new HashSet<>();
+
+        for (TrustedAccount a : accounts) {
+            if (a == null) continue;
+            if (a.email != null) trustedSet.add(a.email);
+        }
+
+        boolean setupRequired = false;
+        for (String email : linkedEmails) {
+            if (!trustedSet.contains(email)) {
+                setupRequired = true;
+                break;
+            }
+        }
+
+        VaultSetupState state = VaultSetupState.get();
+        if (setupRequired) state.markSetupRequired();
+        else state.markSetupComplete();
+
+        lastAccountEmails = new ArrayList<>(linkedEmails);
+
+        // ---------- Structural UI ----------
+        setUpAccounts.setVisibility(setupRequired ? View.VISIBLE : View.GONE);
+    }
+
+
+    private void onVaultStorageState1(Iterable<TrustedAccount> accounts, Set<String> linkedEmails) {
         if (accounts == null || linkedEmails == null) return;
 
         // ---------- Setup-state computation ----------
@@ -302,9 +352,12 @@ public class DashboardActivity extends AppCompatActivity {
             }
         }
 
-        VaultSetupState setup = VaultSetupState.get();
-        if (setupRequired) setup.markSetupRequired();
-        else setup.markSetupComplete();
+        VaultSetupState state = VaultSetupState.get();
+        if (setupRequired){
+            state.markSetupRequired();
+        }else {
+            state.markSetupComplete();
+        }
 
         lastAccountEmails = new ArrayList<>(linkedEmails);
 
@@ -389,6 +442,7 @@ public class DashboardActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         trustedAccountsRepo.removeListener(this::onVaultStorageState);
+        trustedAccountsRepo.removeUsageListener(this::onUsageChanged);
         albumsUi.onRelease();
         filesUi.onRelease();
         expandVaultHelper.release();

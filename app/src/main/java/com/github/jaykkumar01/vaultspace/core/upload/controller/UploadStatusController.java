@@ -98,7 +98,7 @@ public final class UploadStatusController {
         });
     }
 
-    public void onProgress(String uId, String name, long uploadedBytes, long totalBytes) {
+    public void onProgress(String uId, String name, String thumb, long uploadedBytes, long totalBytes) {
         Log.d(
                 "VaultSpace:UploadProgress",
                 "file=" + name +

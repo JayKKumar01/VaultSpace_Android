@@ -237,6 +237,13 @@ public class Notes {
 
 
 
+    // they need to know what is being uplaoded so add the thumnail in the progress bar, keeping it tight
+    // on failed individual change the bar color or remove from list
+
+    //on network change it throws error intantly, give retry window of 5 seconds
+
+
+
 
 
 

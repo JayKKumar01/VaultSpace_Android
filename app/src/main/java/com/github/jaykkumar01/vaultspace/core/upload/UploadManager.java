@@ -172,9 +172,9 @@ public final class UploadManager implements UploadTask.Callback {
 
 
     @Override
-    public void onProgress(String uId, String gid,String name,long u,long t){
+    public void onProgress(String uId, String gid, String name, String thumbnailPath, long u, long t){
         UploadObserver o = observers.get(gid);
-        if(o!=null) mainHandler.post(()->o.onProgress(uId,name,u,t));
+        if(o!=null) mainHandler.post(()->o.onProgress(uId,name,thumbnailPath,u,t));
     }
 
 

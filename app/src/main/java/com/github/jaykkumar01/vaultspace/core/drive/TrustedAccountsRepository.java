@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 public final class TrustedAccountsRepository {
@@ -48,6 +49,10 @@ public final class TrustedAccountsRepository {
         void onAccountsChanged(Iterable<TrustedAccount> accounts, Set<String> linkedEmails);
     }
 
+    public interface UsageListener {
+        void onUsageChanged(long usedBytes, long totalBytes);
+    }
+
     /* ================= Core fields ================= */
 
     private final TrustedAccountsCache cache;
@@ -57,7 +62,11 @@ public final class TrustedAccountsRepository {
 
     private final Object initLock = new Object();
     private final Set<Listener> listeners = new HashSet<>();
+    private final Set<UsageListener> usageListeners = new HashSet<>();
     private volatile Set<String> linkedEmails;
+
+    private final AtomicLong totalStorageBytes = new AtomicLong();
+    private final AtomicLong usedStorageBytes = new AtomicLong();
 
 
     /* ================= Constructor ================= */
@@ -80,9 +89,11 @@ public final class TrustedAccountsRepository {
                         cache.initializeFromDrive(accounts);
 
                     linkedEmails = new HashSet<>(linkedEmailsFromDrive); // always overwrite
+                    recomputeTotalsLocked();
                 }
                 afterInit.run();
                 notifyListeners();
+                notifyUsageListeners();
             }
 
 
@@ -128,7 +139,9 @@ public final class TrustedAccountsRepository {
     }
 
 
-    public record AccountsAndLinks(Iterable<TrustedAccount> accounts, Set<String> linkedEmails) {}
+    public record AccountsAndLinks(Iterable<TrustedAccount> accounts, Set<String> linkedEmails) {
+    }
+
     public void getAccountsAndLinkedEmails(Consumer<AccountsAndLinks> cb) {
         if (cache.isInitialized() && linkedEmails != null) {
             post(cb, new AccountsAndLinks(cache.getAccountsView(), new HashSet<>(linkedEmails)));
@@ -152,56 +165,73 @@ public final class TrustedAccountsRepository {
 
     /* ================= Mutations ================= */
 
+    private void addAccountInternal(TrustedAccount a) {
+        cache.addAccount(a);
+        if (linkedEmails == null) linkedEmails = new HashSet<>();
+        linkedEmails.add(a.email);
+        totalStorageBytes.addAndGet(a.totalQuota);
+        usedStorageBytes.addAndGet(a.usedQuota);
+        notifyListeners();
+        notifyUsageListeners();
+    }
+
+    private void removeAccountInternal(String email) {
+        TrustedAccount a = cache.getAccount(email);
+        cache.removeAccount(email);
+        if (a != null) {
+            totalStorageBytes.addAndGet(-a.totalQuota);
+            usedStorageBytes.addAndGet(-a.usedQuota);
+        }
+        if (linkedEmails != null) linkedEmails.remove(email);
+        notifyListeners();
+        notifyUsageListeners();
+    }
+
     public void addAccount(TrustedAccount a) {
         if (cache.isInitialized()) {
-            cache.addAccount(a);
-            if (linkedEmails == null) linkedEmails = new HashSet<>();
-            linkedEmails.add(a.email);
-            notifyListeners();
+            addAccountInternal(a);
             return;
         }
-        initIfNeeded(() -> {
-            cache.addAccount(a);
-            notifyListeners();
-        });
+        initIfNeeded(() -> addAccountInternal(a));
     }
 
     public void removeAccount(String email) {
         if (cache.isInitialized()) {
-            cache.removeAccount(email);
-            if (linkedEmails != null) linkedEmails.remove(email);
-            notifyListeners();
+            removeAccountInternal(email);
             return;
         }
-        initIfNeeded(() -> {
-            cache.removeAccount(email);
-            notifyListeners();
-        });
+        initIfNeeded(() -> removeAccountInternal(email));
+    }
+
+
+    private void recordUploadUsageInternal(String email, long bytes) {
+        cache.recordUploadUsage(email, bytes);
+        usedStorageBytes.addAndGet(bytes);
+        if (cache.isInitialized()) notifyUsageListeners();
+    }
+
+    private void recordDeleteUsageInternal(String email, long bytes) {
+        cache.recordDeleteUsage(email, bytes);
+        usedStorageBytes.addAndGet(-bytes);
+        if (cache.isInitialized()) notifyUsageListeners();
     }
 
     public void recordUploadUsage(String email, long bytes) {
         if (cache.isInitialized()) {
-            cache.recordUploadUsage(email, bytes);
-            notifyListeners();
+            recordUploadUsageInternal(email, bytes);
             return;
         }
-        initIfNeeded(() -> {
-            cache.recordUploadUsage(email, bytes);
-            notifyListeners();
-        });
+        initIfNeeded(() -> recordUploadUsageInternal(email, bytes));
     }
 
     public void recordDeleteUsage(String email, long bytes) {
         if (cache.isInitialized()) {
-            cache.recordDeleteUsage(email, bytes);
-            notifyListeners();
+            recordDeleteUsageInternal(email, bytes);
             return;
         }
-        initIfNeeded(() -> {
-            cache.recordDeleteUsage(email, bytes);
-            notifyListeners();
-        });
+        initIfNeeded(() -> recordDeleteUsageInternal(email, bytes));
     }
+
 
 
     /* ================= Refresh ================= */
@@ -210,6 +240,8 @@ public final class TrustedAccountsRepository {
         synchronized (initLock) {
             cache.clear();
             linkedEmails = null;
+            totalStorageBytes.set(0L);
+            usedStorageBytes.set(0L);
         }
         initIfNeeded(() -> {
         });
@@ -225,12 +257,39 @@ public final class TrustedAccountsRepository {
         if (l != null) listeners.remove(l);
     }
 
+    public void addUsageListener(UsageListener l) { if (l != null) usageListeners.add(l); }
+    public void removeUsageListener(UsageListener l) { if (l != null) usageListeners.remove(l); }
+
     private void notifyListeners() {
         Iterable<TrustedAccount> snap = cache.getAccountsView();
+        Set<Listener> snapshot = new HashSet<>(listeners);
         mainHandler.post(() -> {
-            for (Listener l : listeners)
+            for (Listener l : snapshot)
                 l.onAccountsChanged(snap, linkedEmails);
         });
+    }
+
+
+    private void notifyUsageListeners() {
+        long used = usedStorageBytes.get();
+        long total = totalStorageBytes.get();
+        Set<UsageListener> snapshot = new HashSet<>(usageListeners);
+        mainHandler.post(() -> {
+            for (UsageListener l : snapshot)
+                l.onUsageChanged(used, total);
+        });
+    }
+
+
+    private void recomputeTotalsLocked() {
+        long total = 0L, used = 0L;
+        for (TrustedAccount a : cache.getAccountsView()) {
+            if (a == null) continue;
+            total += a.totalQuota;
+            used += a.usedQuota;
+        }
+        totalStorageBytes.set(total);
+        usedStorageBytes.set(used);
     }
 
     private <T> void post(Consumer<T> cb, T v) {
@@ -241,6 +300,7 @@ public final class TrustedAccountsRepository {
 
     private void releaseInternal() {
         listeners.clear();
+        usageListeners.clear();
         executor.shutdown();
     }
 }

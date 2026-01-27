@@ -1,6 +1,5 @@
 package com.github.jaykkumar01.vaultspace.activities;
 
-import android.nfc.Tag;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
@@ -242,8 +241,8 @@ public class AlbumActivity extends AppCompatActivity {
         if (s != null) uploadStatusController.onFailure(s);
     }
 
-    private void handleUploadProgress(String id, String name, long up, long total) {
-        uploadStatusController.onProgress(id, name, up, total);
+    private void handleUploadProgress(String id, String name, String thumb, long up, long total) {
+        uploadStatusController.onProgress(id, name, thumb, up, total);
     }
 
     /* ---------- Upload UI Callbacks ---------- */

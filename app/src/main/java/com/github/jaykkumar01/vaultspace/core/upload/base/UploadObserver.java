@@ -8,5 +8,5 @@ public interface UploadObserver {
     void onSuccess(UploadedItem item);
     void onFailure(UploadSelection selection);
 
-    void onProgress(String uId, String name, long uploadedBytes, long totalBytes);
+    void onProgress(String uId, String name, String thumbnailPath, long uploadedBytes, long totalBytes);
 }

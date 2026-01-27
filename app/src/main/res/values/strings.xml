@@ -14,4 +14,6 @@
     <string name="select_these_items_again_to_continue_uploading">Select these items again to continue uploading.</string>
     <string name="todo">TODO</string>
     <string name="ignore">Ignore</string>
+    <string name="setup_philosophy">Review · Decide · Proceed</string>
+    <string name="when_things_feel_settled">When things feel settled</string>
 </resources>
