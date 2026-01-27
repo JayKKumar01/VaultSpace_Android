@@ -51,6 +51,12 @@ public final class SetupViewHolder extends RecyclerView.ViewHolder {
 
             case HEALTHY -> setStatus("Healthy", R.color.vs_accent_primary);
 
+            case LIMITED -> {
+                setStatus("Limited access", R.color.vs_warning);
+                showPrimary("Fix", row.email, listener);
+                showSecondary(row.email, listener);
+            }
+
             case OAUTH_REQUIRED -> {
                 setStatus("Permission required", R.color.vs_warning);
                 showPrimary("Grant access", row.email, listener);

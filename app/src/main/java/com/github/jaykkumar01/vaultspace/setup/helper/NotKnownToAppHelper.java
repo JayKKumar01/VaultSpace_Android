@@ -24,21 +24,21 @@ public final class NotKnownToAppHelper {
      * PURE CHECK
      * ========================================================== */
 
-    private boolean isVisible(String email) {
+    private boolean canAccess(String email) {
         return GoogleCredentialFactory.canAccessAccount(context, email);
     }
 
     public boolean isNotKnown(String email) {
-        return !isVisible(email);
+        return !canAccess(email);
     }
 
     /* ==========================================================
      * FIX
      * ========================================================== */
 
-    public void resolve(String email, Runnable onResolved) {
+    public void resolve(String email, Runnable onResolved, Runnable onError) {
 
-        if (isVisible(email)) {
+        if (canAccess(email)) {
             onResolved.run();
             return;
         }
@@ -49,21 +49,23 @@ public final class NotKnownToAppHelper {
             public void onAccountSelected(String selectedEmail) {
                 if (!email.equalsIgnoreCase(selectedEmail)) {
                     Log.w(TAG, "Wrong account selected for " + email);
+                    onError.run();
                     return;
                 }
 
-                if (isVisible(email)) {
+                if (canAccess(email)) {
                     onResolved.run();
-                } else {
-                    Log.w(TAG,
-                            "Account still not visible after picker: " + email);
+                    return;
                 }
+                Log.w(TAG, "Account still not visible after picker: " + email);
+                onError.run();
             }
 
             @Override
             public void onCancelled() {
-                Log.d(TAG, "Picker cancelled for " + email);
+                onError.run();
             }
         });
     }
+
 }

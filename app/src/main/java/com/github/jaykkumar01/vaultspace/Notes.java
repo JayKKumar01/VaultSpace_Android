@@ -232,6 +232,9 @@ public class Notes {
 
     //once the setup is done we will handle the back pressed with modal
 
+    // I can still keep the LIMITED, will have to decide the state wheather it should go to oauth or
+    // limited from the resolve itself
+
 
 
 

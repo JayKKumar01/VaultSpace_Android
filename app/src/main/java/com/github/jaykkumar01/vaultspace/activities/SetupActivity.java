@@ -18,8 +18,10 @@ import com.github.jaykkumar01.vaultspace.setup.SetupAction;
 import com.github.jaykkumar01.vaultspace.setup.SetupAdapter;
 import com.github.jaykkumar01.vaultspace.setup.SetupRow;
 import com.github.jaykkumar01.vaultspace.setup.SetupState;
-import com.github.jaykkumar01.vaultspace.setup.helper.NotKnownToAppHelper;
-import com.github.jaykkumar01.vaultspace.setup.helper.OAuthRequiredHelper;
+import com.github.jaykkumar01.vaultspace.setup.helper.StateHelper;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,12 +29,15 @@ import java.util.List;
 public class SetupActivity extends AppCompatActivity {
     public static final String EXTRA_ACCOUNT_EMAILS = "trusted_account_emails";
     private static final String TAG = "VaultSpace:Setup";
+    private ModalHost modalHost;
+    private final LoadingSpec loading = new LoadingSpec();
     private SetupIgnoreStore ignoreStore;
     private RecyclerView setupList;
     private List<SetupRow> rows;
     private SetupAdapter adapter;
-    private NotKnownToAppHelper notKnownHelper;
-    private OAuthRequiredHelper oauthRequiredHelper;
+
+    private StateHelper stateHelper;
+
 
     /* ==========================================================
      * Lifecycle
@@ -51,10 +56,9 @@ public class SetupActivity extends AppCompatActivity {
             return;
         }
 
+        modalHost = ModalHost.attach(this);
         ignoreStore = new UserSession(this).getSetupIgnoreStore();
-        notKnownHelper = new NotKnownToAppHelper(this);
-        oauthRequiredHelper = new OAuthRequiredHelper(this);
-
+        stateHelper = new StateHelper(this);
         setupList = findViewById(R.id.setupList);
         setupList.setLayoutManager(new LinearLayoutManager(this));
         RecyclerView.ItemAnimator animator = setupList.getItemAnimator();
@@ -65,6 +69,13 @@ public class SetupActivity extends AppCompatActivity {
         ignoreStore.load(() -> buildAndBindRows(emails));
     }
 
+    private void showLoading(){
+        modalHost.request(loading);
+    }
+
+    private void clearLoading(){
+        modalHost.dismiss(loading, ModalEnums.DismissResult.SYSTEM);
+    }
     /* ==========================================================
      * Row building (ONE-TIME)
      * ========================================================== */
@@ -72,7 +83,7 @@ public class SetupActivity extends AppCompatActivity {
     private void buildAndBindRows(List<String> emails) {
         rows = new ArrayList<>(emails.size());
         for (String email : emails) {
-            SetupState state = evaluateState(email);
+            SetupState state = evaluateInitialState(email);
             rows.add(new SetupRow(email, state));
             Log.d(TAG, email + " → " + state);
         }
@@ -85,6 +96,8 @@ public class SetupActivity extends AppCompatActivity {
      * ========================================================== */
 
     private void onSetupAction(String email, SetupAction action) {
+        showLoading();
+
         int index = findRowIndex(email);
         if (index == -1) return;
 
@@ -93,35 +106,29 @@ public class SetupActivity extends AppCompatActivity {
         if (action == SetupAction.SECONDARY) {
             if (state != SetupState.IGNORED) {
                 ignoreStore.ignore(email);
-                updateRow(index, email);
+                rows.set(index, new SetupRow(email, SetupState.IGNORED));
+                adapter.notifyItemChanged(index);
             }
+            clearLoading();
             return;
         }
-
-        switch (state) {
-            case NOT_KNOWN_TO_APP -> notKnownHelper.resolve(email, () -> updateRow(index, email));
-
-            case OAUTH_REQUIRED ->
-                    oauthRequiredHelper.resolve(email, () -> updateRow(index, email));
-
-            case IGNORED -> handleUnignore(email, index);
-
-            default -> Log.w(TAG, "Unhandled primary action: " + state + " for " + email);
+        if (state == SetupState.IGNORED){
+            ignoreStore.unignore(email);
         }
 
+        stateHelper.resolve(email, (newState) -> onResolved(email,index,newState), () -> onError(email,index));
     }
 
-    /* ==========================================================
-     * State handlers
-     * ========================================================== */
 
-    private void handleUnignore(String email, int index) {
-        ignoreStore.unignore(email);
-        updateRow(index, email);
+    private void onResolved(String email, int index, SetupState newState) {
+        clearLoading();
+        rows.set(index, new SetupRow(email, newState));
+        adapter.notifyItemChanged(index);
     }
 
-    private void updateRow(int index, String email) {
-        rows.set(index, new SetupRow(email, evaluateState(email)));
+    private void onError(String email, int index) {
+        clearLoading();
+        rows.set(index, new SetupRow(email, evaluateInitialState(email)));
         adapter.notifyItemChanged(index);
     }
 
@@ -129,16 +136,16 @@ public class SetupActivity extends AppCompatActivity {
      * State evaluation (PURE, ORDER LOCKED)
      * ========================================================== */
 
-    private SetupState evaluateState(String email) {
+    private SetupState evaluateInitialState(String email) {
 
         if (ignoreStore.isIgnored(email))
             return SetupState.IGNORED;
 
-        if (notKnownHelper.isNotKnown(email))
+        if (stateHelper.isNotKnown(email))
             return SetupState.NOT_KNOWN_TO_APP;
 
-        if (oauthRequiredHelper.isRequired(email))
-            return SetupState.OAUTH_REQUIRED;
+        if (stateHelper.isLimited(email))
+            return SetupState.LIMITED;
 
         return SetupState.HEALTHY;
     }
