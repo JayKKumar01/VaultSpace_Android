@@ -243,7 +243,13 @@ public class Notes {
     //on network change it throws error intantly, give retry window of 5 seconds
 
 
+    // upload does not update the album ui, but the counts gets update
 
+    //same optimization needed for the stack view also, bind and update
+
+    //while retrying you messed the upload id
+
+    // change the stack to recylerview
 
 
 

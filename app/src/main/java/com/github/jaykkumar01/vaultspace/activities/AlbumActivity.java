@@ -181,11 +181,14 @@ public class AlbumActivity extends AppCompatActivity {
     private void handleMediaAdded(AlbumMedia media) {
         if (released || uiState != UiState.READY) return;
         uiController.onMediaAdded(media);
+        // we should change the state also
+        // if state is ready but empty then it does not move it to content
     }
 
     private void handleMediaRemoved(String mediaId) {
         if (released || uiState != UiState.READY) return;
         uiController.onMediaRemoved(mediaId);
+        // here also... check once if media got empty then render empty
     }
 
     private void onCountChanged(int photos, int videos) {
@@ -241,8 +244,8 @@ public class AlbumActivity extends AppCompatActivity {
         if (s != null) uploadStatusController.onFailure(s);
     }
 
-    private void handleUploadProgress(String id, String name, String thumb, long up, long total) {
-        uploadStatusController.onProgress(id, name, thumb, up, total);
+    private void handleUploadProgress(UploadSelection selection, long up, long total) {
+        uploadStatusController.onProgress(selection, up, total);
     }
 
     /* ---------- Upload UI Callbacks ---------- */

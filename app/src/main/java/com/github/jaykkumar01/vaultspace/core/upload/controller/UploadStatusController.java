@@ -98,20 +98,19 @@ public final class UploadStatusController {
         });
     }
 
-    public void onProgress(String uId, String name, String thumb, long uploadedBytes, long totalBytes) {
+    public void onProgress(UploadSelection selection, long uploadedBytes, long totalBytes) {
         Log.d(
                 "VaultSpace:UploadProgress",
-                "file=" + name +
+                "file=" + selection.displayName +
                         " uploaded=" + uploadedBytes +
                         " total=" + totalBytes
         );
-        progressStackView.render(uId,name, uploadedBytes, totalBytes);
+        progressStackView.render(selection, uploadedBytes, totalBytes);
     }
 
 
     public void onFailure(UploadSelection selection) {
-//        progressStackView.hide();
-//        progressStackView.reset();
+        progressStackView.renderFailure(selection);
     }
 
 

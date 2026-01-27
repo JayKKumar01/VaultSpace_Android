@@ -204,7 +204,7 @@
     <com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView
         android:id="@+id/uploadItemProgress"
         android:layout_width="0dp"
-        android:layout_height="120dp"
+        android:layout_height="150dp"
         android:visibility="gone"
         android:layout_marginHorizontal="10dp"
         android:layout_marginBottom="5dp"

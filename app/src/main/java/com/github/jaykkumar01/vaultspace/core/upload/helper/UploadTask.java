@@ -12,7 +12,7 @@ public final class UploadTask implements Runnable {
 
         void onFailure(String groupId, UploadSelection s, FailureReason r);
 
-        void onProgress(String uploadId, String groupId, String name, String thumbnailPath, long uploaded, long total);
+        void onProgress(String uploadId, String groupId, UploadSelection selection, long uploaded, long total);
     }
 
     final String uploadId;
@@ -36,7 +36,7 @@ public final class UploadTask implements Runnable {
             UploadedItem item = helper.upload(
                     groupId,
                     selection,
-                    (u, t) -> cb.onProgress(uploadId, groupId, selection.displayName,selection.thumbnailPath, u, t)
+                    (u, t) -> cb.onProgress(uploadId, groupId, selection, u, t)
             );
             cb.onSuccess(groupId, selection, item);
         } catch (UploadDriveHelper.UploadFailure f) {

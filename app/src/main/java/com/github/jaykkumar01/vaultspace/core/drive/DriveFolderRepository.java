@@ -75,7 +75,7 @@ public final class DriveFolderRepository {
 
         FileList list = d.files().list()
                 .setQ(q.toString())
-                .setFields("files(id,name,createdTime,parents)")
+                .setFields("files(id,name,createdTime,modifiedTime,parents)")
                 .setPageSize(1)
                 .execute();
 

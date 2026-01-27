@@ -234,10 +234,18 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
     private void createAlbum(String name) {
 
         String trimmed = name == null ? "" : name.trim();
-        if (trimmed.isEmpty()) {
-            Toast.makeText(context, "Album name required", Toast.LENGTH_SHORT).show();
+        if (trimmed.isEmpty()){
+            Toast.makeText(context,"Album name required",Toast.LENGTH_SHORT).show();
             return;
         }
+
+        for (AlbumInfo a : cache.getAlbumsView()){
+            if (a != null && trimmed.equals(a.name)){
+                Toast.makeText(context,"Album already exists",Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
 
         long now = System.currentTimeMillis();
         AlbumInfo temp = new AlbumInfo(
