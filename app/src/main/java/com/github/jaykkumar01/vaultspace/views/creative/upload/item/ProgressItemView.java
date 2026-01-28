@@ -44,7 +44,7 @@ final class ProgressItemView extends FrameLayout {
     private void init() {
         setClipChildren(false);
         setClipToPadding(false);
-
+        setClickable(false);
         LinearLayout root = new LinearLayout(getContext());
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setGravity(Gravity.CENTER_VERTICAL);

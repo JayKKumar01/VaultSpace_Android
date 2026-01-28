@@ -58,11 +58,13 @@ public final class ProgressStackView extends FrameLayout {
         adapter = new ProgressStackAdapter();
         rv.setAdapter(adapter);
 
-        LayoutParams lp = new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        lp.gravity = Gravity.BOTTOM;
+        LayoutParams lp = new LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.MATCH_PARENT
+        );
         rv.setLayoutParams(lp);
-
         addView(rv, lp);
+
         hide();
     }
 

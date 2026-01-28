@@ -252,6 +252,7 @@ public class Notes {
     // change the stack to recylerview
 
 
+    // sometimes cancel button does not work, problem on cancel thread for downloading, use flag to avoid late callbacks
 
 
 
