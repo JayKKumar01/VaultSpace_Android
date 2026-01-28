@@ -225,8 +225,10 @@ public final class AlbumsDriveHelper {
     private static List<AlbumInfo> parseAlbums(FileList list) {
         List<AlbumInfo> out = new ArrayList<>();
         if (list.getFiles() != null)
-            for (File f : list.getFiles())
+            for (File f : list.getFiles()) {
+                // here for each file get the first file
                 out.add(toAlbumInfo(f));
+            }
         return out;
     }
 

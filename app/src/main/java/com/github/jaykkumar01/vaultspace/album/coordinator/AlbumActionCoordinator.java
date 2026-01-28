@@ -34,7 +34,7 @@ public final class AlbumActionCoordinator {
 
     private final Listener listener;
     private final UriSelection uriSelection;
-    private final UploadSelectionHelper uploadHelper;
+    private final UploadSelectionHelper uploadSelectionHelper;
     private final ExecutorService executor;
 
     /* ============================================================
@@ -46,7 +46,7 @@ public final class AlbumActionCoordinator {
 
         // 🔑 Coordinator OWNS executor
         this.executor = Executors.newSingleThreadExecutor();
-        this.uploadHelper = new UploadSelectionHelper(activity, albumId);
+        this.uploadSelectionHelper = new UploadSelectionHelper(activity, albumId);
 
         this.uriSelection = new UriSelection(activity, uris -> {
             if (released || uris.isEmpty()) return;
@@ -65,7 +65,7 @@ public final class AlbumActionCoordinator {
         executor.execute(() -> {
             if (released) return;
 
-            uploadHelper.resolve(uris, selections -> {
+            uploadSelectionHelper.resolve(uris, selections -> {
                 if (released) return;
                 listener.onMediaResolved(selections);
             });
@@ -97,7 +97,7 @@ public final class AlbumActionCoordinator {
 
     public void release() {
         released = true;
-        uploadHelper.release();
+        uploadSelectionHelper.release();
         executor.shutdownNow();
     }
 }

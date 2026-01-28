@@ -326,62 +326,6 @@ public class DashboardActivity extends AppCompatActivity {
         setUpAccounts.setVisibility(setupRequired ? View.VISIBLE : View.GONE);
     }
 
-
-    private void onVaultStorageState1(Iterable<TrustedAccount> accounts, Set<String> linkedEmails) {
-        if (accounts == null || linkedEmails == null) return;
-
-        // ---------- Setup-state computation ----------
-        Set<String> trustedSet = new HashSet<>();
-        long totalBytes = 0L, usedBytes = 0L;
-
-        for (TrustedAccount a : accounts) {
-            if (a == null) continue;
-
-            if (a.email != null)
-                trustedSet.add(a.email);
-
-            totalBytes += a.totalQuota;
-            usedBytes += a.usedQuota;
-        }
-
-        boolean setupRequired = false;
-        for (String email : linkedEmails) {
-            if (!trustedSet.contains(email)) {
-                setupRequired = true;
-                break;
-            }
-        }
-
-        VaultSetupState state = VaultSetupState.get();
-        if (setupRequired){
-            state.markSetupRequired();
-        }else {
-            state.markSetupComplete();
-        }
-
-        lastAccountEmails = new ArrayList<>(linkedEmails);
-
-        // ---------- Storage UI ----------
-        boolean hasStorage = totalBytes > 0L;
-        setUpAccounts.setVisibility(setupRequired ? View.VISIBLE : View.GONE);
-
-        if (setupRequired && !hasStorage) {
-            storageBar.showGuidance();
-            return;
-        }
-
-        float used = (float) (usedBytes / BYTES_IN_GB);
-        float total = (float) (totalBytes / BYTES_IN_GB);
-
-        storageBar.setUsage(used, total, UNIT_GB);
-
-        if (setupRequired) {
-            storageBar.showGuidanceWithUsage();
-        }
-    }
-
-
-
     /* ==========================================================
      * UI helpers
      * ========================================================== */

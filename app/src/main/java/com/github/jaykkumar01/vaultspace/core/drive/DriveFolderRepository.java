@@ -25,7 +25,7 @@ public final class DriveFolderRepository {
     public static synchronized String getRootFolderId(Context c) throws Exception {
         if (rootFolderId != null) return rootFolderId;
         Drive d = DriveClientProvider.getPrimaryDrive(c);
-        rootFolderId = resolveFolder(d, ROOT_FOLDER_NAME, null).getId();
+        rootFolderId = resolveFolder(d, ROOT_FOLDER_NAME, "root").getId();
         return rootFolderId;
     }
 

@@ -260,9 +260,10 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                     @Override
                     public void onSuccess(AlbumInfo real) {
                         if (released) return;
-                        albumsContentView.deleteAlbum(temp.id);
+//                        albumsContentView.deleteAlbum(temp.id);
                         cache.addAlbum(real);
-                        albumsContentView.addAlbum(real);
+                        albumsContentView.updateAlbum(temp.id,real);
+//                        albumsContentView.addAlbum(real);
                     }
 
                     @Override

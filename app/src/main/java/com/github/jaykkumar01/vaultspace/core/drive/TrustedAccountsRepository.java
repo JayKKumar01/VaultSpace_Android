@@ -166,6 +166,7 @@ public final class TrustedAccountsRepository {
     /* ================= Mutations ================= */
 
     private void addAccountInternal(TrustedAccount a) {
+        if (a == null || a.email == null || cache.hasAccount(a.email)) return;
         cache.addAccount(a);
         if (linkedEmails == null) linkedEmails = new HashSet<>();
         linkedEmails.add(a.email);
@@ -257,8 +258,13 @@ public final class TrustedAccountsRepository {
         if (l != null) listeners.remove(l);
     }
 
-    public void addUsageListener(UsageListener l) { if (l != null) usageListeners.add(l); }
-    public void removeUsageListener(UsageListener l) { if (l != null) usageListeners.remove(l); }
+    public void addUsageListener(UsageListener l) {
+        if (l != null) usageListeners.add(l);
+    }
+
+    public void removeUsageListener(UsageListener l) {
+        if (l != null) usageListeners.remove(l);
+    }
 
     private void notifyListeners() {
         Iterable<TrustedAccount> snap = cache.getAccountsView();
