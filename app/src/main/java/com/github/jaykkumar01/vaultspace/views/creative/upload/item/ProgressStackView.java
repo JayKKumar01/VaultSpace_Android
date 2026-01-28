@@ -7,22 +7,22 @@ import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
 
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 public final class ProgressStackView extends FrameLayout {
 
-    private final Map<String, ProgressItemView> items = new LinkedHashMap<>();
-    private LinearLayout container;
+    private RecyclerView rv;
+    private ProgressStackAdapter adapter;
+
+    /** Single posted scroll runnable (cancel-safe) */
+    private Runnable pendingScroll;
 
     public ProgressStackView(Context c) {
         this(c, null);
@@ -37,83 +37,124 @@ public final class ProgressStackView extends FrameLayout {
         setClipChildren(false);
         setClipToPadding(false);
         setElevation(dp(6));
+        setClickable(false);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(8));
-        bg.setColor(ContextCompat.getColor(getContext(), R.color.vs_surface_soft_translucent));
-        setClickable(false);
+        bg.setColor(ContextCompat.getColor(
+                getContext(), R.color.vs_surface_soft_translucent
+        ));
+        setBackground(bg);
 
-        ScrollView scroll = new ScrollView(getContext());
-        scroll.setOverScrollMode(OVER_SCROLL_NEVER);
-        scroll.setVerticalScrollBarEnabled(true);
-        scroll.setScrollbarFadingEnabled(true);
-        scroll.setScrollBarStyle(SCROLLBARS_INSIDE_OVERLAY);
+        rv = new RecyclerView(getContext());
+        rv.setOverScrollMode(OVER_SCROLL_NEVER);
+        rv.setClipToPadding(false);
+        rv.setPadding(dp(16), dp(8), dp(16), dp(8));
 
-        LayoutParams slp = new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        slp.gravity = Gravity.BOTTOM;
-        scroll.setLayoutParams(slp);
+        LinearLayoutManager lm = new LinearLayoutManager(getContext());
+        lm.setStackFromEnd(true); // bottom-stacked visual
+        rv.setLayoutManager(lm);
 
-        container = new LinearLayout(getContext());
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(dp(16), dp(8), dp(16), dp(8));
-        container.setBackground(bg);
+        adapter = new ProgressStackAdapter();
+        rv.setAdapter(adapter);
 
-        scroll.addView(container, new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-        addView(scroll, slp);
+        LayoutParams lp = new LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+        lp.gravity = Gravity.BOTTOM;
+        rv.setLayoutParams(lp);
+
+        addView(rv, lp);
         hide();
     }
 
-    /* ================= API ================= */
+    /* ================= PUBLIC API ================= */
 
-    public void render(UploadSelection selection, long uploaded, long total) {
-        ProgressItemView v = getOrCreate(selection);
-        if (v == null) return;
+    public void render(UploadSelection s, long uploaded, long total) {
+        if (s == null) return;
 
-        if (v.update(uploaded, total)) {
-            container.removeView(v);
-            items.remove(selection.id);
+        boolean isNew = adapter.indexOfOrMinus(s.id) == -1;
+
+        ProgressStackAdapter.ItemState st = adapter.getOrCreate(s);
+        if (st == null) return;
+
+        st.failed = false;
+        st.uploaded = uploaded;
+        st.total = total;
+
+        // ✅ completion → structural change ONLY
+        if (total > 0 && uploaded >= total) {
+            cancelPendingScroll();
+            adapter.remove(s.id);
+            reconcileVisibility();
+            return;
+        }
+
+        // ✅ update ONLY attached VH (no adapter invalidation)
+        int idx = adapter.indexOfOrMinus(s.id);
+        if (idx >= 0) {
+            RecyclerView.ViewHolder h =
+                    rv.findViewHolderForAdapterPosition(idx);
+            if (h instanceof ProgressStackAdapter.VH) {
+                ((ProgressStackAdapter.VH) h).bind(st);
+            }
+        }
+
+        // ✅ scroll ONLY when newly inserted
+        if (isNew) {
+            scheduleScrollToBottom();
         }
 
         reconcileVisibility();
     }
 
-    public void renderFailure(UploadSelection selection) {
-        ProgressItemView v = getOrCreate(selection);
-        if (v == null) return;
+    public void renderFailure(UploadSelection s) {
+        if (s == null) return;
 
-        v.renderFailure();
+        ProgressStackAdapter.ItemState st = adapter.getOrCreate(s);
+        if (st == null) return;
+
+        st.failed = true;
+
+        int idx = adapter.indexOfOrMinus(s.id);
+        if (idx >= 0) {
+            RecyclerView.ViewHolder h =
+                    rv.findViewHolderForAdapterPosition(idx);
+            if (h instanceof ProgressStackAdapter.VH) {
+                ((ProgressStackAdapter.VH) h).bind(st);
+            }
+        }
+
         reconcileVisibility();
     }
 
     public void reset() {
-        items.clear();
-        if (container != null) container.removeAllViews();
+        cancelPendingScroll();
+        adapter.clear();
         hide();
     }
 
-    /* ================= Internals ================= */
+    /* ================= INTERNAL ================= */
 
-    private ProgressItemView getOrCreate(UploadSelection selection) {
-        if (selection == null) return null;
+    private void scheduleScrollToBottom() {
+        cancelPendingScroll();
 
-        String id = selection.id;
-        ProgressItemView v = items.get(id);
-        if (v != null) return v;
+        pendingScroll = () -> {
+            int count = adapter.getItemCount();
+            if (count > 0) {
+                rv.scrollToPosition(count - 1); // ⚠️ no smoothScroll
+            }
+        };
+        rv.post(pendingScroll);
+    }
 
-        v = new ProgressItemView(getContext());
-        LinearLayout.LayoutParams lp =
-                new LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT);
-        lp.bottomMargin = dp(6);
-        v.setLayoutParams(lp);
-        v.bind(selection);
-
-        items.put(id, v);
-        container.addView(v);
-        return v;
+    private void cancelPendingScroll() {
+        if (pendingScroll != null) {
+            rv.removeCallbacks(pendingScroll);
+            pendingScroll = null;
+        }
     }
 
     private void reconcileVisibility() {
-        if (items.isEmpty()) hide();
+        if (adapter.getItemCount() == 0) hide();
         else if (getVisibility() != VISIBLE) setVisibility(VISIBLE);
     }
 

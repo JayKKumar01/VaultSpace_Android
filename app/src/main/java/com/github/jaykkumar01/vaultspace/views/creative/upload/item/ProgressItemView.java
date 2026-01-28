@@ -28,7 +28,11 @@ final class ProgressItemView extends FrameLayout {
     private ImageView ivThumb, ivOverlay;
     private TextView tvName, tvSize;
     private MultiSegmentProgressBar progress;
-    private boolean bound;
+
+    /* ---- cached state (prevents churn) ---- */
+    private long lastUploaded = -1;
+    private long lastTotal = -1;
+    private boolean lastFailed = false;
 
     ProgressItemView(Context c) {
         super(c);
@@ -65,7 +69,9 @@ final class ProgressItemView extends FrameLayout {
         c.addView(ivThumb);
 
         ivOverlay = new ImageView(getContext());
-        ivOverlay.setLayoutParams(new FrameLayout.LayoutParams(dp(16), dp(16), Gravity.CENTER));
+        ivOverlay.setLayoutParams(
+                new FrameLayout.LayoutParams(dp(16), dp(16), Gravity.CENTER)
+        );
         ivOverlay.setImageResource(R.drawable.ic_play_badge);
         ivOverlay.setVisibility(GONE);
         c.addView(ivOverlay);
@@ -94,7 +100,8 @@ final class ProgressItemView extends FrameLayout {
         r.addView(tvSize);
 
         progress = new MultiSegmentProgressBar(getContext());
-        LinearLayout.LayoutParams pLp = new LinearLayout.LayoutParams(MATCH_PARENT, dp(2));
+        LinearLayout.LayoutParams pLp =
+                new LinearLayout.LayoutParams(MATCH_PARENT, dp(2));
         pLp.topMargin = dp(2);
         progress.setLayoutParams(pLp);
         progress.setTrackColor(color(R.color.vs_toggle_off));
@@ -104,12 +111,10 @@ final class ProgressItemView extends FrameLayout {
         return r;
     }
 
-    /* ================= API ================= */
+    /* ================= Binding ================= */
 
-    public void bind(UploadSelection s) {
-        if (bound) return;
-        bound = true;
-
+    /** Identity-based bind (thumbnail, name, overlay) */
+    void bindStatic(UploadSelection s) {
         tvName.setText(s.displayName);
         ivOverlay.setVisibility(s.type == UploadType.VIDEO ? VISIBLE : GONE);
 
@@ -118,27 +123,52 @@ final class ProgressItemView extends FrameLayout {
                 .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
                 .placeholder(R.drawable.ic_file)
                 .error(R.drawable.ic_file)
+                .dontAnimate()
                 .into(ivThumb);
     }
 
+    /** Hot path — called VERY frequently */
     @SuppressLint("SetTextI18n")
-    boolean update(long uploaded, long total) {
+    void bindProgress(long uploaded, long total, boolean failed) {
+
+        // 🔒 nothing changed → do nothing
+        if (uploaded == lastUploaded &&
+                total == lastTotal &&
+                failed == lastFailed) {
+            return;
+        }
+
+        lastUploaded = uploaded;
+        lastTotal = total;
+        lastFailed = failed;
+
+        if (failed) {
+            progress.setColors(new int[]{color(R.color.vs_warning)});
+            progress.setFractions(new float[]{1f});
+            return;
+        }
+
         setNormalColor();
 
         float f = total > 0 ? Math.min(1f, uploaded / (float) total) : 0f;
-        if (f >= 1f) return true;
+        progress.setFractions(new float[]{f});
 
         tvSize.setText(
                 ByteFormat.human(uploaded) + " / " +
                         (total > 0 ? ByteFormat.human(total) : "?")
         );
-        progress.setFractions(new float[]{f});
-        return false;
     }
 
-    void renderFailure() {
-        progress.setColors(new int[]{color(R.color.vs_warning)});
-        progress.setFractions(new float[]{1f});
+    /** Called ONLY when recycled */
+    void reset() {
+        lastUploaded = -1;
+        lastTotal = -1;
+        lastFailed = false;
+
+        tvSize.setText(null);
+        ivOverlay.setVisibility(GONE);
+        setNormalColor();
+        progress.setFractions(new float[]{0f});
     }
 
     /* ================= Helpers ================= */
@@ -158,7 +188,7 @@ final class ProgressItemView extends FrameLayout {
         return d;
     }
 
-    private int dp(int v) {
+    int dp(int v) {
         return (int) (v * getResources().getDisplayMetrics().density);
     }
 }
