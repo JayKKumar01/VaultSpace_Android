@@ -95,13 +95,11 @@ public final class UploadDriveHelper {
 
         InputStream in = null;
         try {
-            AbstractInputStreamContent content =
-                    buildContent(selection.uri, selection.mimeType, selection.sizeBytes, token);
+            AbstractInputStreamContent content = buildContent(selection.uri, selection.mimeType, selection.sizeBytes, token);
 
             in = ((InputStreamContent) content).getInputStream();
 
-            UploadedItem item =
-                    uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes, token);
+            UploadedItem item = uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes, token);
 
             trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes);
             return item;
@@ -113,9 +111,7 @@ public final class UploadDriveHelper {
 
     /* ================= Utilities ================= */
 
-    private AbstractInputStreamContent buildContent(
-            Uri uri, String mime, long size, CancelToken token
-    ) throws UploadFailure {
+    private AbstractInputStreamContent buildContent(Uri uri, String mime, long size, CancelToken token) throws UploadFailure {
 
         try {
             InputStream raw = resolver.openInputStream(uri);

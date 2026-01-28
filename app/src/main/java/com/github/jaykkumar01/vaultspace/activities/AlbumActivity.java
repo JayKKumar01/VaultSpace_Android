@@ -38,6 +38,7 @@ import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class AlbumActivity extends AppCompatActivity {
@@ -58,7 +59,7 @@ public class AlbumActivity extends AppCompatActivity {
     private ProgressStackView progressStackView;
 
     /* ---------- UI State ---------- */
-    private enum UiState {IDLE, LOADING, READY, ERROR}
+    private enum UiState {IDLE, LOADING, EMPTY, CONTENT, ERROR}
 
     private UiState uiState = UiState.IDLE;
     private boolean released;
@@ -170,7 +171,7 @@ public class AlbumActivity extends AppCompatActivity {
     private void handleAlbumMedia(Iterable<AlbumMedia> media) {
         if (released) return;
         currentMedia = media;
-        transitionTo(UiState.READY);
+        transitionTo(isMediaEmpty() ? UiState.EMPTY : UiState.CONTENT);
     }
 
     private void handleAlbumError(Exception e) {
@@ -179,16 +180,29 @@ public class AlbumActivity extends AppCompatActivity {
     }
 
     private void handleMediaAdded(AlbumMedia media) {
-        if (released || uiState != UiState.READY) return;
-        uiController.onMediaAdded(media);
-        // we should change the state also
-        // if state is ready but empty then it does not move it to content
+        if (released || (uiState != UiState.EMPTY && uiState != UiState.CONTENT)) return;
+
+        if (uiState == UiState.CONTENT) {
+            uiController.onMediaAdded(media);
+            return;
+        }
+
+        // EMPTY → CONTENT is structural
+        transitionTo(UiState.CONTENT);
+
+
     }
 
     private void handleMediaRemoved(String mediaId) {
-        if (released || uiState != UiState.READY) return;
+        if (released || (uiState != UiState.EMPTY && uiState != UiState.CONTENT)) return;
+
+        if (uiState == UiState.CONTENT && isMediaEmpty()) {
+            transitionTo(UiState.EMPTY);
+            return;
+        }
+
         uiController.onMediaRemoved(mediaId);
-        // here also... check once if media got empty then render empty
+
     }
 
     private void onCountChanged(int photos, int videos) {
@@ -198,8 +212,8 @@ public class AlbumActivity extends AppCompatActivity {
     /* ---------- UI Callbacks ---------- */
 
     private void handleAddMediaClicked() {
-        trustedAccountsRepo.getAccounts( accounts -> {
-            if (!accounts.iterator().hasNext()){
+        trustedAccountsRepo.getAccounts(accounts -> {
+            if (!accounts.iterator().hasNext()) {
                 Toast.makeText(this, "Add a trusted account first to upload media.", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -276,35 +290,53 @@ public class AlbumActivity extends AppCompatActivity {
     /* ---------- State Machine ---------- */
 
     private void transitionTo(UiState next) {
-        if (uiState == next || !isValidTransition(uiState, next)) return;
+        if (!isValidTransition(uiState, next)) {
+            Log.w(TAG, "Invalid state transition: " + uiState + " → " + next);
+            return;
+        }
+        if (uiState == next) return;
+
 
         uiState = next;
 
         switch (next) {
             case LOADING -> uiController.showLoading();
-            case READY -> renderReady();
+            case EMPTY -> renderEmpty();
+            case CONTENT -> renderContent();
             case ERROR -> renderError();
-            case IDLE -> {}
+            case IDLE -> {
+            }
         }
+
     }
 
+
+    private boolean isMediaEmpty() {
+        return currentMedia == null || !currentMedia.iterator().hasNext();
+    }
 
 
     private boolean isValidTransition(UiState from, UiState to) {
         return switch (from) {
-            case IDLE -> to == UiState.LOADING || to == UiState.READY || to == UiState.ERROR;
-            case LOADING -> to == UiState.READY || to == UiState.ERROR;
-            case READY, ERROR -> to == UiState.LOADING;
+            case IDLE -> to == UiState.LOADING || to == UiState.EMPTY || to == UiState.CONTENT || to == UiState.ERROR;
+            case LOADING -> to == UiState.EMPTY || to == UiState.CONTENT || to == UiState.ERROR;
+            case EMPTY -> to == UiState.CONTENT || to == UiState.LOADING || to == UiState.ERROR;
+            case CONTENT -> to == UiState.EMPTY || to == UiState.LOADING || to == UiState.ERROR;
+            case ERROR -> to == UiState.LOADING;
         };
     }
 
-
-    private void renderReady() {
-        Log.d(TAG,"renderReady called");
-        if (currentMedia == null) return;
-        if (!currentMedia.iterator().hasNext()) uiController.showEmpty();
-        else uiController.showContent(currentMedia);
+    private void renderEmpty() {
+        Log.d(TAG, "renderEmpty called");
+        uiController.showEmpty();
     }
+
+    private void renderContent() {
+        Log.d(TAG, "renderContent called");
+        if (currentMedia == null) return;
+        uiController.showContent(currentMedia);
+    }
+
 
     private void renderError() {
         albumModalHandler.showRetryLoad(this::refreshAlbum, this::finish);
