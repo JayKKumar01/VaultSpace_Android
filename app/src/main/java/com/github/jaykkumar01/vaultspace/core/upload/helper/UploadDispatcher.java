@@ -5,6 +5,7 @@ import android.content.Context;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.drive.UploadDriveHelper;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,31 +13,66 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class UploadDispatcher {
+
     private static final int MAX_PARALLEL = 3;
+
     private final ExecutorService executor = Executors.newFixedThreadPool(MAX_PARALLEL);
     private final ConcurrentLinkedQueue<UploadTask> queue = new ConcurrentLinkedQueue<>();
     private final Map<String, Set<Future<?>>> runningByGroup = new ConcurrentHashMap<>();
     private final AtomicInteger running = new AtomicInteger();
+
     private final UploadDriveHelper driveHelper;
+
+    /* ================= Generation ================= */
+
+    private final ConcurrentHashMap<String, AtomicInteger> generationByGroup = new ConcurrentHashMap<>();
+
+    void nextGeneration(String groupId) {
+        generationByGroup
+                .computeIfAbsent(groupId, k -> new AtomicInteger(1))
+                .incrementAndGet();
+    }
+
+
+    int currentGeneration(String groupId) {
+        return generationByGroup
+                .computeIfAbsent(groupId, k -> new AtomicInteger(1))
+                .get();
+    }
+
+
+    /* ================= Constructor ================= */
 
     public UploadDispatcher(Context context) {
         this.driveHelper = new UploadDriveHelper(context);
     }
 
+    /* ================= Enqueue ================= */
+
     public void enqueue(List<UploadSelection> selections, UploadTask.Callback callback) {
         if (selections == null || selections.isEmpty()) return;
+
+        String groupId = selections.get(0).context.groupId;
+        int gen = currentGeneration(groupId); // 🔒 SAME for all files
+
         for (UploadSelection s : selections) {
-            queue.add(new UploadTask(s, driveHelper, callback));
+            queue.add(new UploadTask(s, driveHelper, callback, this, gen));
         }
+
         trySchedule();
     }
+
+
+    /* ================= Scheduling ================= */
 
     private void trySchedule() {
         synchronized (this) {
             while (running.get() < MAX_PARALLEL) {
                 UploadTask task = queue.poll();
                 if (task == null) return;
+
                 running.incrementAndGet();
+
                 final Future<?>[] ref = new Future<?>[1];
                 ref[0] = executor.submit(() -> {
                     try {
@@ -45,7 +81,10 @@ public final class UploadDispatcher {
                         onTaskFinished(task.groupId, ref[0]);
                     }
                 });
-                runningByGroup.computeIfAbsent(task.groupId, k -> ConcurrentHashMap.newKeySet()).add(ref[0]);
+
+                runningByGroup
+                        .computeIfAbsent(task.groupId, k -> ConcurrentHashMap.newKeySet())
+                        .add(ref[0]);
             }
         }
     }
@@ -56,18 +95,31 @@ public final class UploadDispatcher {
         trySchedule();
     }
 
+    /* ================= Cancel ================= */
+
     public void cancelGroup(String groupId) {
+        nextGeneration(groupId); // 🔒 invalidate all existing tasks
+
         Set<Future<?>> set = runningByGroup.remove(groupId);
         if (set != null) for (Future<?> f : set) f.cancel(true);
+
         queue.removeIf(t -> t.groupId.equals(groupId));
     }
 
     public void cancelAll() {
+        for (String groupId : new ArrayList<>(generationByGroup.keySet())) {
+            nextGeneration(groupId);
+        }
+
+
         for (Set<Future<?>> set : runningByGroup.values())
             for (Future<?> f : set) f.cancel(true);
+
         runningByGroup.clear();
         queue.clear();
     }
+
+    /* ================= Misc ================= */
 
     public int getActiveCount() {
         return running.get();

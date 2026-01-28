@@ -50,7 +50,7 @@ public final class ThumbnailGenerator {
 
             try (FileOutputStream fos = new FileOutputStream(out)) {
                 // JPEG is fastest + lowest overhead in loops
-                bmp.compress(Bitmap.CompressFormat.JPEG, 95, fos);
+                bmp.compress(Bitmap.CompressFormat.JPEG, 75, fos);
             }
 
             return out.getAbsolutePath();

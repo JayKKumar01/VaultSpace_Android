@@ -256,6 +256,13 @@ public class Notes {
 
 
 
+    // upload glitch,
+    // album content view
+    //thumbnail size in util
+
+
+    //once cancelled you won't get update it means you need to get update from upload manager directly,
+    // do not break the generation logic, fix the callback things from ui side snapshot side
 
 
 

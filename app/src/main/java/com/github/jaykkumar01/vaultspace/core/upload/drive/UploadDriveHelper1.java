@@ -10,12 +10,17 @@ import androidx.annotation.NonNull;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
-import com.github.jaykkumar01.vaultspace.core.upload.base.*;
-import com.github.jaykkumar01.vaultspace.core.upload.helper.CancelToken;
+import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
+import com.github.jaykkumar01.vaultspace.core.upload.base.ProgressCallback;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.utils.UriUtils;
 import com.google.api.client.googleapis.media.MediaHttpUploader;
-import com.google.api.client.http.*;
+import com.google.api.client.http.AbstractInputStreamContent;
+import com.google.api.client.http.HttpResponseException;
+import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
@@ -24,20 +29,30 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
-public final class UploadDriveHelper {
+public final class UploadDriveHelper1 {
 
     private static final String TAG = "VaultSpace:UploadDrive";
+
     private static final int CHUNK = MediaHttpUploader.MINIMUM_CHUNK_SIZE;
 
     public static final class UploadFailure extends Exception {
         public final FailureReason reason;
-        public UploadFailure(FailureReason r, String m, Throwable c) { super(m, c); reason = r; }
-        public UploadFailure(FailureReason r, String m) { this(r, m, null); }
+
+        public UploadFailure(FailureReason r, String m, Throwable c) {
+            super(m, c);
+            reason = r;
+        }
+
+        public UploadFailure(FailureReason r, String m) {
+            this(r, m, null);
+        }
     }
 
     private final Context appContext;
@@ -45,7 +60,7 @@ public final class UploadDriveHelper {
     private final TrustedAccountsRepository trustedAccountsRepo;
     private final ConcurrentHashMap<String, Drive> driveCache = new ConcurrentHashMap<>();
 
-    public UploadDriveHelper(@NonNull Context context) {
+    public UploadDriveHelper1(@NonNull Context context) {
         appContext = context.getApplicationContext();
         resolver = appContext.getContentResolver();
         trustedAccountsRepo = TrustedAccountsRepository.getInstance(context);
@@ -62,8 +77,7 @@ public final class UploadDriveHelper {
     public UploadedItem upload(
             String parentId,
             UploadSelection selection,
-            ProgressCallback cb,
-            CancelToken token
+            ProgressCallback cb
     ) throws UploadFailure, CancellationException {
 
         Log.d(TAG, "upload start parentId=" + parentId + " uri=" + selection.uri);
@@ -72,6 +86,7 @@ public final class UploadDriveHelper {
             throw new UploadFailure(FailureReason.URI_NOT_FOUND, "Uri not accessible");
 
         String email = pickRandomAccount(selection.sizeBytes);
+
         Drive drive = getDrive(email);
 
         String thumbFileId = null;
@@ -90,18 +105,18 @@ public final class UploadDriveHelper {
 
         if (thumbFileId != null)
             meta.setAppProperties(Collections.singletonMap("thumb", thumbFileId));
+
         if (selection.momentMillis > 0)
             meta.setModifiedTime(new DateTime(selection.momentMillis));
 
         InputStream in = null;
         try {
             AbstractInputStreamContent content =
-                    buildContent(selection.uri, selection.mimeType, selection.sizeBytes, token);
+                    buildContent(selection.uri, selection.mimeType, selection.sizeBytes);
 
             in = ((InputStreamContent) content).getInputStream();
 
-            UploadedItem item =
-                    uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes, token);
+            UploadedItem item = uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes);
 
             trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes);
             return item;
@@ -113,31 +128,72 @@ public final class UploadDriveHelper {
 
     /* ================= Utilities ================= */
 
-    private AbstractInputStreamContent buildContent(
-            Uri uri, String mime, long size, CancelToken token
-    ) throws UploadFailure {
+    private String uploadVideoThumbnail(Drive drive, String path) throws Exception {
+
+        String folderId = DriveFolderRepository.getThumbnailsRootId(appContext);
+        java.io.File file = new java.io.File(path);
+
+        File meta = new File()
+                .setName("vid_thumb_" + System.currentTimeMillis() + ".jpg")
+                .setMimeType("image/jpeg")
+                .setParents(Collections.singletonList(folderId));
+
+        InputStreamContent content =
+                new InputStreamContent("image/jpeg", new FileInputStream(file));
+        content.setLength(file.length());
+
+        Drive.Files.Create req =
+                drive.files().create(meta, content).setFields("id");
+        req.getMediaHttpUploader().setDirectUploadEnabled(true);
+
+        return req.execute().getId();
+    }
+
+    private String pickRandomAccount(long sizeBytes) throws UploadFailure {
+
+        Iterable<TrustedAccount> snapshot = trustedAccountsRepo.getAccountsSnapshot();
+        if (!snapshot.iterator().hasNext())
+            throw new UploadFailure(FailureReason.NO_TRUSTED_ACCOUNT, "No trusted accounts");
+
+        List<String> eligible = new ArrayList<>();
+        for (TrustedAccount a : snapshot)
+            if (a.totalQuota - a.usedQuota >= sizeBytes)
+                eligible.add(a.email);
+
+        if (eligible.isEmpty())
+            throw new UploadFailure(FailureReason.NO_SPACE, "No account has space");
+
+        return eligible.get(ThreadLocalRandom.current().nextInt(eligible.size()));
+    }
+
+    private AbstractInputStreamContent buildContent(Uri uri, String mime, long size)
+            throws UploadFailure {
 
         try {
-            InputStream raw = resolver.openInputStream(uri);
-            if (raw == null) throw new FileNotFoundException("Null input stream");
+            InputStream in = resolver.openInputStream(uri);
+            if (in == null) throw new FileNotFoundException("Null input stream");
 
-            InputStream in = new CancellableInputStream(raw, token);
             InputStreamContent c = new InputStreamContent(mime, in);
             c.setLength(size);
             return c;
 
         } catch (FileNotFoundException e) {
-            throw new UploadFailure(FailureReason.URI_NOT_FOUND, "Input stream not found", e);
+            throw new UploadFailure(
+                    FailureReason.URI_NOT_FOUND,
+                    "Input stream not found",
+                    e
+            );
         }
     }
+
+    /* ================= Drive primitive ================= */
 
     private UploadedItem uploadPreparedFile(
             Drive drive,
             File meta,
             AbstractInputStreamContent content,
             ProgressCallback cb,
-            long fileSize,
-            CancelToken token
+            long fileSize
     ) throws UploadFailure, CancellationException {
 
         try {
@@ -145,11 +201,16 @@ public final class UploadDriveHelper {
             req.setFields("id,name,mimeType,size,modifiedTime,thumbnailLink");
 
             MediaHttpUploader u = req.getMediaHttpUploader();
-            u.setDirectUploadEnabled(fileSize <= CHUNK);
-            if (fileSize > CHUNK) u.setChunkSize(CHUNK);
+
+            if (fileSize <= CHUNK) {
+                u.setDirectUploadEnabled(true);
+            } else {
+                u.setDirectUploadEnabled(false);
+                u.setChunkSize(CHUNK);
+            }
 
             u.setProgressListener(p -> {
-                if (token.isCancelled())
+                if (Thread.currentThread().isInterrupted())
                     throw new CancellationException();
                 cb.onProgress(p.getNumBytesUploaded(), content.getLength());
             });
@@ -175,40 +236,19 @@ public final class UploadDriveHelper {
 
         } catch (IOException e) {
             throw new UploadFailure(FailureReason.IO_ERROR, "IO error", e);
+        } catch (CancellationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UploadFailure(FailureReason.DRIVE_ERROR, "Drive upload failed", e);
         }
     }
 
     private static void closeQuietly(InputStream in) {
-        if (in != null) try { in.close(); } catch (IOException ignored) {}
-    }
-
-    private String pickRandomAccount(long sizeBytes) throws UploadFailure {
-        Iterable<TrustedAccount> snapshot = trustedAccountsRepo.getAccountsSnapshot();
-        List<String> eligible = new ArrayList<>();
-        for (TrustedAccount a : snapshot)
-            if (a.totalQuota - a.usedQuota >= sizeBytes)
-                eligible.add(a.email);
-        if (eligible.isEmpty())
-            throw new UploadFailure(FailureReason.NO_SPACE, "No account has space");
-        return eligible.get(ThreadLocalRandom.current().nextInt(eligible.size()));
-    }
-
-    private String uploadVideoThumbnail(Drive drive, String path) throws Exception {
-        String folderId = DriveFolderRepository.getThumbnailsRootId(appContext);
-        java.io.File file = new java.io.File(path);
-
-        File meta = new File()
-                .setName("vid_thumb_" + System.currentTimeMillis() + ".jpg")
-                .setMimeType("image/jpeg")
-                .setParents(Collections.singletonList(folderId));
-
-        InputStreamContent content =
-                new InputStreamContent("image/jpeg", new FileInputStream(file));
-        content.setLength(file.length());
-
-        return drive.files().create(meta, content)
-                .setFields("id")
-                .execute()
-                .getId();
+        if (in != null) {
+            try {
+                in.close();
+            } catch (IOException ignored) {
+            }
+        }
     }
 }
