@@ -16,6 +16,10 @@ public final class UploadSelection {
     public final long originMoment;   // when this memory was born
     public final long momentMillis;   // when this memory became what it is now
 
+    // 🔑 layout-critical (NEW)
+    public final float aspectRatio;   // width / height (AFTER rotation)
+    public final int rotation;        // 0, 90, 180, 270
+
     @Nullable public final String thumbnailPath;
     @NonNull public final UploadContext context;
 
@@ -28,6 +32,8 @@ public final class UploadSelection {
             long sizeBytes,
             long originMoment,
             long momentMillis,
+            float aspectRatio,
+            int rotation,
             @Nullable String thumbnailPath
     ) {
         this.id = id;
@@ -38,6 +44,8 @@ public final class UploadSelection {
         this.sizeBytes = sizeBytes;
         this.originMoment = originMoment;
         this.momentMillis = momentMillis;
+        this.aspectRatio = aspectRatio;
+        this.rotation = rotation;
         this.thumbnailPath = thumbnailPath;
         this.context = new UploadContext(id, groupId);
     }

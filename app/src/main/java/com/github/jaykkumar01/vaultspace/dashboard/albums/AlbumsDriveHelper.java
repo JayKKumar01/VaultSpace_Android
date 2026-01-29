@@ -136,11 +136,12 @@ public final class AlbumsDriveHelper {
 
     private void deleteInternal(String albumId, DeleteAlbumCallback cb) throws Exception {
 
-        Map<String, Drive> driveCache = new ConcurrentHashMap<>();
+        Map<String,Drive> driveCache = new ConcurrentHashMap<>();
         String pageToken = null;
         AtomicInteger deletedCount = new AtomicInteger();
+//        int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
 
-        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+        try (ExecutorService pool = Executors.newFixedThreadPool(3)) {
 
             do {
                 FileList list = primaryDrive.files().list()
@@ -171,7 +172,7 @@ public final class AlbumsDriveHelper {
                                 String thumbId = props.get("thumb");
                                 if (thumbId != null) {
                                     try { drive.files().delete(thumbId).execute(); }
-                                    catch (Exception ignored) {}
+                                    catch (Exception ignore) {}
                                 }
                             }
 
@@ -189,12 +190,11 @@ public final class AlbumsDriveHelper {
                     }
 
                     for (Future<?> task : tasks) {
-                        try {
-                            task.get();
-                        } catch (ExecutionException e) {
-                            Throwable cause = e.getCause();
-                            if (cause instanceof Exception) throw (Exception) cause;
-                            throw new Exception(cause);
+                        try { task.get(); }
+                        catch (ExecutionException e) {
+                            Throwable c = e.getCause();
+                            if (c instanceof Exception) throw (Exception) c;
+                            throw new Exception(c);
                         }
                     }
                 }
@@ -208,6 +208,7 @@ public final class AlbumsDriveHelper {
             post(() -> cb.onSuccess(albumId));
         }
     }
+
 
 
 

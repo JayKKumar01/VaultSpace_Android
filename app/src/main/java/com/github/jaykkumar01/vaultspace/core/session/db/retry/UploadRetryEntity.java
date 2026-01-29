@@ -17,14 +17,16 @@ public final class UploadRetryEntity {
     @Nullable public final String mimeType;
 
     @NonNull public final String displayName;
-
     public final long sizeBytes;
 
-    public final long originMoment;           // 🟢 NEW
+    public final long originMoment;
     public final long momentMillis;
 
-    @Nullable public final String thumbnailPath;
+    // 🔑 layout-critical (NEW)
+    public final float aspectRatio;
+    public final int rotation;
 
+    @Nullable public final String thumbnailPath;
     @NonNull public final String failureReason;
 
     public UploadRetryEntity(
@@ -36,6 +38,8 @@ public final class UploadRetryEntity {
             long sizeBytes,
             long originMoment,
             long momentMillis,
+            float aspectRatio,
+            int rotation,
             @Nullable String thumbnailPath,
             @NonNull String failureReason
     ) {
@@ -47,6 +51,8 @@ public final class UploadRetryEntity {
         this.sizeBytes = sizeBytes;
         this.originMoment = originMoment;
         this.momentMillis = momentMillis;
+        this.aspectRatio = aspectRatio;
+        this.rotation = rotation;
         this.thumbnailPath = thumbnailPath;
         this.failureReason = failureReason;
     }

@@ -16,6 +16,10 @@ public final class UploadedItem {
 
     public final boolean vsOrigin;   // true = real origin, false = promoted moment
 
+    // 🔑 layout-critical (NEW)
+    public final float aspectRatio;  // width / height (already rotation-corrected)
+    public final int rotation;       // 0, 90, 180, 270
+
     @Nullable public final String thumbnailLink;
 
     public UploadedItem(
@@ -26,6 +30,8 @@ public final class UploadedItem {
             long originMoment,
             long momentMillis,
             boolean vsOrigin,
+            float aspectRatio,
+            int rotation,
             @Nullable String thumbnailLink
     ) {
         this.fileId = fileId;
@@ -35,6 +41,8 @@ public final class UploadedItem {
         this.originMoment = originMoment;
         this.momentMillis = momentMillis;
         this.vsOrigin = vsOrigin;
+        this.aspectRatio = aspectRatio;
+        this.rotation = rotation;
         this.thumbnailLink = thumbnailLink;
     }
 

@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.MediaGeometry;
 import com.github.jaykkumar01.vaultspace.album.Moments;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.google.api.services.drive.Drive;
@@ -79,6 +80,38 @@ public final class DriveResolver {
 
         return new Moments(originMoment, modified, vsOrigin);
     }
+
+    @NonNull
+    public MediaGeometry resolveGeometry(@NonNull File file) {
+
+        float aspectRatio = 1f;
+        int rotation = 0;
+
+        Map<String, String> props = file.getAppProperties();
+        if (props != null) {
+            try {
+                String ar = props.get("vs_aspect_ratio");
+                if (ar != null) aspectRatio = Float.parseFloat(ar);
+            } catch (Exception ignored) {
+            }
+
+            try {
+                String rot = props.get("vs_rotation");
+                if (rot != null) rotation = Integer.parseInt(rot);
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Hard safety clamps (important for layout stability)
+        if (aspectRatio <= 0f || Float.isNaN(aspectRatio) || Float.isInfinite(aspectRatio))
+            aspectRatio = 1f;
+
+        if (rotation != 0 && rotation != 90 && rotation != 180 && rotation != 270)
+            rotation = 0;
+
+        return new MediaGeometry(aspectRatio, rotation);
+    }
+
 
 
     /* ==========================================================

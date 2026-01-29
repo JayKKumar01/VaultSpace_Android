@@ -91,14 +91,14 @@ public final class UploadRetryStore implements SessionStore{
                 s.mimeType,
                 s.displayName,
                 s.sizeBytes,
-                s.originMoment,      // 🟢 NEW
+                s.originMoment,
                 s.momentMillis,
+                s.aspectRatio,     // 🟢 NEW
+                s.rotation,        // 🟢 NEW
                 s.thumbnailPath,
                 reason
         );
     }
-
-
     private static UploadSelection fromEntity(@NonNull UploadRetryEntity e) {
         UploadSelection s = new UploadSelection(
                 e.id,
@@ -107,13 +107,16 @@ public final class UploadRetryStore implements SessionStore{
                 e.mimeType,
                 e.displayName,
                 e.sizeBytes,
-                e.originMoment,      // 🟢 NEW
+                e.originMoment,
                 e.momentMillis,
+                e.aspectRatio,     // 🟢 NEW
+                e.rotation,        // 🟢 NEW
                 e.thumbnailPath
         );
         s.context.failureReason = FailureReason.valueOf(e.failureReason);
         return s;
     }
+
 
 
     @Override

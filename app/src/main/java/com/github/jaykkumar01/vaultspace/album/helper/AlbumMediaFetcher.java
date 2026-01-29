@@ -7,6 +7,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.MediaGeometry;
 import com.github.jaykkumar01.vaultspace.album.Moments;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.google.api.services.drive.Drive;
@@ -87,6 +88,7 @@ final class AlbumMediaFetcher {
         String thumbRef = driveResolver.resolve(file);
 
         Moments m = driveResolver.resolveMoments(file);
+        MediaGeometry g = driveResolver.resolveGeometry(file);
 
         UploadedItem item = new UploadedItem(
                 file.getId(),
@@ -96,8 +98,11 @@ final class AlbumMediaFetcher {
                 m.originMoment,
                 m.momentMillis,
                 m.vsOrigin,
+                g.aspectRatio,   // 🟢 NEW
+                g.rotation,      // 🟢 NEW
                 thumbRef
         );
+
 
         return new AlbumMedia(item);
     }

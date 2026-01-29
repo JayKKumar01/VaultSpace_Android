@@ -36,8 +36,15 @@ public final class UploadDriveHelper {
 
     public static final class UploadFailure extends Exception {
         public final FailureReason reason;
-        public UploadFailure(FailureReason r, String m, Throwable c) { super(m, c); reason = r; }
-        public UploadFailure(FailureReason r, String m) { this(r, m, null); }
+
+        public UploadFailure(FailureReason r, String m, Throwable c) {
+            super(m, c);
+            reason = r;
+        }
+
+        public UploadFailure(FailureReason r, String m) {
+            this(r, m, null);
+        }
     }
 
     private final Context appContext;
@@ -90,8 +97,14 @@ public final class UploadDriveHelper {
                 .setParents(Collections.singletonList(parentId));
 
         Map<String, String> appProps = new HashMap<>();
+
         if (thumbFileId != null)
             appProps.put("thumb", thumbFileId);
+
+        // 🔑 layout-critical metadata (NEW)
+        appProps.put("vs_aspect_ratio", Float.toString(selection.aspectRatio));
+        appProps.put("vs_rotation", Integer.toString(selection.rotation));
+
 
         long origin = selection.originMoment;
         long moment = selection.momentMillis;
@@ -112,8 +125,6 @@ public final class UploadDriveHelper {
             meta.setAppProperties(appProps);
 
 
-
-
         InputStream in = null;
         String safeMime = selection.mimeType != null ? selection.mimeType : "application/octet-stream";
 
@@ -122,7 +133,7 @@ public final class UploadDriveHelper {
 
             in = ((InputStreamContent) content).getInputStream();
 
-            UploadedItem item = uploadPreparedFile(drive, meta,thumbFileId, content, cb, selection, token);
+            UploadedItem item = uploadPreparedFile(drive, meta, thumbFileId, content, cb, selection, token);
 
             trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes);
             return item;
@@ -200,9 +211,10 @@ public final class UploadDriveHelper {
                     originMoment,
                     momentMillis,
                     vsOrigin,
+                    selection.aspectRatio,   // 🟢 NEW
+                    selection.rotation,      // 🟢 NEW
                     thumbFileId
             );
-
 
 
         } catch (HttpResponseException e) {
@@ -217,7 +229,10 @@ public final class UploadDriveHelper {
     }
 
     private static void closeQuietly(InputStream in) {
-        if (in != null) try { in.close(); } catch (IOException ignored) {}
+        if (in != null) try {
+            in.close();
+        } catch (IOException ignored) {
+        }
     }
 
     private String pickRandomAccount(long sizeBytes) throws UploadFailure {

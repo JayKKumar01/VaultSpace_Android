@@ -50,8 +50,6 @@ public final class ProgressStackView extends FrameLayout {
         int base = ContextCompat.getColor(
                 getContext(), R.color.vs_surface_soft
         );
-
-// 0f = fully transparent, 1f = fully opaque
         float alpha = 0.7f; // 50% (very visible)
 
         int a = Math.round(alpha * 255f);

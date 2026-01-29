@@ -56,6 +56,9 @@ public final class UriUtils {
         long originMoment = -1;
         long momentMillis = -1;
 
+        float aspectRatio = 1f;
+        int rotation = 0;
+
         /* ---------- Media-aware extraction ---------- */
 
         if (type == UploadType.PHOTO) {
@@ -65,6 +68,12 @@ public final class UriUtils {
 
                     // Origin (trusted only)
                     originMoment = readExifOrigin(exif);
+
+                    rotation = exifRotationToDegrees(exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL));
+
+                    int w = readExifWidth(exif);
+                    int h = readExifHeight(exif);
+                    aspectRatio = computeAspectRatio(w, h, rotation);
 
                     // Moment fallback (only if base missing)
                     if (base.modifiedMillis <= 0 && originMoment > 0) {
@@ -79,6 +88,12 @@ public final class UriUtils {
 
                 // Origin (embedded only)
                 originMoment = readVideoOrigin(r);
+
+                rotation = parseRotation(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION));
+
+                int w = parseInt(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+                int h = parseInt( r.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT ));
+                aspectRatio = computeAspectRatio(w, h, rotation);
 
                 // Moment fallback (only if base missing)
                 if (base.modifiedMillis <= 0) {
@@ -104,6 +119,11 @@ public final class UriUtils {
             momentMillis = System.currentTimeMillis();
         }
 
+        /* ---------- Geometry safety ---------- */
+
+        aspectRatio = sanitizeAspectRatio(aspectRatio);
+        rotation = sanitizeRotation(rotation);
+
         /* ---------- Thumbnail ---------- */
 
         String thumb = null;
@@ -116,9 +136,16 @@ public final class UriUtils {
 
         String id = UUID.randomUUID().toString();
         return new UploadSelection(
-                id, groupId, uri, mime,
-                base.displayName, base.sizeBytes,
-                originMoment, momentMillis,
+                id,
+                groupId,
+                uri,
+                mime,
+                base.displayName,
+                base.sizeBytes,
+                originMoment,
+                momentMillis,
+                aspectRatio,
+                rotation,
                 thumb
         );
     }
@@ -162,6 +189,45 @@ public final class UriUtils {
         } catch (Exception ignored) {
         }
         return new BaseMeta(name, size, modified);
+    }
+
+    /* ==========================================================
+     * Geometry helpers (PURE, metadata-only)
+     * ========================================================== */
+
+    private static float computeAspectRatio(int w,int h,int rotation) {
+        if (w <= 0 || h <= 0) return 1f;
+        return (rotation == 90 || rotation == 270)
+                ? (h / (float) w)
+                : (w / (float) h);
+    }
+
+    private static float sanitizeAspectRatio(float ar) {
+        return (ar <= 0f || Float.isNaN(ar) || Float.isInfinite(ar)) ? 1f : ar;
+    }
+
+    private static int sanitizeRotation(int r) {
+        return (r == 0 || r == 90 || r == 180 || r == 270) ? r : 0;
+    }
+
+    private static int exifRotationToDegrees(int o) {
+        return o == ExifInterface.ORIENTATION_ROTATE_90 ? 90 :
+                o == ExifInterface.ORIENTATION_ROTATE_180 ? 180 :
+                        o == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+    }
+
+    private static int readExifWidth(ExifInterface exif) {
+        int v = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH,-1);
+        return v > 0 ? v : exif.getAttributeInt(
+                ExifInterface.TAG_PIXEL_X_DIMENSION,-1
+        );
+    }
+
+    private static int readExifHeight(ExifInterface exif) {
+        int v = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH,-1);
+        return v > 0 ? v : exif.getAttributeInt(
+                ExifInterface.TAG_PIXEL_Y_DIMENSION,-1
+        );
     }
 
     /* =========================
@@ -217,6 +283,16 @@ public final class UriUtils {
         } catch (Exception ignored) {
             return -1;
         }
+    }
+
+    private static int parseRotation(String v) {
+        try { return v != null ? Integer.parseInt(v) : 0; }
+        catch (Exception e) { return 0; }
+    }
+
+    private static int parseInt(String v) {
+        try { return v != null ? Integer.parseInt(v) : -1; }
+        catch (Exception e) { return -1; }
     }
 
     /* =========================
