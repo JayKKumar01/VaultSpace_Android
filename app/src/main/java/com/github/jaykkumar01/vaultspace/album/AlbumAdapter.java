@@ -82,7 +82,7 @@ final class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.VH> {
         });
     }
 
-    private static CharSequence buildMetaText(AlbumMedia m, long now) {
+    private CharSequence buildMetaText(AlbumMedia m, long now) {
 
         String originWord = m.isVideo ? "Recorded" : "Captured";
 
@@ -106,13 +106,13 @@ final class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.VH> {
     }
 
 
-    private static CharSequence relativeWithTime(long when, long now) {
+    private CharSequence relativeWithTime(long when, long now) {
         CharSequence relative = DateUtils.getRelativeTimeSpanString(
                 when, now, DateUtils.MINUTE_IN_MILLIS
         );
 
         CharSequence time = DateUtils.formatDateTime(
-                null,
+                context,
                 when,
                 DateUtils.FORMAT_SHOW_TIME
         );

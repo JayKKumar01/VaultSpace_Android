@@ -33,6 +33,11 @@ public final class ProgressStackView extends FrameLayout {
         init();
     }
 
+    private static int withAlpha(int color, int alpha) {
+        return (color & 0x00FFFFFF) | (alpha << 24);
+    }
+
+
     private void init() {
         setClipChildren(false);
         setClipToPadding(false);
@@ -41,10 +46,20 @@ public final class ProgressStackView extends FrameLayout {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(8));
-        bg.setColor(ContextCompat.getColor(
-                getContext(), R.color.vs_surface_soft_translucent
-        ));
+
+        int base = ContextCompat.getColor(
+                getContext(), R.color.vs_surface_soft
+        );
+
+// 0f = fully transparent, 1f = fully opaque
+        float alpha = 0.7f; // 50% (very visible)
+
+        int a = Math.round(alpha * 255f);
+        bg.setColor((base & 0x00FFFFFF) | (a << 24));
+
         setBackground(bg);
+
+
 
         rv = new RecyclerView(getContext());
         rv.setOverScrollMode(OVER_SCROLL_NEVER);
@@ -52,8 +67,8 @@ public final class ProgressStackView extends FrameLayout {
         rv.setPadding(dp(16), dp(8), dp(16), dp(8));
 
         LinearLayoutManager lm = new LinearLayoutManager(getContext());
-        lm.setStackFromEnd(true); // bottom-stacked visual
         rv.setLayoutManager(lm);
+
 
         adapter = new ProgressStackAdapter();
         rv.setAdapter(adapter);

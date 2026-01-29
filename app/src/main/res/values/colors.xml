@@ -32,6 +32,8 @@
 
     <color name="vs_surface_soft">#1B2430</color>
     <color name="vs_surface_soft_translucent">#E61B2430</color>
+    <color name="vs_surface_soft_translucent_low">#1AFFFFFF</color>
+
 
 
     <!-- ===== Ripple Effects ===== -->
