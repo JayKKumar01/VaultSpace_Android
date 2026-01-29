@@ -75,13 +75,14 @@ public final class UploadDriveHelper {
         Drive drive = getDrive(email);
 
         String thumbFileId = null;
-        if (selection.type == UploadType.VIDEO && selection.thumbnailPath != null) {
+        if (selection.thumbnailPath != null) {
             try {
-                thumbFileId = uploadVideoThumbnail(drive, selection.thumbnailPath);
+                thumbFileId = uploadThumbnail(drive, selection.thumbnailPath);
             } catch (Exception e) {
                 Log.w(TAG, "thumbnail upload failed, continuing", e);
             }
         }
+
 
         File meta = new File()
                 .setName(selection.displayName)
@@ -99,7 +100,7 @@ public final class UploadDriveHelper {
 
             in = ((InputStreamContent) content).getInputStream();
 
-            UploadedItem item = uploadPreparedFile(drive, meta, content, cb, selection.sizeBytes, token);
+            UploadedItem item = uploadPreparedFile(drive, meta,thumbFileId, content, cb, selection.sizeBytes, token);
 
             trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes);
             return item;
@@ -130,6 +131,7 @@ public final class UploadDriveHelper {
     private UploadedItem uploadPreparedFile(
             Drive drive,
             File meta,
+            String thumbFileId,
             AbstractInputStreamContent content,
             ProgressCallback cb,
             long fileSize,
@@ -138,7 +140,7 @@ public final class UploadDriveHelper {
 
         try {
             Drive.Files.Create req = drive.files().create(meta, content);
-            req.setFields("id,name,mimeType,size,modifiedTime,thumbnailLink");
+            req.setFields("id,name,mimeType,modifiedTime,size");
 
             MediaHttpUploader u = req.getMediaHttpUploader();
             u.setDirectUploadEnabled(fileSize <= CHUNK);
@@ -151,6 +153,8 @@ public final class UploadDriveHelper {
             });
 
             File f = req.execute();
+            Log.d(TAG, "thumb=" + (thumbFileId != null ? thumbFileId : "none"));
+
 
             return new UploadedItem(
                     f.getId(),
@@ -160,7 +164,7 @@ public final class UploadDriveHelper {
                     f.getModifiedTime() != null
                             ? f.getModifiedTime().getValue()
                             : System.currentTimeMillis(),
-                    f.getThumbnailLink()
+                    thumbFileId
             );
 
         } catch (HttpResponseException e) {
@@ -189,12 +193,12 @@ public final class UploadDriveHelper {
         return eligible.get(ThreadLocalRandom.current().nextInt(eligible.size()));
     }
 
-    private String uploadVideoThumbnail(Drive drive, String path) throws Exception {
+    private String uploadThumbnail(Drive drive, String path) throws Exception {
         String folderId = DriveFolderRepository.getThumbnailsRootId(appContext);
         java.io.File file = new java.io.File(path);
 
         File meta = new File()
-                .setName("vid_thumb_" + System.currentTimeMillis() + ".jpg")
+                .setName("media_thumb_" + UUID.randomUUID().toString() + ".jpg")
                 .setMimeType("image/jpeg")
                 .setParents(Collections.singletonList(folderId));
 

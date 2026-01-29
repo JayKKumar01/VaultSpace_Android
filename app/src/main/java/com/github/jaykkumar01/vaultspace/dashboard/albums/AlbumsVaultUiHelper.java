@@ -240,7 +240,7 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
         }
 
         for (AlbumInfo a : cache.getAlbumsView()){
-            if (a != null && trimmed.equals(a.name)){
+            if (a != null && trimmed.equalsIgnoreCase(a.name)){
                 Toast.makeText(context,"Album already exists",Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -260,10 +260,8 @@ public class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper {
                     @Override
                     public void onSuccess(AlbumInfo real) {
                         if (released) return;
-//                        albumsContentView.deleteAlbum(temp.id);
                         cache.addAlbum(real);
                         albumsContentView.updateAlbum(temp.id,real);
-//                        albumsContentView.addAlbum(real);
                     }
 
                     @Override

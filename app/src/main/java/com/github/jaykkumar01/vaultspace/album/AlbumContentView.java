@@ -2,20 +2,21 @@ package com.github.jaykkumar01.vaultspace.album;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import android.view.View;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class AlbumContentView extends FrameLayout {
 
-    private ScrollView scrollView;
-    private LinearLayout listContainer;
+    private RecyclerView recyclerView;
+    private AlbumAdapter adapter;
 
     public AlbumContentView(Context context) {
         super(context);
@@ -32,44 +33,39 @@ public class AlbumContentView extends FrameLayout {
         init(context);
     }
 
-    private void init(Context context){
-        setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+    private void init(Context context) {
+        setBackgroundColor(context.getColor(R.color.vs_content_bg));
 
-        scrollView=new ScrollView(context);
-        scrollView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        recyclerView = new RecyclerView(context);
+        recyclerView.setLayoutManager(new LinearLayoutManager(context));
+        recyclerView.setItemAnimator(null); // 🔥 reduces jank
+        recyclerView.setHasFixedSize(true);
 
-        listContainer=new LinearLayout(context);
-        listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT));
-        int pad= 4;
-        listContainer.setPadding(pad,pad,pad,pad);
+        adapter = new AlbumAdapter(context);
+        recyclerView.setAdapter(adapter);
 
-        scrollView.addView(listContainer);
-        addView(scrollView);
+        addView(recyclerView, new LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.MATCH_PARENT
+        ));
     }
 
-    private View createItem(Context context, AlbumMedia media){
-        TextView tv=new TextView(context);
-        tv.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT));
-        tv.setText(media.name+(media.isVideo?" (Video)":" (Photo)"));
-        tv.setTextSize(14);
-        tv.setTextColor(context.getColor(R.color.vs_text_content));
-        tv.setPadding(0,24,0,24);
-        return tv;
-    }
-    public void setMedia(Iterable<AlbumMedia> snapshotList){
-        listContainer.removeAllViews();
-        Context context=getContext();
-        for(AlbumMedia media:snapshotList){
-            listContainer.addView(createItem(context,media));
-        }
+    /* ================= Public API (UNCHANGED) ================= */
+
+    public void setMedia(Iterable<AlbumMedia> snapshotList) {
+        List<AlbumMedia> list = new ArrayList<>();
+        for (AlbumMedia m : snapshotList) list.add(m);
+        adapter.setItems(list);
     }
 
-    public void addMedia(AlbumMedia media){
-        View item=createItem(getContext(),media);
-        listContainer.addView(item,0);
-        scrollView.post(() -> scrollView.fullScroll(ScrollView.FOCUS_UP));
+    public void addMedia(AlbumMedia media) {
+        adapter.addItem(media);
+        recyclerView.scrollToPosition(0);
     }
 
-
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        adapter.release();
+    }
 }

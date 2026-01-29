@@ -11,6 +11,7 @@ import java.util.Collections;
 public final class DriveFolderRepository {
 
     private static final String FOLDER_MIME = "application/vnd.google-apps.folder";
+    private static final String ROOT_ID = "root";
     private static final String ROOT_FOLDER_NAME = "VaultSpace";
     private static final String ALBUMS_FOLDER_NAME = "Albums";
     private static final String FILES_FOLDER_NAME = "Files";
@@ -25,7 +26,7 @@ public final class DriveFolderRepository {
     public static synchronized String getRootFolderId(Context c) throws Exception {
         if (rootFolderId != null) return rootFolderId;
         Drive d = DriveClientProvider.getPrimaryDrive(c);
-        rootFolderId = resolveFolder(d, ROOT_FOLDER_NAME, "root").getId();
+        rootFolderId = resolveFolder(d, ROOT_FOLDER_NAME, ROOT_ID).getId();
         return rootFolderId;
     }
 

@@ -6,114 +6,99 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.MessageDigest;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 public final class DriveThumbnailResolver {
 
     private static final String TAG = "VaultSpace:ThumbResolver";
-    private static final String SEP = "|";
     private static final String THUMB_PREFIX = "thumb_";
     private static final String THUMB_EXT = ".jpg";
 
     private final Context appContext;
     private final ExecutorService executor;
+    private final Drive primaryDrive;
 
     public DriveThumbnailResolver(@NonNull Context context) {
         this.appContext = context.getApplicationContext();
-        this.executor = Executors.newSingleThreadExecutor();
+        this.executor = Executors.newFixedThreadPool(3);
+        this.primaryDrive = DriveClientProvider.getPrimaryDrive(context);
     }
 
     /* ==========================================================
-     * STEP 1: metadata-only (used by AlbumMediaFetcher)
+     * STEP 1: metadata-only extraction (NO IO)
      * ========================================================== */
 
-    /**
-     * Returns thumbnail reference:
-     *
-     * image/*  -> thumbnailLink
-     * video/*  -> email|thumbFileId
-     * others   -> null
-     */
     @Nullable
-    public String resolve(
-            @NonNull File file
-    ) {
+    public String resolve(@NonNull File file) {
         String mime = file.getMimeType();
         if (mime == null) return null;
 
-        // 🖼 IMAGE
-        if (mime.startsWith("image/")) {
-            return file.getThumbnailLink();
-        }
-
-        // 🎥 VIDEO
-        if (mime.startsWith("video/")) {
-            Map<String, String> props = file.getAppProperties();
-            if (props == null) return null;
-
+        Map<String, String> props = file.getAppProperties();
+        if (props != null && props.containsKey("thumb"))
             return props.get("thumb");
-        }
+
+        if (mime.startsWith("image/") || mime.startsWith("video/"))
+            return file.getThumbnailLink();
 
         return null;
     }
 
     /* ==========================================================
-     * STEP 2: reference → cached path
+     * STEP 2: async resolution entry
      * ========================================================== */
 
-    /**
-     * Synchronous resolution.
-     * Safe to call from background thread.
-     */
+    public void resolveAsync(
+            @NonNull AlbumMedia media,
+            @NonNull Consumer<String> consumer
+    ) {
+        executor.execute(() -> consumer.accept(resolveOnce(media)));
+    }
+
+    /* ==========================================================
+     * Core resolution logic (single pass, no retries)
+     * ========================================================== */
+
     @Nullable
-    public String resolveCachedPath(@Nullable String compositeRef) {
-        if (compositeRef == null) return null;
+    private String resolveOnce(@NonNull AlbumMedia media) {
+        if (media.mimeType == null) return null;
 
-        int idx = compositeRef.indexOf(SEP);
-        if (idx <= 0) {
-            // image thumbnailLink (URL)
-            return compositeRef;
-        }
+        String ref = media.thumbnailLink;
+        if (ref == null || ref.isEmpty()) return null;
 
-        String email = compositeRef.substring(0, idx);
-        String thumbFileId = compositeRef.substring(idx + 1);
+        if (ref.startsWith("http"))
+            return resolveHttp(ref);
 
+        return resolveDriveThumb(ref);
+    }
+
+
+    /* ==========================================================
+     * Drive thumbnail handling (explicit thumbnails)
+     * ========================================================== */
+
+    private String resolveDriveThumb(@NonNull String thumbFileId) {
         java.io.File out = new java.io.File(
                 appContext.getCacheDir(),
                 THUMB_PREFIX + thumbFileId + THUMB_EXT
         );
 
         if (out.exists()) return out.getAbsolutePath();
-
-        Drive drive = DriveClientProvider.forAccount(appContext, email);
-        return fetchAndCache(drive, thumbFileId, out);
+        return fetchAndCache(primaryDrive, thumbFileId, out);
     }
-
-    /**
-     * Asynchronous resolution.
-     * This is what you’ll use later from adapter / prefetch logic.
-     */
-    public void resolveCachedPathAsync(
-            @Nullable String compositeRef,
-            @NonNull Callback callback
-    ) {
-        executor.execute(() -> {
-            String result = resolveCachedPath(compositeRef);
-            callback.onResult(result);
-        });
-    }
-
-    /* ==========================================================
-     * Internal helpers
-     * ========================================================== */
 
     private String fetchAndCache(
             @NonNull Drive drive,
@@ -121,13 +106,65 @@ public final class DriveThumbnailResolver {
             @NonNull java.io.File out
     ) {
         try (OutputStream os = new FileOutputStream(out)) {
-            drive.files()
-                    .get(thumbFileId)
-                    .executeMediaAndDownloadTo(os);
+            drive.files().get(thumbFileId).executeMediaAndDownloadTo(os);
             return out.getAbsolutePath();
         } catch (Exception e) {
-            Log.w(TAG, "Thumbnail fetch failed id=" + thumbFileId, e);
+            Log.w(TAG, "Drive thumbnail fetch failed id=" + thumbFileId, e);
+            out.delete();
             return null;
+        }
+    }
+
+    /* ==========================================================
+     * HTTP thumbnail handling (fallback only)
+     * ========================================================== */
+
+    private String resolveHttp(@NonNull String url) {
+        java.io.File out = new java.io.File(
+                appContext.getCacheDir(),
+                THUMB_PREFIX + sha1(url) + THUMB_EXT
+        );
+
+        if (out.exists()) return out.getAbsolutePath();
+        return downloadHttp(url, out);
+    }
+
+    private String downloadHttp(String url, java.io.File out) {
+        HttpURLConnection conn = null;
+        try (FileOutputStream fos = new FileOutputStream(out)) {
+            conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
+            conn.connect();
+
+            try (InputStream in = conn.getInputStream()) {
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) > 0) fos.write(buf, 0, n);
+            }
+            return out.getAbsolutePath();
+        } catch (Exception e) {
+            Log.w(TAG, "HTTP thumbnail fetch failed", e);
+            out.delete();
+            return null;
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    /* ==========================================================
+     * Utils
+     * ========================================================== */
+
+    private static String sha1(String s) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] b = md.digest(s.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte x : b) sb.append(String.format("%02x", x));
+            return sb.toString();
+        } catch (Exception e) {
+            return String.valueOf(s.hashCode());
         }
     }
 
@@ -137,13 +174,5 @@ public final class DriveThumbnailResolver {
 
     public void release() {
         executor.shutdown();
-    }
-
-    /* ==========================================================
-     * Listener
-     * ========================================================== */
-
-    public interface Callback {
-        void onResult(@Nullable String pathOrUrl);
     }
 }
