@@ -7,6 +7,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.Moments;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
@@ -25,12 +26,12 @@ final class AlbumMediaFetcher {
 
     private final Context appContext;
     private final String albumId;
-    private final DriveThumbnailResolver thumbnailResolver;
+    private final DriveResolver driveResolver;
 
     AlbumMediaFetcher(@NonNull Context context, @NonNull String albumId) {
         this.appContext = context.getApplicationContext();
         this.albumId = albumId;
-        this.thumbnailResolver = new DriveThumbnailResolver(appContext);
+        this.driveResolver = new DriveResolver(appContext);
     }
 
     public List<AlbumMedia> getMedia(Drive drive) throws Exception {
@@ -40,7 +41,7 @@ final class AlbumMediaFetcher {
         fetchFromAccountInternal(drive, unique);
 
         List<AlbumMedia> result = new ArrayList<>(unique.values());
-        result.sort((a, b) -> Long.compare(b.modifiedTime, a.modifiedTime));
+        result.sort((a, b) -> Long.compare(b.momentMillis, a.momentMillis));
 
         Log.d(TAG, "fetch single account albumId=" + albumId
                 + " items=" + result.size()
@@ -59,7 +60,7 @@ final class AlbumMediaFetcher {
             try {
                 FileList list = drive.files().list()
                         .setQ("'" + albumId + "' in parents and trashed=false")
-                        .setFields("nextPageToken,files(id,name,mimeType,modifiedTime,size,thumbnailLink,appProperties)")
+                        .setFields("nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,thumbnailLink,appProperties)")
                         .setPageSize(200)
                         .setPageToken(pageToken)
                         .execute();
@@ -83,15 +84,22 @@ final class AlbumMediaFetcher {
 
     private AlbumMedia createAlbumMedia(@NonNull File file) {
 
-        String thumbRef = thumbnailResolver.resolve(file);
+        String thumbRef = driveResolver.resolve(file);
+
+        Moments m = driveResolver.resolveMoments(file);
+
         UploadedItem item = new UploadedItem(
                 file.getId(),
                 file.getName(),
                 file.getMimeType(),
                 file.getSize() != null ? file.getSize() : 0L,
-                file.getModifiedTime() != null ? file.getModifiedTime().getValue() : 0L,
+                m.originMoment,
+                m.momentMillis,
+                m.vsOrigin,
                 thumbRef
         );
+
         return new AlbumMedia(item);
     }
+
 }

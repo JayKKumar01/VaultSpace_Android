@@ -80,7 +80,10 @@ public final class UploadRetryStore implements SessionStore{
 
     private static UploadRetryEntity toEntity(@NonNull UploadSelection s) {
         UploadContext c = s.context;
-        String reason = c.failureReason != null ? c.failureReason.name() : FailureReason.DRIVE_ERROR.name();
+        String reason = c.failureReason != null
+                ? c.failureReason.name()
+                : FailureReason.DRIVE_ERROR.name();
+
         return new UploadRetryEntity(
                 s.id,
                 c.groupId,
@@ -88,11 +91,13 @@ public final class UploadRetryStore implements SessionStore{
                 s.mimeType,
                 s.displayName,
                 s.sizeBytes,
+                s.originMoment,      // 🟢 NEW
                 s.momentMillis,
                 s.thumbnailPath,
                 reason
         );
     }
+
 
     private static UploadSelection fromEntity(@NonNull UploadRetryEntity e) {
         UploadSelection s = new UploadSelection(
@@ -102,12 +107,14 @@ public final class UploadRetryStore implements SessionStore{
                 e.mimeType,
                 e.displayName,
                 e.sizeBytes,
+                e.originMoment,      // 🟢 NEW
                 e.momentMillis,
                 e.thumbnailPath
         );
         s.context.failureReason = FailureReason.valueOf(e.failureReason);
         return s;
     }
+
 
     @Override
     public void onSessionCleared() {

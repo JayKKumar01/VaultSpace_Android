@@ -89,18 +89,40 @@ public final class UploadDriveHelper {
                 .setMimeType(selection.mimeType)
                 .setParents(Collections.singletonList(parentId));
 
+        Map<String, String> appProps = new HashMap<>();
         if (thumbFileId != null)
-            meta.setAppProperties(Collections.singletonMap("thumb", thumbFileId));
-        if (selection.momentMillis > 0)
-            meta.setModifiedTime(new DateTime(selection.momentMillis));
+            appProps.put("thumb", thumbFileId);
+
+        long origin = selection.originMoment;
+        long moment = selection.momentMillis;
+
+        DateTime created;
+        if (origin > 0) {
+            created = new DateTime(origin);
+            appProps.put("vs_created_source", "origin");
+        } else {
+            created = new DateTime(moment);
+            appProps.put("vs_created_source", "moment");
+        }
+
+        meta.setCreatedTime(created);
+        meta.setModifiedTime(new DateTime(moment));
+
+        if (!appProps.isEmpty())
+            meta.setAppProperties(appProps);
+
+
+
 
         InputStream in = null;
+        String safeMime = selection.mimeType != null ? selection.mimeType : "application/octet-stream";
+
         try {
-            AbstractInputStreamContent content = buildContent(selection.uri, selection.mimeType, selection.sizeBytes, token);
+            AbstractInputStreamContent content = buildContent(selection.uri, safeMime, selection.sizeBytes, token);
 
             in = ((InputStreamContent) content).getInputStream();
 
-            UploadedItem item = uploadPreparedFile(drive, meta,thumbFileId, content, cb, selection.sizeBytes, token);
+            UploadedItem item = uploadPreparedFile(drive, meta,thumbFileId, content, cb, selection, token);
 
             trustedAccountsRepo.recordUploadUsage(email, selection.sizeBytes);
             return item;
@@ -134,38 +156,54 @@ public final class UploadDriveHelper {
             String thumbFileId,
             AbstractInputStreamContent content,
             ProgressCallback cb,
-            long fileSize,
+            UploadSelection selection,
             CancelToken token
     ) throws UploadFailure, CancellationException {
 
         try {
             Drive.Files.Create req = drive.files().create(meta, content);
-            req.setFields("id,name,mimeType,modifiedTime,size");
+            req.setFields("id,name,mimeType,createdTime,modifiedTime,size");
 
             MediaHttpUploader u = req.getMediaHttpUploader();
-            u.setDirectUploadEnabled(fileSize <= CHUNK);
-            if (fileSize > CHUNK) u.setChunkSize(CHUNK);
+            u.setDirectUploadEnabled(selection.sizeBytes <= CHUNK);
+            if (selection.sizeBytes > CHUNK) u.setChunkSize(CHUNK);
 
             u.setProgressListener(p -> {
                 if (token.isCancelled())
                     throw new CancellationException();
-                cb.onProgress(p.getNumBytesUploaded(), content.getLength());
+
+                long total = content.getLength() > 0 ? content.getLength() : selection.sizeBytes;
+                cb.onProgress(p.getNumBytesUploaded(), total);
             });
 
             File f = req.execute();
             Log.d(TAG, "thumb=" + (thumbFileId != null ? thumbFileId : "none"));
 
 
+            long originMoment =
+                    f.getCreatedTime() != null
+                            ? f.getCreatedTime().getValue()
+                            : selection.originMoment;
+
+            long momentMillis =
+                    f.getModifiedTime() != null
+                            ? f.getModifiedTime().getValue()
+                            : selection.momentMillis;
+
+            boolean vsOrigin = selection.originMoment > 0;
+
             return new UploadedItem(
                     f.getId(),
                     f.getName(),
                     f.getMimeType(),
                     f.getSize() != null ? f.getSize() : 0L,
-                    f.getModifiedTime() != null
-                            ? f.getModifiedTime().getValue()
-                            : System.currentTimeMillis(),
+                    originMoment,
+                    momentMillis,
+                    vsOrigin,
                     thumbFileId
             );
+
+
 
         } catch (HttpResponseException e) {
             int c = e.getStatusCode();

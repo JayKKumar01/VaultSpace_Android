@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.Moments;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
@@ -22,7 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
-public final class DriveThumbnailResolver {
+public final class DriveResolver {
 
     private static final String TAG = "VaultSpace:ThumbResolver";
     private static final String THUMB_PREFIX = "thumb_";
@@ -32,7 +33,7 @@ public final class DriveThumbnailResolver {
     private final ExecutorService executor;
     private final Drive primaryDrive;
 
-    public DriveThumbnailResolver(@NonNull Context context) {
+    public DriveResolver(@NonNull Context context) {
         this.appContext = context.getApplicationContext();
         this.executor = Executors.newFixedThreadPool(3);
         this.primaryDrive = DriveClientProvider.getPrimaryDrive(context);
@@ -56,6 +57,29 @@ public final class DriveThumbnailResolver {
 
         return null;
     }
+
+    @NonNull
+    public Moments resolveMoments(@NonNull File file) {
+
+        long created = file.getCreatedTime() != null
+                ? file.getCreatedTime().getValue()
+                : -1;
+
+        long modified = file.getModifiedTime() != null
+                ? file.getModifiedTime().getValue()
+                : created;
+
+        String source = null;
+        if (file.getAppProperties() != null)
+            source = file.getAppProperties().get("vs_created_source");
+
+        boolean vsOrigin = "origin".equals(source);
+
+        long originMoment = vsOrigin ? created : -1;
+
+        return new Moments(originMoment, modified, vsOrigin);
+    }
+
 
     /* ==========================================================
      * STEP 2: async resolution entry

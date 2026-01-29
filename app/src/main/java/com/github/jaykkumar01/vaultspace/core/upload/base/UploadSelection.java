@@ -12,9 +12,11 @@ public final class UploadSelection {
     @NonNull public final UploadType type;
     @NonNull public final String displayName;
     public final long sizeBytes;
-    public final long momentMillis;
-    @Nullable public final String thumbnailPath;
 
+    public final long originMoment;   // when this memory was born
+    public final long momentMillis;   // when this memory became what it is now
+
+    @Nullable public final String thumbnailPath;
     @NonNull public final UploadContext context;
 
     public UploadSelection(
@@ -24,6 +26,7 @@ public final class UploadSelection {
             @Nullable String mimeType,
             @NonNull String displayName,
             long sizeBytes,
+            long originMoment,
             long momentMillis,
             @Nullable String thumbnailPath
     ) {
@@ -33,6 +36,7 @@ public final class UploadSelection {
         this.type = mimeType != null ? UploadType.fromMime(mimeType) : UploadType.FILE;
         this.displayName = displayName;
         this.sizeBytes = sizeBytes;
+        this.originMoment = originMoment;
         this.momentMillis = momentMillis;
         this.thumbnailPath = thumbnailPath;
         this.context = new UploadContext(id, groupId);

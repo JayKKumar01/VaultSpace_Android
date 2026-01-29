@@ -19,10 +19,11 @@ public final class UploadRetryEntity {
     @NonNull public final String displayName;
 
     public final long sizeBytes;
+
+    public final long originMoment;           // 🟢 NEW
     public final long momentMillis;
 
     @Nullable public final String thumbnailPath;
-
 
     @NonNull public final String failureReason;
 
@@ -33,6 +34,7 @@ public final class UploadRetryEntity {
             @Nullable String mimeType,
             @NonNull String displayName,
             long sizeBytes,
+            long originMoment,
             long momentMillis,
             @Nullable String thumbnailPath,
             @NonNull String failureReason
@@ -43,6 +45,7 @@ public final class UploadRetryEntity {
         this.mimeType = mimeType;
         this.displayName = displayName;
         this.sizeBytes = sizeBytes;
+        this.originMoment = originMoment;
         this.momentMillis = momentMillis;
         this.thumbnailPath = thumbnailPath;
         this.failureReason = failureReason;
