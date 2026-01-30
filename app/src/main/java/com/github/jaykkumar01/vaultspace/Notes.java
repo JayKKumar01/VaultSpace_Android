@@ -270,6 +270,9 @@ public class Notes {
 
 
 
+    // from external sd card it might give uri permission error once activity changed
+
+    // group days for past, make sure each band has at least two after a certain past
 
 
 

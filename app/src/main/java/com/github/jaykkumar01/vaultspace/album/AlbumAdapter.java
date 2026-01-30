@@ -21,13 +21,13 @@ import com.github.jaykkumar01.vaultspace.utils.ByteFormat;
 import java.util.ArrayList;
 import java.util.List;
 
-final class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.VH> {
+public final class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.VH> {
 
     private final List<AlbumMedia> items = new ArrayList<>();
     private final DriveResolver resolver;
     private final Context context;
 
-    AlbumAdapter(Context context) {
+    public AlbumAdapter(Context context) {
         this.context = context;
         this.resolver = new DriveResolver(context);
         setHasStableIds(true);
@@ -35,13 +35,13 @@ final class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.VH> {
 
     /* ================= Public API ================= */
 
-    void setItems(List<AlbumMedia> list) {
+    public void setItems(List<AlbumMedia> list) {
         items.clear();
         items.addAll(list);
         notifyDataSetChanged(); // simple & fine for now
     }
 
-    void addItem(AlbumMedia media) {
+    public void addItem(AlbumMedia media) {
         items.add(0, media);
         notifyItemInserted(0);
     }
@@ -128,7 +128,7 @@ final class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.VH> {
         return items.size();
     }
 
-    void release() {
+    public void release() {
         resolver.release();
     }
 

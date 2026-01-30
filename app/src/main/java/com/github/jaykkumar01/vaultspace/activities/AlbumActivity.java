@@ -140,7 +140,7 @@ public class AlbumActivity extends AppCompatActivity {
     private void setupUiHelpers() {
         modalHost = ModalHost.attach(this);
         albumModalHandler = new AlbumModalHandler(modalHost);
-        uiController = new AlbumUiController(this, contentContainer, uiCallback);
+        uiController = new AlbumUiController(this, contentContainer, uiCallback, albumId, albumName);
     }
 
     private void setupRepository() {
