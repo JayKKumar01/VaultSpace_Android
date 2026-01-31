@@ -41,7 +41,7 @@ public final class AlbumUiController {
         loadingView = new LoadingStateView(context);
         emptyView = new EmptyStateView(context);
         contentView = new AlbumContentView(context);
-        contentView.setAlbum(albumId,albumName);
+        contentView.setAlbum(albumId);
 
         container.addView(contentView);
         container.addView(emptyView);

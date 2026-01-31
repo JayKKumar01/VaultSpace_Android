@@ -10,17 +10,17 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.album.band.Band;
+import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
 import com.github.jaykkumar01.vaultspace.album.layout.BandLayoutEngine;
 import com.github.jaykkumar01.vaultspace.album.layout.PairingEngine;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
 import com.github.jaykkumar01.vaultspace.album.model.BandGroup;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class AlbumContentView extends FrameLayout {
 
@@ -30,9 +30,9 @@ public final class AlbumContentView extends FrameLayout {
     private final AlbumBandAdapter adapter;
 
     private String albumId;
-    private String albumName;
 
     private final List<AlbumMedia> media = new ArrayList<>();
+    private final Map<String, List<BandLayout>> layoutMap = new LinkedHashMap<>();
 
     public AlbumContentView(Context c) {
         this(c, null);
@@ -48,12 +48,10 @@ public final class AlbumContentView extends FrameLayout {
 
         recyclerView = new RecyclerView(c);
         recyclerView.setOverScrollMode(OVER_SCROLL_NEVER);
-        recyclerView.setItemAnimator(null);
-        recyclerView.setLayoutManager(new LinearLayoutManager(c)); // 🔥 REQUIRED
+        recyclerView.setLayoutManager(new LinearLayoutManager(c));
 
         adapter = new AlbumBandAdapter();
         recyclerView.setAdapter(adapter);
-
 
         addView(recyclerView, new LayoutParams(
                 LayoutParams.MATCH_PARENT,
@@ -63,9 +61,8 @@ public final class AlbumContentView extends FrameLayout {
 
     /* ================= Public API ================= */
 
-    public void setAlbum(String albumId, String albumName) {
+    public void setAlbum(String albumId) {
         this.albumId = albumId;
-        this.albumName = albumName;
         Log.d(TAG, "album=" + albumId);
     }
 
@@ -76,12 +73,11 @@ public final class AlbumContentView extends FrameLayout {
     }
 
     public void addMedia(AlbumMedia m) {
-        media.add(m);
-        rebuild();
+        // TODO
     }
 
-    public void removeMedia(String mediaId) {
-
+    public void removeMedia(AlbumMedia m) {
+        // TODO
     }
 
     /* ================= Pipeline ================= */
@@ -90,55 +86,27 @@ public final class AlbumContentView extends FrameLayout {
         Log.d(TAG, "rebuild() called, mediaCount=" + media.size());
 
         if (media.isEmpty()) {
-            Log.d(TAG, "media empty → clearing adapter");
-            adapter.submitLayouts(List.of());
+            adapter.setAll(new LinkedHashMap<>());
             return;
         }
 
         int width = recyclerView.getWidth();
         if (width == 0) {
-            Log.d(TAG, "RecyclerView width=0 → delaying rebuild");
             recyclerView.post(this::rebuild);
             return;
         }
 
-        Log.d(TAG, "RecyclerView width=" + width);
-
-        // 1️⃣ sort by momentMillis (newest first)
         media.sort(Comparator.comparingLong((AlbumMedia m) -> m.momentMillis).reversed());
 
-        // 2️⃣ pairing
-        List<BandGroup> bandGroups = PairingEngine.build(media);
-
-        List<BandLayout> layouts = new ArrayList<>();
-
-        for (BandGroup group: bandGroups){
-            layouts.addAll(BandLayoutEngine.compute(albumId, width, group.bands));
+        layoutMap.clear();
+        for (BandGroup group : PairingEngine.build(media)) {
+            layoutMap.put(
+                    group.key,
+                    BandLayoutEngine.compute(albumId, width, group.bands)
+            );
         }
 
-        Log.d(TAG, "BandLayoutEngine → layoutCount=" + layouts.size());
-
-        // 🟢 normalize duplicate time labels
-        normalizeTimeLabels(layouts);
-
-        adapter.submitLayouts(layouts);
-        Log.d(TAG, "adapter.submitLayouts() called");
+        adapter.setAll(layoutMap);
+        Log.d(TAG, "adapter.setAll() called");
     }
-
-    private static void normalizeTimeLabels(List<BandLayout> layouts) {
-        String lastLabel = null;
-
-        for (BandLayout layout : layouts) {
-            if (layout.timeLabel != null && layout.timeLabel.equals(lastLabel)) {
-                layout.showTimeLabel = false;
-            } else {
-                layout.showTimeLabel = true;
-                lastLabel = layout.timeLabel;
-            }
-        }
-    }
-
-
-
-
 }
