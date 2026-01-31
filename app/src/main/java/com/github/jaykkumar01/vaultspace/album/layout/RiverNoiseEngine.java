@@ -10,13 +10,8 @@ public final class RiverNoiseEngine {
        Tuning — Flow Character
        ============================================================ */
 
-    // Higher frequency → faster bends (full-paced river)
     private static final float BASE_FREQUENCY = 0.22f;
-
-    // Stable album seed influence
     private static final float SEED_SCALE = 0.0001f;
-
-    // Secondary noise offset for energy modulation
     private static final float ENERGY_OFFSET = 37.7f;
 
     /* ============================================================
@@ -25,8 +20,6 @@ public final class RiverNoiseEngine {
 
     private static final float MIN_ENERGY = 0.6f;
     private static final float MAX_ENERGY = 1.4f;
-
-    // 🔒 Absolute safety cap (prevents overflow on ultra-wide layouts)
     private static final float MAX_FLOW_ENERGY = 1.5f;
 
     /* ============================================================
@@ -42,70 +35,74 @@ public final class RiverNoiseEngine {
        Public API
        ============================================================ */
 
-    public static RiverTransform computeTransform(String albumId, int bandIndex, int effectiveWidth, int usedWidth, boolean solo) {
-        /* ---------- Hard guards ---------- */
-        if (albumId == null || effectiveWidth <= 0 || usedWidth <= 0) {
+    public static RiverTransform computeTransform(
+            String albumId,
+            String firstMediaId,
+            int effectiveWidth,
+            int usedWidth,
+            boolean solo
+    ) {
+        /* ---------- Guards ---------- */
+        if (albumId == null || firstMediaId == null ||
+                effectiveWidth <= 0 || usedWidth <= 0) {
             return ZERO;
         }
 
         int freeSpace = effectiveWidth - usedWidth;
-        if (freeSpace <= 0) {
-            log(bandIndex, freeSpace, 0, 0f, 0, 0f);
-            return ZERO;
-        }
+        if (freeSpace <= 0) return ZERO;
 
         int maxDrift = freeSpace / 2;
-        if (maxDrift == 0) {
-            log(bandIndex, freeSpace, maxDrift, 0f, 0, 0f);
-            return ZERO;
-        }
+        if (maxDrift == 0) return ZERO;
 
         /* ---------- Deterministic Perlin domain ---------- */
+        int bandKey = stableHash(albumId + ":" + firstMediaId);
         int seed = stableHash(albumId);
+
+        // 🔑 Critical fix: spread hash into Perlin space
+        float keyX = (bandKey & 0x7fffffff) % 10_000;
+
         float baseX =
-                bandIndex * BASE_FREQUENCY
+                keyX * BASE_FREQUENCY
                         + seed * SEED_SCALE;
 
-        /* ---------- Primary direction noise ---------- */
-        float noise = perlin1D(baseX); // [-1, +1]
+        /* ---------- Noise ---------- */
+        float noise = perlin1D(baseX);
+        float energyNoise = perlin1D(baseX + ENERGY_OFFSET);
 
-        /* ---------- Secondary energy noise ---------- */
-        float energyNoise = perlin1D(baseX + ENERGY_OFFSET); // [-1, +1]
+        /* ---------- Energy ---------- */
+        float spaceFactor =
+                clamp(freeSpace / (float) effectiveWidth, 0f, 1f);
 
-        /* ---------- Flow energy (bounded & safe) ---------- */
-        float spaceFactor = clamp(
-                freeSpace / (float) effectiveWidth,
-                0f,
-                1f
+        float flowEnergy = clamp(
+                lerp(MIN_ENERGY, MAX_ENERGY, energyNoise * 0.5f + 0.5f)
+                        * lerp(0.8f, 1.2f, spaceFactor),
+                MIN_ENERGY,
+                MAX_FLOW_ENERGY
         );
 
-        float energyFromNoise =
-                lerp(MIN_ENERGY, MAX_ENERGY, energyNoise * 0.5f + 0.5f);
+        /* ---------- Drift ---------- */
+        int xOffset = clamp(
+                Math.round(noise * maxDrift * flowEnergy),
+                -maxDrift,
+                maxDrift
+        );
 
-        float energyFromSpace =
-                lerp(0.8f, 1.2f, spaceFactor);
-
-        float flowEnergy = energyFromNoise * energyFromSpace;
-
-        // 🔒 Hard safety clamp
-        flowEnergy = clamp(flowEnergy, MIN_ENERGY, MAX_FLOW_ENERGY);
-
-        /* ---------- Horizontal drift (fast, expressive, but guaranteed safe) ---------- */
-        int rawOffset = Math.round(noise * maxDrift * flowEnergy);
-        int xOffset = clamp(rawOffset, -maxDrift, maxDrift);
-
-        /* ---------- Rotation (expressive but visually controlled) ---------- */
+        /* ---------- Rotation ---------- */
         float baseRotation = solo ? MAX_ROTATION_SOLO : MAX_ROTATION_PAIR;
         float rotationDeg =
                 noise * baseRotation * lerp(0.6f, 1.0f, flowEnergy);
 
-        log(bandIndex, freeSpace, maxDrift, noise, xOffset, rotationDeg);
+        Log.d(TAG,
+                "bandKey=" + firstMediaId +
+                        " noise=" + String.format("%.3f", noise) +
+                        " x=" + xOffset +
+                        " rot=" + String.format("%.2f", rotationDeg));
 
         return new RiverTransform(xOffset, rotationDeg);
     }
 
     /* ============================================================
-       1D Perlin (deterministic)
+       1D Perlin
        ============================================================ */
 
     private static float perlin1D(float x) {
@@ -143,28 +140,6 @@ public final class RiverNoiseEngine {
     }
 
     /* ============================================================
-       Logging
-       ============================================================ */
-
-    private static void log(
-            int bandIndex,
-            int freeSpace,
-            int maxDrift,
-            float noise,
-            int xOffset,
-            float rotationDeg
-    ) {
-        Log.d(TAG,
-                "band=" + bandIndex +
-                        " free=" + freeSpace +
-                        " max=" + maxDrift +
-                        " noise=" + String.format("%.3f", noise) +
-                        " x=" + xOffset +
-                        " rot=" + String.format("%.2f", rotationDeg)
-        );
-    }
-
-    /* ============================================================
        Utils
        ============================================================ */
 
@@ -180,5 +155,6 @@ public final class RiverNoiseEngine {
         return Math.max(min, Math.min(max, v));
     }
 
-    private static final RiverTransform ZERO = new RiverTransform(0, 0f);
+    private static final RiverTransform ZERO =
+            new RiverTransform(0, 0f);
 }

@@ -79,6 +79,10 @@ public final class AlbumContentView extends FrameLayout {
         rebuild();
     }
 
+    public void removeMedia(String mediaId) {
+
+    }
+
     /* ================= Pipeline ================= */
 
     private void rebuild() {
@@ -100,22 +104,37 @@ public final class AlbumContentView extends FrameLayout {
         Log.d(TAG, "RecyclerView width=" + width);
 
         // 1️⃣ sort by momentMillis (newest first)
-        media.sort(
-                Comparator.comparingLong((AlbumMedia m) -> m.momentMillis).reversed()
-        );
+        media.sort(Comparator.comparingLong((AlbumMedia m) -> m.momentMillis).reversed());
 
         // 2️⃣ pairing
         List<Band> bands = PairingEngine.build(media);
         Log.d(TAG, "PairingEngine → bandCount=" + bands.size());
 
         // 3️⃣ layout
-        List<BandLayout> layouts =
-                BandLayoutEngine.compute(albumId, width, bands);
+        List<BandLayout> layouts = BandLayoutEngine.compute(albumId, width, bands);
         Log.d(TAG, "BandLayoutEngine → layoutCount=" + layouts.size());
+
+        // 🟢 normalize duplicate time labels
+        normalizeTimeLabels(layouts);
 
         adapter.submitLayouts(layouts);
         Log.d(TAG, "adapter.submitLayouts() called");
     }
+
+    private static void normalizeTimeLabels(List<BandLayout> layouts) {
+        String lastLabel = null;
+
+        for (BandLayout layout : layouts) {
+            if (layout.timeLabel != null && layout.timeLabel.equals(lastLabel)) {
+                layout.showTimeLabel = false;
+            } else {
+                layout.showTimeLabel = true;
+                lastLabel = layout.timeLabel;
+            }
+        }
+    }
+
+
 
 
 }

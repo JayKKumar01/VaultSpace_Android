@@ -72,8 +72,7 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
 
     public void bind(@NonNull BandLayout layout) {
 
-        // ----- Time label -----
-        if (layout.timeLabel != null && !layout.timeLabel.isEmpty()) {
+        if (layout.showTimeLabel && layout.timeLabel != null) {
             timeLabel.setText(layout.timeLabel);
             timeLabel.setVisibility(TextView.VISIBLE);
         } else {
