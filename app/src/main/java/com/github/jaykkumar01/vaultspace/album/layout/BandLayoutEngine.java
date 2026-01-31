@@ -60,13 +60,6 @@ public final class BandLayoutEngine {
                     usedWidth,
                     band.isSolo()
             );
-//            RiverTransform t = RiverNoiseEngine.computeTransform(
-//                    albumId,
-//                    band.first.fileId,
-//                    effectiveWidth,
-//                    usedWidth,
-//                    band.isSolo()
-//            );
 
 
             layout.rotationDeg = t.rotationDeg;

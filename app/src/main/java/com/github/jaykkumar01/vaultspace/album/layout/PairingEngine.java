@@ -5,6 +5,7 @@ import com.github.jaykkumar01.vaultspace.album.band.TimeBucket;
 import com.github.jaykkumar01.vaultspace.album.band.TimeBucketizer;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.model.AspectClass;
+import com.github.jaykkumar01.vaultspace.album.model.BandGroup;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -16,50 +17,54 @@ import java.util.Map;
 public final class PairingEngine {
 
     private static final int PAIR_THRESHOLD = 2;
-
-    private static final SimpleDateFormat MONTH_FORMAT =
-            new SimpleDateFormat("yyyy-MM", Locale.US);
-    private static final SimpleDateFormat MONTH_LABEL =
-            new SimpleDateFormat("MMM yyyy", Locale.US);
+    private static final SimpleDateFormat MONTH_LABEL = new SimpleDateFormat("MMM yyyy", Locale.US);
 
     private PairingEngine() {
     }
 
     /* ============================================================
-       Public Entry
+       Public Entry (GROUPED)
        ============================================================ */
 
-    public static List<Band> build(List<AlbumMedia> media) {
-        List<Band> result = new ArrayList<>();
-        if (media == null || media.isEmpty()) return result;
+    public static List<BandGroup> build(List<AlbumMedia> media) {
+        List<BandGroup> groups = new ArrayList<>();
+        if (media == null || media.isEmpty()) return groups;
 
         long now = System.currentTimeMillis();
 
         // -------- Stage 1: Time Bucketing --------
         BucketResult buckets = bucketize(media, now);
 
-        // -------- Stage 2: Pair fixed buckets (TODAY → THIS_MONTH) --------
+        // -------- Stage 2: Fixed buckets (TODAY → THIS_MONTH) --------
         for (TimeBucket bucket : buckets.orderedBuckets) {
             List<AlbumMedia> bucketMedia = buckets.fixedMedia.get(bucket.key);
             if (bucketMedia != null && !bucketMedia.isEmpty()) {
-                result.addAll(pairWithin(bucketMedia, labelForBucket(bucket)));
+                String label = labelForBucket(bucket);
+                groups.add(new BandGroup(
+                        bucket.key,
+                        label,
+                        pairWithin(bucketMedia, label)
+                ));
             }
         }
 
-        // -------- Stage 3: Pair MONTH buckets (yyyy-MM) --------
+        // -------- Stage 3: Month buckets (yyyy-MM) --------
         List<String> sortedMonths = new ArrayList<>(buckets.monthBuckets.keySet());
-        sortedMonths.sort((a, b) -> b.compareTo(a)); // newest month first
+        sortedMonths.sort((a, b) -> b.compareTo(a)); // newest first
 
         for (String monthKey : sortedMonths) {
             List<AlbumMedia> monthMedia = buckets.monthBuckets.get(monthKey);
             if (monthMedia != null && !monthMedia.isEmpty()) {
                 String label = MONTH_LABEL.format(monthMedia.get(0).momentMillis);
-                result.addAll(pairWithin(monthMedia, label));
+                groups.add(new BandGroup(
+                        monthKey,
+                        label,
+                        pairWithin(monthMedia, label)
+                ));
             }
         }
 
-
-        return result;
+        return groups;
     }
 
     /* ============================================================
@@ -72,27 +77,21 @@ public final class PairingEngine {
         Map<String, List<AlbumMedia>> fixedMedia = new HashMap<>();
         Map<String, List<AlbumMedia>> monthBuckets = new HashMap<>();
 
+        // pre-create fixed buckets
         for (TimeBucket b : fixedBuckets) {
             fixedMedia.put(b.key, new ArrayList<>());
         }
 
         for (AlbumMedia m : media) {
-            boolean placed = false;
 
-            for (TimeBucket b : fixedBuckets) {
-                if (b.contains(m.momentMillis)) {
-                    fixedMedia.computeIfAbsent(b.key, k -> new ArrayList<>()).add(m);
-                    placed = true;
-                    break;
-                }
+            String key = TimeBucketizer.resolveKey(m.momentMillis, now);
+
+            if (fixedMedia.containsKey(key)) {
+                fixedMedia.computeIfAbsent(key, k -> new ArrayList<>()).add(m);
+            } else {
+                monthBuckets.computeIfAbsent(key, k -> new ArrayList<>()).add(m);
             }
 
-            if (!placed) {
-                String monthKey = MONTH_FORMAT.format(m.momentMillis);
-                monthBuckets
-                        .computeIfAbsent(monthKey, k -> new ArrayList<>())
-                        .add(m);
-            }
         }
 
         return new BucketResult(fixedBuckets, fixedMedia, monthBuckets);
@@ -138,7 +137,6 @@ public final class PairingEngine {
         AspectClass A = AspectClass.of(a);
         AspectClass B = AspectClass.of(b);
 
-        // Hard block
         if ((A == AspectClass.WIDE && B == AspectClass.VERY_TALL) ||
                 (B == AspectClass.WIDE && A == AspectClass.VERY_TALL)) {
             return -1;
@@ -170,8 +168,10 @@ public final class PairingEngine {
        Internal Holder
        ============================================================ */
 
-    private record BucketResult(List<TimeBucket> orderedBuckets,
-                                Map<String, List<AlbumMedia>> fixedMedia,
-                                Map<String, List<AlbumMedia>> monthBuckets) {
+    private record BucketResult(
+            List<TimeBucket> orderedBuckets,
+            Map<String, List<AlbumMedia>> fixedMedia,
+            Map<String, List<AlbumMedia>> monthBuckets
+    ) {
     }
 }

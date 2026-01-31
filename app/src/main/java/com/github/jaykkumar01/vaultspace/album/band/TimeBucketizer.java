@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.album.band;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -7,7 +8,24 @@ import java.util.Locale;
 
 public final class TimeBucketizer {
 
+    private static final SimpleDateFormat MONTH_FORMAT = new SimpleDateFormat("yyyy-MM", Locale.US);
+
     private TimeBucketizer(){}
+
+
+
+    public static String resolveKey(long momentMillis, long now) {
+        List<TimeBucket> buckets = TimeBucketizer.buildBuckets(now);
+
+        for (TimeBucket b : buckets) {
+            if (b.contains(momentMillis)) {
+                return b.key; // TODAY / YESTERDAY / THIS_WEEK / THIS_MONTH
+            }
+        }
+
+        // fallback: month bucket
+        return MONTH_FORMAT.format(momentMillis); // yyyy-MM
+    }
 
     public static List<TimeBucket> buildBuckets(long now){
         List<TimeBucket> out=new ArrayList<>();

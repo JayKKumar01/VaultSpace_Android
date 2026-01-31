@@ -15,6 +15,7 @@ import com.github.jaykkumar01.vaultspace.album.layout.BandLayoutEngine;
 import com.github.jaykkumar01.vaultspace.album.layout.PairingEngine;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
+import com.github.jaykkumar01.vaultspace.album.model.BandGroup;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -107,11 +108,14 @@ public final class AlbumContentView extends FrameLayout {
         media.sort(Comparator.comparingLong((AlbumMedia m) -> m.momentMillis).reversed());
 
         // 2️⃣ pairing
-        List<Band> bands = PairingEngine.build(media);
-        Log.d(TAG, "PairingEngine → bandCount=" + bands.size());
+        List<BandGroup> bandGroups = PairingEngine.build(media);
 
-        // 3️⃣ layout
-        List<BandLayout> layouts = BandLayoutEngine.compute(albumId, width, bands);
+        List<BandLayout> layouts = new ArrayList<>();
+
+        for (BandGroup group: bandGroups){
+            layouts.addAll(BandLayoutEngine.compute(albumId, width, group.bands));
+        }
+
         Log.d(TAG, "BandLayoutEngine → layoutCount=" + layouts.size());
 
         // 🟢 normalize duplicate time labels
