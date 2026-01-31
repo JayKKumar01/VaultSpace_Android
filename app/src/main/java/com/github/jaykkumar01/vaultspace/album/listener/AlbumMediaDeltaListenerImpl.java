@@ -1,6 +1,6 @@
 package com.github.jaykkumar01.vaultspace.album.listener;
 
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
 
 import java.util.function.Consumer;

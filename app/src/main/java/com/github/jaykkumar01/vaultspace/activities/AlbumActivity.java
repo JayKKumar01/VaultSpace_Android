@@ -15,7 +15,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.coordinator.AlbumActionCoordinator;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumModalHandler;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
@@ -38,7 +38,6 @@ import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class AlbumActivity extends AppCompatActivity {

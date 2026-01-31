@@ -1,220 +1,121 @@
 package com.github.jaykkumar01.vaultspace.album.view;
 
-import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-
 import android.content.Context;
-import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.View;
 import android.widget.FrameLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.album.band.BandFormer;
-import com.github.jaykkumar01.vaultspace.album.layout.AlbumLayoutEngine;
-import com.github.jaykkumar01.vaultspace.album.layout.ResolvedBandLayout;
-import com.github.jaykkumar01.vaultspace.album.layout.ResolvedItemFrame;
-import com.github.jaykkumar01.vaultspace.album.model.AlbumItem;
-import com.github.jaykkumar01.vaultspace.album.model.Band;
+import com.github.jaykkumar01.vaultspace.album.band.Band;
+import com.github.jaykkumar01.vaultspace.album.layout.BandLayoutEngine;
+import com.github.jaykkumar01.vaultspace.album.layout.PairingEngine;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public final class AlbumContentView extends FrameLayout {
 
-    private static final String TAG="VaultSpace:AlbumContent";
+    private static final String TAG = "VaultSpace:AlbumContent";
 
-    private static final SimpleDateFormat DF =
-            new SimpleDateFormat("dd MMM yyyy\nHH:mm:ss",Locale.getDefault());
+    private final RecyclerView recyclerView;
+    private final AlbumBandAdapter adapter;
 
-    private static final SimpleDateFormat MONTH_FMT =
-            new SimpleDateFormat("MMM yyyy",Locale.getDefault());
-
-    private FrameLayout canvas;
     private String albumId;
+    private String albumName;
 
-    public AlbumContentView(Context c){super(c);init(c);}
-    public AlbumContentView(Context c,@Nullable AttributeSet a){super(c,a);init(c);}
-    public AlbumContentView(Context c,@Nullable AttributeSet a,int s){super(c,a,s);init(c);}
+    private final List<AlbumMedia> media = new ArrayList<>();
 
-    private void init(Context c){
+    public AlbumContentView(Context c) {
+        this(c, null);
+    }
+
+    public AlbumContentView(Context c, @Nullable AttributeSet a) {
+        this(c, a, 0);
+    }
+
+    public AlbumContentView(Context c, @Nullable AttributeSet a, int s) {
+        super(c, a, s);
         setBackgroundColor(c.getColor(R.color.vs_content_bg));
-        ScrollView scroll=new ScrollView(c);
-        canvas=new FrameLayout(c);
-        scroll.addView(canvas,new LayoutParams(MATCH_PARENT,WRAP_CONTENT));
-        addView(scroll,new LayoutParams(MATCH_PARENT,MATCH_PARENT));
+
+        recyclerView = new RecyclerView(c);
+        recyclerView.setOverScrollMode(OVER_SCROLL_NEVER);
+        recyclerView.setItemAnimator(null);
+        recyclerView.setLayoutManager(new LinearLayoutManager(c)); // 🔥 REQUIRED
+
+        adapter = new AlbumBandAdapter();
+        recyclerView.setAdapter(adapter);
+
+
+        addView(recyclerView, new LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.MATCH_PARENT
+        ));
     }
 
-    /* ================= Public API (UNCHANGED) ================= */
+    /* ================= Public API ================= */
 
-    public void setAlbum(String albumId,String albumName){
-        this.albumId=albumId;
-        Log.d(TAG,"album="+albumId);
+    public void setAlbum(String albumId, String albumName) {
+        this.albumId = albumId;
+        this.albumName = albumName;
+        Log.d(TAG, "album=" + albumId);
     }
 
-    public void setMedia(Iterable<AlbumMedia> snapshot){
-        List<AlbumMedia> media=new ArrayList<>();
-        for(AlbumMedia m:snapshot) media.add(m);
-        Log.d(TAG,"mediaCount="+media.size());
-        rebuild(media);
+    public void setMedia(Iterable<AlbumMedia> snapshot) {
+        media.clear();
+        for (AlbumMedia m : snapshot) media.add(m);
+        rebuild();
+    }
+
+    public void addMedia(AlbumMedia m) {
+        media.add(m);
+        rebuild();
     }
 
     /* ================= Pipeline ================= */
 
-    private void rebuild(List<AlbumMedia> media){
-        if(albumId==null) return;
+    private void rebuild() {
+        Log.d(TAG, "rebuild() called, mediaCount=" + media.size());
 
-        media.sort(Comparator.comparingLong((AlbumMedia m)->m.momentMillis).reversed());
-
-        List<AlbumItem> items=new ArrayList<>(media.size());
-        for(int i=0;i<media.size();i++) items.add(new AlbumItem(media.get(i),i));
-
-        List<Band> bands=BandFormer.form(items);
-
-        int screenW=getResources().getDisplayMetrics().widthPixels;
-        List<ResolvedBandLayout> snapshot=
-                AlbumLayoutEngine.resolve(albumId,screenW,bands);
-
-        renderResolved(snapshot,bands);
-    }
-
-    /* ================= Rendering ================= */
-
-    private void renderResolved(
-            List<ResolvedBandLayout> layouts,
-            List<Band> bands
-    ){
-        canvas.removeAllViews();
-        int yCursor=0;
-
-        for(int i=0;i<layouts.size();i++){
-            ResolvedBandLayout bandLayout=layouts.get(i);
-            Band band=bands.get(i);
-
-            FrameLayout bandBox=new FrameLayout(getContext());
-            LayoutParams bandLp=
-                    new LayoutParams(MATCH_PARENT,bandLayout.bandHeightPx);
-            bandLp.topMargin=yCursor;
-            bandBox.setLayoutParams(bandLp);
-            bandBox.setBackground(bandBorder());
-
-            // label (unchanged behavior)
-            TextView tvLabel=new TextView(getContext());
-            tvLabel.setText(resolveLabel(band.anchorMoment));
-            tvLabel.setTextSize(12f);
-            tvLabel.setTextColor(0x99FFFFFF);
-            tvLabel.setPadding(dp(16),dp(4),dp(16),dp(4));
-            bandBox.addView(tvLabel);
-
-            for(int j=0;j<bandLayout.items.size();j++){
-                ResolvedItemFrame f=bandLayout.items.get(j);
-
-                LayoutParams lp=new LayoutParams(f.widthPx,f.heightPx);
-                lp.leftMargin=f.xPx;
-                lp.topMargin=f.yPx;
-
-                View frame=makeFrame(f.debugMomentMillis);
-                frame.setLayoutParams(lp);
-                frame.setTranslationX(f.offsetXPx);
-                frame.setTranslationY(f.offsetYPx);
-                frame.setRotation(f.rotationDeg);
-
-                logFrame(i,j,f);
-                bandBox.addView(frame);
-            }
-
-            canvas.addView(bandBox);
-            yCursor+=bandLayout.bandHeightPx;
+        if (media.isEmpty()) {
+            Log.d(TAG, "media empty → clearing adapter");
+            adapter.submitLayouts(List.of());
+            return;
         }
-    }
 
-    /* ================= Logging ================= */
+        int width = recyclerView.getWidth();
+        if (width == 0) {
+            Log.d(TAG, "RecyclerView width=0 → delaying rebuild");
+            recyclerView.post(this::rebuild);
+            return;
+        }
 
-    private void logFrame(int band,int index,ResolvedItemFrame f){
-        Log.d(TAG,
-                "F["+band+":"+index+"]"+
-                        " x="+f.xPx+" y="+f.yPx+
-                        " w="+f.widthPx+" h="+f.heightPx+
-                        " ox="+String.format("%.2f",f.offsetXPx)+
-                        " oy="+String.format("%.2f",f.offsetYPx)+
-                        " rot="+String.format("%.2f",f.rotationDeg)
+        Log.d(TAG, "RecyclerView width=" + width);
+
+        // 1️⃣ sort by momentMillis (newest first)
+        media.sort(
+                Comparator.comparingLong((AlbumMedia m) -> m.momentMillis).reversed()
         );
+
+        // 2️⃣ pairing
+        List<Band> bands = PairingEngine.build(media);
+        Log.d(TAG, "PairingEngine → bandCount=" + bands.size());
+
+        // 3️⃣ layout
+        List<BandLayout> layouts =
+                BandLayoutEngine.compute(albumId, width, bands);
+        Log.d(TAG, "BandLayoutEngine → layoutCount=" + layouts.size());
+
+        adapter.submitLayouts(layouts);
+        Log.d(TAG, "adapter.submitLayouts() called");
     }
 
-    /* ================= Labels ================= */
 
-    private String resolveLabel(long t){
-        Calendar now=Calendar.getInstance();
-        Calendar c=Calendar.getInstance();
-        c.setTimeInMillis(t);
-
-        if(isSameDay(c,now)) return "Today";
-
-        Calendar y=(Calendar)now.clone();
-        y.add(Calendar.DAY_OF_YEAR,-1);
-        if(isSameDay(c,y)) return "Yesterday";
-
-        Calendar w=(Calendar)now.clone();
-        w.set(Calendar.DAY_OF_WEEK,w.getFirstDayOfWeek());
-        if(t>=w.getTimeInMillis()) return "This week";
-
-        Calendar m=(Calendar)now.clone();
-        m.set(Calendar.DAY_OF_MONTH,1);
-        if(t>=m.getTimeInMillis()) return "This month";
-
-        return MONTH_FMT.format(new Date(t));
-    }
-
-    private boolean isSameDay(Calendar a,Calendar b){
-        return a.get(Calendar.YEAR)==b.get(Calendar.YEAR) &&
-                a.get(Calendar.DAY_OF_YEAR)==b.get(Calendar.DAY_OF_YEAR);
-    }
-
-    /* ================= Helpers ================= */
-
-    private View makeFrame(long momentMillis){
-        FrameLayout v=new FrameLayout(getContext());
-        v.setBackground(border(R.color.vs_media_highlight));
-
-        TextView tv=new TextView(getContext());
-        tv.setText(DF.format(new Date(momentMillis)));
-        tv.setTextSize(11f);
-        tv.setTextColor(0x88FFFFFF);
-        tv.setGravity(Gravity.CENTER);
-
-        v.addView(tv,new LayoutParams(MATCH_PARENT,MATCH_PARENT));
-        return v;
-    }
-
-    private GradientDrawable border(int color){
-        GradientDrawable d=new GradientDrawable();
-        d.setColor(0x00000000);
-        d.setCornerRadius(dp(10));
-        d.setStroke(dp(1),getContext().getColor(color));
-        return d;
-    }
-
-    private GradientDrawable bandBorder(){
-        GradientDrawable d=new GradientDrawable();
-        d.setColor(0x00000000);
-        d.setCornerRadius(dp(12));
-        d.setStroke(dp(1),0x22FFFFFF);
-        return d;
-    }
-
-    private int dp(int v){
-        return Math.round(v*getResources().getDisplayMetrics().density);
-    }
 }

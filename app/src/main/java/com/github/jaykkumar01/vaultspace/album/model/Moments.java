@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album;
+package com.github.jaykkumar01.vaultspace.album.model;
 
 public final class Moments {
     public final long originMoment;

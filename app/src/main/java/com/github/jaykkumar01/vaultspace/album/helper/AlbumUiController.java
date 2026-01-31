@@ -6,7 +6,7 @@ import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.view.AlbumContentView;
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
@@ -79,7 +79,7 @@ public final class AlbumUiController {
     }
 
     public void onMediaAdded(AlbumMedia media) {
-//        contentView.addMedia(media);
+        contentView.addMedia(media);
     }
 
     public void onMediaRemoved(String mediaId) {

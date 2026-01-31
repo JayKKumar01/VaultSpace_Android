@@ -1,7 +1,5 @@
 package com.github.jaykkumar01.vaultspace.core.session.cache;
 
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-
 import java.util.HashMap;
 import java.util.Map;
 

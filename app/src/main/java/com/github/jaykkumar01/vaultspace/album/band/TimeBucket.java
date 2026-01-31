@@ -7,12 +7,7 @@ public final class TimeBucket {
     public final long startMillis;
     public final long endMillis;
 
-    public TimeBucket(
-            TimeBucketType type,
-            String key,
-            long startMillis,
-            long endMillis
-    ){
+    public TimeBucket(TimeBucketType type, String key, long startMillis, long endMillis){
         this.type=type;
         this.key=key;
         this.startMillis=startMillis;

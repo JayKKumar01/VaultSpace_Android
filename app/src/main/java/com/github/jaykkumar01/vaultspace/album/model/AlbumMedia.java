@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album;
+package com.github.jaykkumar01.vaultspace.album.model;
 
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadType;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;

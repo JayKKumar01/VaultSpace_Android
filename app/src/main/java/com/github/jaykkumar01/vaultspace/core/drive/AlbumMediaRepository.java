@@ -6,7 +6,7 @@ import android.os.Looper;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumDriveHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.AlbumMediaCache;

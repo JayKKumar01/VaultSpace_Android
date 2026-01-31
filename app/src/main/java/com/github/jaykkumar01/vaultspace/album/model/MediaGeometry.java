@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album;
+package com.github.jaykkumar01.vaultspace.album.model;
 
 public final class MediaGeometry {
     public final float aspectRatio; // width / height (already rotation-corrected)

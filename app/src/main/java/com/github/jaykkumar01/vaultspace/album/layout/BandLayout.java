@@ -1,24 +1,16 @@
 package com.github.jaykkumar01.vaultspace.album.layout;
 
+import com.github.jaykkumar01.vaultspace.album.model.MediaFrame;
+
 public final class BandLayout {
 
-    public final int bandIndex;
-    public final float height;
-    public final float offsetX;
-    public final float offsetY;
-    public final float rotation;
+    public final String timeLabel;     // ⬅️ NEW
+    public final int bandHeight;
+    public final MediaFrame[] frames;  // size 1 or 2
 
-    public BandLayout(
-            int bandIndex,
-            float height,
-            float offsetX,
-            float offsetY,
-            float rotation
-    ){
-        this.bandIndex=bandIndex;
-        this.height=height;
-        this.offsetX=offsetX;
-        this.offsetY=offsetY;
-        this.rotation=rotation;
+    public BandLayout(String timeLabel,int bandHeight,MediaFrame[] frames){
+        this.timeLabel=timeLabel;
+        this.bandHeight=bandHeight;
+        this.frames=frames;
     }
 }

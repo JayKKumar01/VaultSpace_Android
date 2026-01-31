@@ -1,10 +1,9 @@
 package com.github.jaykkumar01.vaultspace.core.session.cache;
 
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * AlbumMediaEntry

@@ -1,10 +1,9 @@
 package com.github.jaykkumar01.vaultspace.album.listener;
 
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumUiController;
 
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public final class AlbumUiCallbackImpl implements AlbumUiController.Callback {
 

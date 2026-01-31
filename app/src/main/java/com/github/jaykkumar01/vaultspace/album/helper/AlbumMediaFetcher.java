@@ -6,9 +6,9 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.github.jaykkumar01.vaultspace.album.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.album.MediaGeometry;
-import com.github.jaykkumar01.vaultspace.album.Moments;
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.model.MediaGeometry;
+import com.github.jaykkumar01.vaultspace.album.model.Moments;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;

@@ -4,6 +4,7 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSideEffect;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
