@@ -4,7 +4,7 @@ public final class MediaFrame {
 
     public final int width;
     public final int height;
-    public final int baseX;
+    public int baseX;
 
     public MediaFrame(int width, int height, int baseX) {
         this.width = width;

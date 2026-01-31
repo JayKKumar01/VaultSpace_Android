@@ -12,15 +12,19 @@ public final class BandLayoutEngine {
 
     /* ================= Width ratios ================= */
 
-    private static final float SOLO_WIDE = 0.65f;
-    private static final float SOLO_NEUTRAL = 0.60f;
-    private static final float SOLO_TALL = 0.54f;
-    private static final float SOLO_VERY_TALL = 0.34f;
+    private static final float SOLO_WIDE      = 0.68f;
+    private static final float SOLO_NEUTRAL   = 0.62f;
+    private static final float SOLO_TALL      = 0.56f;
+    private static final float SOLO_VERY_TALL = 0.40f;
+
+    /* ================= Paired slack ================= */
+
+    private static final float PAIR_SLACK_RATIO = 0.86f;
 
     /* ================= Spacing ================= */
 
-    private static final int HORIZONTAL_GUTTER = 24; // reserved for Perlin
-    private static final int VERTICAL_PADDING = 16;  // river safety
+    private static final int HORIZONTAL_GUTTER = 24;
+    private static final int VERTICAL_PADDING = 16;
     private static final int PAIR_GAP = 12;
 
     private BandLayoutEngine() {}
@@ -41,13 +45,33 @@ public final class BandLayoutEngine {
 
         int effectiveWidth = riverWidth - HORIZONTAL_GUTTER * 2;
 
+        int bandIndex = 0;
         for (Band band : bands) {
-            if (band.isSolo()) {
-                out.add(layoutSolo(effectiveWidth, band));
-            } else {
-                out.add(layoutPair(effectiveWidth, band));
+
+            BandLayout layout = band.isSolo()
+                    ? layoutSolo(effectiveWidth, band)
+                    : layoutPair(effectiveWidth, band);
+
+            int usedWidth = computeUsedWidth(layout);
+
+            RiverTransform t = RiverNoiseEngine.computeTransform(
+                    albumId,
+                    bandIndex,
+                    effectiveWidth,
+                    usedWidth,
+                    band.isSolo()
+            );
+
+            layout.rotationDeg = t.rotationDeg;
+
+            for (MediaFrame f : layout.frames) {
+                f.baseX += t.xOffset;
             }
+
+            out.add(layout);
+            bandIndex++;
         }
+
         return out;
     }
 
@@ -78,6 +102,7 @@ public final class BandLayoutEngine {
                         new MediaFrame(width, height, baseX)
                 }
         );
+
     }
 
     /* ============================================================
@@ -88,23 +113,40 @@ public final class BandLayoutEngine {
         AlbumMedia a = band.first;
         AlbumMedia b = band.second;
 
-        int width = (effectiveWidth - PAIR_GAP) / 2;
+        int usableWidth = (int) (effectiveWidth * PAIR_SLACK_RATIO);
+        int pairWidth = (usableWidth - PAIR_GAP) / 2;
 
-        int h1 = (int) (width / a.aspectRatio);
-        int h2 = (int) (width / b.aspectRatio);
+        int h1 = (int) (pairWidth / a.aspectRatio);
+        int h2 = (int) (pairWidth / b.aspectRatio);
 
         int bandHeight = Math.max(h1, h2) + VERTICAL_PADDING * 2;
 
-        int total = width * 2 + PAIR_GAP;
-        int startX = HORIZONTAL_GUTTER + (effectiveWidth - total) / 2;
+        int totalUsed = pairWidth * 2 + PAIR_GAP;
+        int startX = HORIZONTAL_GUTTER + (effectiveWidth - totalUsed) / 2;
 
         return new BandLayout(
                 band.timeLabel,
                 bandHeight,
                 new MediaFrame[]{
-                        new MediaFrame(width, h1, startX),
-                        new MediaFrame(width, h2, startX + width + PAIR_GAP)
+                        new MediaFrame(pairWidth, h1, startX),
+                        new MediaFrame(pairWidth, h2, startX + pairWidth + PAIR_GAP)
                 }
         );
+
+    }
+
+    /* ============================================================
+       Utils
+       ============================================================ */
+
+    private static int computeUsedWidth(BandLayout layout) {
+        int minX = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+
+        for (MediaFrame f : layout.frames) {
+            minX = Math.min(minX, f.baseX);
+            maxX = Math.max(maxX, f.baseX + f.width);
+        }
+        return maxX - minX;
     }
 }

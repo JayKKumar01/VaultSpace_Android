@@ -86,6 +86,8 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         ViewGroup.LayoutParams bandLp = band.getLayoutParams();
         bandLp.height = layout.bandHeight;
         band.setLayoutParams(bandLp);
+        // 🟢 NEW: apply river rotation
+        band.setRotation(layout.rotationDeg);
 
         // Render frames
         for (MediaFrame f : layout.frames) {
