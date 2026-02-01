@@ -41,7 +41,7 @@ public final class AlbumContentView extends FrameLayout {
         rv = new RecyclerView(c);
         rv.setLayoutManager(new LinearLayoutManager(c));
         rv.setOverScrollMode(OVER_SCROLL_NEVER);
-        rv.setItemAnimator(null); // 🔒 disable all animations
+//        rv.setItemAnimator(null); // 🔒 disable all animations
 
 
         adapter = new AlbumBandAdapter();

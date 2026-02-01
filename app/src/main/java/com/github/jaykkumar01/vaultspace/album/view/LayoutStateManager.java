@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.album.view;
 
+import androidx.annotation.NonNull;
+
 import com.github.jaykkumar01.vaultspace.album.band.Band;
 import com.github.jaykkumar01.vaultspace.album.band.TimeBucketizer;
 import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
@@ -39,8 +41,7 @@ public final class LayoutStateManager {
         // group media
         for (AlbumMedia m : media) {
             String key = bucketKey(m);
-            groupByKey
-                    .computeIfAbsent(key, k -> {
+            groupByKey.computeIfAbsent(key, k -> {
                         Group g = new Group(k);
                         groups.add(g);
                         return g;
@@ -64,68 +65,134 @@ public final class LayoutStateManager {
         return LayoutResult.full(flatLayouts);
     }
 
-    public LayoutResult addMedia(String albumId, int width, AlbumMedia m) {
+    public LayoutResult addMedia(String albumId,int width,AlbumMedia m) {
         if (m == null) return LayoutResult.full(flatLayouts);
 
         insertSorted(media, m);
-
         String key = bucketKey(m);
         Group g = groupByKey.get(key);
 
-        // new group
         if (g == null) {
             g = new Group(key);
             g.media.add(m);
             insertGroupOrdered(g);
-            rebuildGroup(albumId, width, g, true);
-            return LayoutResult.range(g.layoutStart, 0, g.layouts);
+            GroupRebuildResult r = rebuildGroup(albumId, width, g, true);
+            return LayoutResult.range(r.adapterStart, r.removeCount, r.insertItems);
         }
 
-        // existing group
         insertSorted(g.media, m);
-        int oldCount = g.layoutCount;
-        rebuildGroup(albumId, width, g, false);
-
-        return LayoutResult.range(g.layoutStart, oldCount, g.layouts);
+        GroupRebuildResult r = rebuildGroup(albumId, width, g, false);
+        return LayoutResult.range(r.adapterStart, r.removeCount, r.insertItems);
     }
 
-    public LayoutResult removeMedia(String albumId, int width, AlbumMedia m) {
+
+    public LayoutResult removeMedia(String albumId,int width,AlbumMedia m) {
         if (m == null) return LayoutResult.full(flatLayouts);
 
         String key = bucketKey(m);
         Group g = groupByKey.get(key);
-        if (g == null || !g.media.remove(m)) return LayoutResult.full(flatLayouts);
+        if (g == null || !g.media.remove(m))
+            return LayoutResult.full(flatLayouts);
 
         media.remove(m);
 
-        int oldCount = g.layoutCount;
-
-        // group becomes empty
+        // group becomes empty → full removal
         if (g.media.isEmpty()) {
+            int oldCount = g.layoutCount;
             removeGroup(g);
             return LayoutResult.range(g.layoutStart, oldCount, List.of());
         }
 
-        rebuildGroup(albumId, width, g, false);
-        return LayoutResult.range(g.layoutStart, oldCount, g.layouts);
+        // symmetric with addMedia
+        GroupRebuildResult r = rebuildGroup(albumId, width, g, false);
+        return LayoutResult.range(r.adapterStart, r.removeCount, r.insertItems);
     }
+
 
     /* ================= Group Rebuild ================= */
 
-    private void rebuildGroup(String albumId, int width, Group g, boolean isNew) {
+    private GroupRebuildResult rebuildGroup(String albumId,int width,Group g,boolean isNew) {
         List<BandLayout> old = g.layouts;
+        List<BandLayout> next = buildGroupLayouts(albumId, width, g);
 
-        g.layouts = buildGroupLayouts(albumId, width, g);
-        g.layoutCount = g.layouts.size();
-
-        if (!isNew) {
-            for (int i = 0; i < old.size(); i++)
-                flatLayouts.remove(g.layoutStart);
+        if (isNew) {
+            g.layouts = next;
+            g.layoutCount = next.size();
+            flatLayouts.addAll(g.layoutStart, next);
+            shiftFollowingGroups(g, next.size());
+            return new GroupRebuildResult(g.layoutStart, 0, next);
         }
 
-        flatLayouts.addAll(g.layoutStart, g.layouts);
-        shiftFollowingGroups(g, g.layoutCount - old.size());
+        GroupDiff diff = diffLayouts(old, next);
+        android.util.Log.d("LayoutDiff", "group=" + g.key + " " + diff);
+
+        // FULL replace fallback
+        if (diff.sameStart == 0 && diff.sameEnd == 0) {
+            for (int i = 0; i < old.size(); i++)
+                flatLayouts.remove(g.layoutStart);
+            flatLayouts.addAll(g.layoutStart, next);
+
+            g.layouts = next;
+            g.layoutCount = next.size();
+            shiftFollowingGroups(g, next.size() - old.size());
+
+            return new GroupRebuildResult(
+                    g.layoutStart,
+                    old.size(),
+                    next
+            );
+        }
+
+        // PARTIAL replace (prefix + suffix preserved)
+        int replaceStartInGroup = diff.sameStart;
+        int removeCount = old.size() - diff.sameStart - diff.sameEnd;
+        int insertFrom = diff.sameStart;
+        int insertTo = next.size() - diff.sameEnd;
+
+        int flatStart = g.layoutStart + replaceStartInGroup;
+
+        for (int i = 0; i < removeCount; i++)
+            flatLayouts.remove(flatStart);
+
+        List<BandLayout> insertItems = next.subList(insertFrom, insertTo);
+        flatLayouts.addAll(flatStart, insertItems);
+
+        g.layouts = next;
+        g.layoutCount = next.size();
+        shiftFollowingGroups(g, next.size() - old.size());
+
+        return new GroupRebuildResult(
+                flatStart,
+                removeCount,
+                insertItems
+        );
     }
+
+
+
+    private static GroupDiff diffLayouts(List<BandLayout> old, List<BandLayout> next) {
+        int oldSize = old.size(), newSize = next.size();
+
+        if (oldSize == 0 || newSize == 0)
+            return new GroupDiff(0, 0, oldSize, newSize);
+
+        int sameStart = 0;
+        int max = Math.min(oldSize, newSize);
+        while (sameStart < max && old.get(sameStart).equals(next.get(sameStart)))
+            sameStart++;
+
+        int sameEnd = 0;
+        int oi = oldSize - 1, ni = newSize - 1;
+        while (oi >= sameStart && ni >= sameStart &&
+                old.get(oi).equals(next.get(ni))) {
+            sameEnd++;
+            oi--;
+            ni--;
+        }
+
+        return new GroupDiff(sameStart, sameEnd, oldSize, newSize);
+    }
+
 
     private List<BandLayout> buildGroupLayouts(String albumId, int width, Group g) {
         AlbumMedia first = g.media.get(0);
@@ -226,6 +293,57 @@ public final class LayoutStateManager {
         int layoutStart;
         int layoutCount;
 
-        Group(String key) { this.key = key; }
+        Group(String key) {
+            this.key = key;
+        }
     }
+
+    public static final class GroupDiff {
+        final int sameStart;
+        final int sameEnd;
+        final int oldSize;
+        final int newSize;
+
+        GroupDiff(int sameStart,int sameEnd,int oldSize,int newSize) {
+            this.sameStart = sameStart;
+            this.sameEnd = sameEnd;
+            this.oldSize = oldSize;
+            this.newSize = newSize;
+        }
+
+        boolean isFullReplace() {
+            return sameStart == 0 && sameEnd == 0;
+        }
+
+        int replaceStart() {
+            return sameStart;
+        }
+
+        int removeCount() {
+            return oldSize - sameStart - sameEnd;
+        }
+
+        int insertFrom() {
+            return sameStart;
+        }
+
+        int insertTo() {
+            return newSize - sameEnd;
+        }
+
+        @NonNull
+        @Override
+        public String toString() {
+            return "old=" + oldSize +
+                    " new=" + newSize +
+                    " sameStart=" + sameStart +
+                    " sameEnd=" + sameEnd +
+                    " replaceStart=" + replaceStart() +
+                    " remove=" + removeCount();
+        }
+    }
+
+
+    private record GroupRebuildResult(int adapterStart, int removeCount, List<BandLayout> insertItems){}
+
 }
