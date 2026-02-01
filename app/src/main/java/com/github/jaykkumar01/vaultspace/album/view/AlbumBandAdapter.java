@@ -24,6 +24,10 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
 
     private final Map<String, Integer> groupStart = new HashMap<>();
     private final Map<String, Integer> groupSize = new HashMap<>();
+    private final Map<String, Integer> groupOrder = new HashMap<>();
+    private final ArrayList<String> orderedGroupKeys = new ArrayList<>();
+
+
 
     /* ================= Notify scheduler ================= */
 
@@ -101,6 +105,39 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
         }
     }
 
+    /* ================= Group order ================= */
+
+    private static int computeGroupOrder(String key) {
+        return switch (key) {
+            case "today" -> 0;
+            case "yesterday" -> 1;
+            case "this_week" -> 2;
+            case "this_month" -> 3;
+            default -> {
+                // yyyy-MM month buckets (newer first)
+                int year = Integer.parseInt(key.substring(0, 4));
+                int month = Integer.parseInt(key.substring(5, 7));
+                yield 10_000 - (year * 12 + month);
+            }
+        };
+    }
+
+    /* ================= Group insertion ================= */
+
+    private int findGroupInsertIndex(int order) {
+        int lo = 0, hi = orderedGroupKeys.size();
+        while (lo < hi) {
+            int mid = (lo + hi) >>> 1;
+            String k = orderedGroupKeys.get(mid);
+            int o = groupOrder.computeIfAbsent(k, AlbumBandAdapter::computeGroupOrder);
+            if (o <= order) lo = mid + 1;
+            else hi = mid;
+        }
+        return lo;
+    }
+
+
+
     /* ================= set ================= */
 
     public void setAll(Map<String, List<BandLayout>> layoutMap) {
@@ -108,6 +145,9 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
         flatLayouts.clear();
         groupStart.clear();
         groupSize.clear();
+        orderedGroupKeys.clear();
+        groupOrder.clear();
+
 
         if (layoutMap == null || layoutMap.isEmpty()) return;
 
@@ -117,6 +157,9 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
             List<BandLayout> list = e.getValue();
             if (key == null || list == null || list.isEmpty()) continue;
 
+            orderedGroupKeys.add(key);
+            groupOrder.put(key, computeGroupOrder(key));
+
             groupLayouts.put(key, list);
             groupStart.put(key, cursor);
             groupSize.put(key, list.size());
@@ -124,6 +167,7 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
             flatLayouts.addAll(list);
             cursor += list.size();
         }
+
 
         normalizeTimeLabels(0, flatLayouts.size());
         trackChange(0, 0, flatLayouts.size(), 0, flatLayouts.size());
@@ -135,15 +179,49 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
         if (groupKey == null) return;
 
         Integer gStart = groupStart.get(groupKey);
-        Integer gSize = groupSize.get(groupKey);
+        Integer gSize  = groupSize.get(groupKey);
         List<BandLayout> group = groupLayouts.get(groupKey);
-        if (gStart == null || gSize == null || group == null) return;
+
+        /* ================= NEW GROUP ================= */
+
+        if (gStart == null || gSize == null || group == null) {
+            int inserted = changedLayouts == null ? 0 : changedLayouts.size();
+            if (inserted == 0) return;
+
+            int order = groupOrder.computeIfAbsent(groupKey, AlbumBandAdapter::computeGroupOrder);
+            int groupIndex = findGroupInsertIndex(order);
+
+            int flatStart = 0;
+            for (int i = 0; i < groupIndex; i++) {
+                Integer sz = groupSize.get(orderedGroupKeys.get(i));
+                if (sz != null) flatStart += sz;
+            }
+
+            orderedGroupKeys.add(groupIndex, groupKey);
+            groupLayouts.put(groupKey, new ArrayList<>(changedLayouts));
+            groupStart.put(groupKey, flatStart);
+            groupSize.put(groupKey, inserted);
+
+            flatLayouts.addAll(flatStart, changedLayouts);
+
+            for (int i = groupIndex + 1; i < orderedGroupKeys.size(); i++) {
+                String k = orderedGroupKeys.get(i);
+                Integer prev = groupStart.get(k);
+                if (prev != null) groupStart.put(k, prev + inserted);
+            }
+
+            normalizeTimeLabels(flatStart - 1, flatStart + inserted + 1);
+            trackChange(flatStart, 0, inserted, flatStart - 1, flatStart + inserted);
+            return;
+        }
+
+        /* ================= EXISTING GROUP ================= */
 
         int flatStart = gStart + startInGroup;
 
         for (int i = 0; i < removedCount; i++) {
-            group.remove(startInGroup);
-            flatLayouts.remove(flatStart);
+            if (startInGroup < group.size()) group.remove(startInGroup);
+            if (flatStart < flatLayouts.size()) flatLayouts.remove(flatStart);
         }
 
         int inserted = changedLayouts == null ? 0 : changedLayouts.size();
@@ -152,16 +230,43 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
             flatLayouts.addAll(flatStart, changedLayouts);
         }
 
+        int newSize = gSize - removedCount + inserted;
+
+        /* ================= EMPTY GROUP CLEANUP ================= */
+
+        if (newSize == 0) {
+            int groupIndex = orderedGroupKeys.indexOf(groupKey);
+
+            orderedGroupKeys.remove(groupIndex);
+            groupLayouts.remove(groupKey);
+            groupStart.remove(groupKey);
+            groupSize.remove(groupKey);
+            groupOrder.remove(groupKey);
+
+            for (int i = groupIndex; i < orderedGroupKeys.size(); i++) {
+                String k = orderedGroupKeys.get(i);
+                Integer s = groupStart.get(k);
+                if (s != null) groupStart.put(k, s - gSize);
+            }
+
+            normalizeTimeLabels(gStart - 1, gStart + 1);
+            trackChange(gStart, gSize, 0, gStart - 1, gStart + 1);
+            return;
+        }
+
+        /* ================= SIZE DELTA ================= */
+
         int delta = inserted - removedCount;
         if (delta != 0) {
-            groupSize.put(groupKey, gSize + delta);
+            groupSize.put(groupKey, newSize);
             for (Map.Entry<String, Integer> e : groupStart.entrySet()) {
-                if (e.getValue() > gStart) e.setValue(e.getValue() + delta);
+                Integer s = e.getValue();
+                if (s != null && s > gStart) e.setValue(s + delta);
             }
         }
 
         int normFrom = flatStart - 1;
-        int normTo = flatStart + inserted + 1;
+        int normTo   = flatStart + inserted + 1;
 
         normalizeTimeLabels(normFrom, normTo);
         trackChange(flatStart, removedCount, inserted, normFrom, normTo);
