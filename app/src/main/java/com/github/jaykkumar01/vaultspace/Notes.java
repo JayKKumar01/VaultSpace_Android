@@ -276,6 +276,7 @@ public class Notes {
 
 
 
+    //come to bug later, first optimize pairing engine
 
 
 
