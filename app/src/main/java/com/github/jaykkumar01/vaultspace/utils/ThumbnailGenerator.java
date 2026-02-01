@@ -32,19 +32,13 @@ public final class ThumbnailGenerator {
             @NonNull Context context,
             @NonNull Uri uri,
             @NonNull UploadType type,
-            int rotation,
             @NonNull File outputDir
     ) {
         Bitmap bmp = null;
         try {
-            if (type == UploadType.VIDEO) {
-                bmp = decodeVideo(context, uri);
-                if (bmp != null) bmp = applyRotation(bmp, rotation);
-            } else {
-                bmp = decodeImage(context, uri);
-                if (bmp != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
-                    bmp = applyRotation(bmp, rotation);
-            }
+            bmp = (type == UploadType.VIDEO)
+                    ? decodeVideo(context, uri)
+                    : decodeImage(context, uri);
 
             if (bmp == null) return null;
 

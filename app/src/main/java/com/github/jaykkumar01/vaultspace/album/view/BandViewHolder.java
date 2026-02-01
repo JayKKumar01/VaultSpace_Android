@@ -99,11 +99,6 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         image.setImageDrawable(AppCompatResources.getDrawable(c, R.drawable.ic_file));
 
-//        if (m.rotation != 0) {
-//            Log.d("VaultSpace:BandVH", "applying rotation=" + m.rotation + "°");
-//            image.setRotation(m.rotation);
-//        }
-
         frame.addView(image, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT

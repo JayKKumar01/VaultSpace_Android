@@ -101,23 +101,37 @@ public final class UriUtils {
             try (MediaMetadataRetriever r = new MediaMetadataRetriever()) {
                 r.setDataSource(ctx, uri);
 
-                // Origin (embedded only)
                 originMoment = readVideoOrigin(r);
 
-                rotation = parseRotation(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION));
+                String rotStr = r.extractMetadata(
+                        MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION
+                );
+                rotation = parseRotation(rotStr);
 
-                int w = parseInt(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
-                int h = parseInt(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+                int w = parseInt(
+                        r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                );
+                int h = parseInt(
+                        r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                );
+
                 aspectRatio = computeAspectRatio(w, h, rotation);
 
-                // Moment fallback (only if base missing)
+                // 🔍 ALWAYS LOG (video diagnostics)
+                Log.d(TAG,
+                        "VIDEO geometry | uri=" + uri +
+                                " rotMeta=" + rotStr +
+                                " rot=" + rotation +
+                                " w=" + w + " h=" + h +
+                                " ar=" + aspectRatio);
+
                 if (base.modifiedMillis <= 0) {
                     momentMillis = readVideoDateTaken(cr, uri);
                     if (momentMillis <= 0) momentMillis = originMoment;
                 }
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }
+
 
 
         /* ---------- Final moment resolution ---------- */
@@ -146,7 +160,7 @@ public final class UriUtils {
             File dir = new File(ctx.getCacheDir(), "thumbs");
             @SuppressLint("ResultOfMethodCallIgnored")
             boolean ignored = dir.exists() || dir.mkdirs();
-            thumb = ThumbnailGenerator.generate(ctx, uri, type, rotation, dir);
+            thumb = ThumbnailGenerator.generate(ctx, uri, type, dir);
         }
 
         String id = UUID.randomUUID().toString();
