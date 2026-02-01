@@ -277,7 +277,18 @@ public class Notes {
 
 
     //come to bug later, first optimize pairing engine
+    
+    
+    // 500 mb reserve for dumb users
+    //
+    // cache so that per upload no need of o (N)
 
+    // per file limit.. allow more then 15 gb basically no limit
+
+
+    // just backtrack one more item
+
+    // divide in column for the upload progress
 
 
 

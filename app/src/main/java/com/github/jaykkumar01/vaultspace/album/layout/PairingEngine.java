@@ -9,50 +9,64 @@ import java.util.List;
 
 public final class PairingEngine {
 
-    private static final int PAIR_THRESHOLD = 2;
+    private static final int PAIR_THRESHOLD = 0;
 
     private PairingEngine() {}
 
     /* ============================================================
-       Public API (SINGLE GROUP)
+       Public API (SINGLE GROUP, O(N), ORDER-STABLE)
        ============================================================ */
 
     /**
-     * Input:
-     *  - media: already sorted DESC by momentMillis
-     *  - timeLabel: label for this group ("Today", "Jan 2025", etc.)
+     * Sequential pairing.
      *
-     * Output:
-     *  - paired bands with label applied
+     * Rules:
+     * - media is already sorted DESC by momentMillis
+     * - only consecutive items may be paired
+     * - order is strictly preserved
+     * - no cross-skip is possible
      */
     public static List<Band> pair(List<AlbumMedia> media, String timeLabel) {
         List<Band> out = new ArrayList<>();
         if (media == null || media.isEmpty()) return out;
 
-        int n = media.size();
-        boolean[] used = new boolean[n];
+        final int n = media.size();
+        int i = 0;
 
-        for (int i = 0; i < n; i++) {
-            if (used[i]) continue;
+        while (i < n) {
+            AlbumMedia first = media.get(i);
 
-            AlbumMedia a = media.get(i);
-            int best = -1, bestScore = 0;
-
-            for (int j = i + 1; j < n; j++) {
-                if (used[j]) continue;
-                int s = score(a, media.get(j));
-                if (s > bestScore) {
-                    bestScore = s;
-                    best = j;
-                }
+            // Null safety
+            if (first == null) {
+                i++;
+                continue;
             }
 
-            if (bestScore >= PAIR_THRESHOLD) {
-                used[i] = used[best] = true;
-                out.add(new Band(a, media.get(best), timeLabel));
+            // Last item → must be solo
+            if (i == n - 1) {
+                out.add(new Band(first, null, timeLabel));
+                break;
+            }
+
+            AlbumMedia second = media.get(i + 1);
+
+            // If next is invalid → solo
+            if (second == null) {
+                out.add(new Band(first, null, timeLabel));
+                i++;
+                continue;
+            }
+
+            int score = score(first, second);
+
+            if (score >= PAIR_THRESHOLD) {
+                // Pair consecutive items
+                out.add(new Band(first, second, timeLabel));
+                i += 2; // consume both
             } else {
-                used[i] = true;
-                out.add(new Band(a, null, timeLabel));
+                // No valid pair
+                out.add(new Band(first, null, timeLabel));
+                i++;
             }
         }
 
@@ -60,12 +74,16 @@ public final class PairingEngine {
     }
 
     /* ============================================================
-       Pairing Scoring (UNCHANGED)
+       Pairing Scoring (UNCHANGED, SOURCE OF TRUTH)
        ============================================================ */
 
     private static int score(AlbumMedia a, AlbumMedia b) {
+        if (a == null || b == null) return -1;
+
         AspectClass A = AspectClass.of(a);
         AspectClass B = AspectClass.of(b);
+
+        if (A == null || B == null) return -1;
 
         if ((A == AspectClass.WIDE && B == AspectClass.VERY_TALL) ||
                 (B == AspectClass.WIDE && A == AspectClass.VERY_TALL)) {
