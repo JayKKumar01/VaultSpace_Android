@@ -11,25 +11,20 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.album.band.*;
-import com.github.jaykkumar01.vaultspace.album.layout.*;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public final class AlbumContentView extends FrameLayout {
 
-    private static final SimpleDateFormat MONTH_LABEL = new SimpleDateFormat("MMM yyyy", Locale.US);
-
     private final RecyclerView rv;
     private final AlbumBandAdapter adapter;
+    private final LayoutStateManager state;
 
+    private final List<AlbumMedia> media = new ArrayList<>();
     private String albumId;
-
-    /* ===== Media cache ===== */
-
-    private final Map<String, List<AlbumMedia>> groupMedia = new HashMap<>();
 
     public AlbumContentView(Context c) {
         this(c, null);
@@ -42,10 +37,16 @@ public final class AlbumContentView extends FrameLayout {
     public AlbumContentView(Context c, @Nullable AttributeSet a, int s) {
         super(c, a, s);
         setBackgroundColor(c.getColor(R.color.vs_content_bg));
+
         rv = new RecyclerView(c);
         rv.setLayoutManager(new LinearLayoutManager(c));
         rv.setOverScrollMode(OVER_SCROLL_NEVER);
+        rv.setItemAnimator(null); // 🔒 disable all animations
+
+
         adapter = new AlbumBandAdapter();
+        state = new LayoutStateManager();
+
         rv.setAdapter(adapter);
         addView(rv, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
     }
@@ -57,39 +58,41 @@ public final class AlbumContentView extends FrameLayout {
     /* ===== FULL SET ===== */
 
     public void setMedia(Iterable<AlbumMedia> snapshot) {
-        groupMedia.clear();
-        long now = System.currentTimeMillis();
+        media.clear();
+        for (AlbumMedia m : snapshot) if (m != null) media.add(m);
 
-        for (AlbumMedia m : snapshot) {
-            String k = TimeBucketizer.resolveKey(m.momentMillis, now);
-            insertSorted(groupMedia.computeIfAbsent(k, x -> new ArrayList<>()), m);
-        }
+        // DESC by momentMillis
+        media.sort((a, b) -> Long.compare(b.momentMillis, a.momentMillis));
 
         rebuild();
     }
 
-    /* ===== ADD ONE MEDIA ===== */
+    /* ===== ADD (simple wiring) ===== */
 
     public void addMedia(AlbumMedia m) {
         if (m == null) return;
-
         int w = rv.getWidth();
         if (w == 0) {
             rv.post(() -> addMedia(m));
             return;
         }
 
-        long now = System.currentTimeMillis();
-        String k = TimeBucketizer.resolveKey(m.momentMillis, now);
+        LayoutResult r = state.addMedia(albumId, w, m);
+        adapter.replaceRange(r.start(), r.removeCount(), r.items());
+    }
 
-        List<AlbumMedia> gm = groupMedia.computeIfAbsent(k, x -> new ArrayList<>());
-        insertSorted(gm, m);
+    /* ===== REMOVE (simple wiring) ===== */
 
-        String label = resolveLabel(k, m.momentMillis, now);
-        List<Band> bands = PairingEngine.pair(gm, label);
-        List<BandLayout> layouts = BandLayoutEngine.compute(albumId, w, bands);
+    public void removeMedia(AlbumMedia m) {
+        if (m == null) return;
+        int w = rv.getWidth();
+        if (w == 0) {
+            rv.post(() -> removeMedia(m));
+            return;
+        }
 
-        adapter.onMediaAdded(k, layouts);
+        LayoutResult r = state.removeMedia(albumId, w, m);
+        adapter.replaceRange(r.start(), r.removeCount(), r.items());
     }
 
     /* ===== REBUILD ===== */
@@ -101,43 +104,7 @@ public final class AlbumContentView extends FrameLayout {
             return;
         }
 
-        Map<String, List<BandLayout>> lm = new HashMap<>();
-        long now = System.currentTimeMillis();
-        List<TimeBucket> buckets = TimeBucketizer.buildBuckets(now);
-
-        for (var e : groupMedia.entrySet()) {
-            if (e.getValue().isEmpty()) continue;
-            String k = e.getKey();
-            String label = resolveLabel(k, e.getValue().get(0).momentMillis, buckets);
-            List<Band> bands = PairingEngine.pair(e.getValue(), label);
-            lm.put(k, BandLayoutEngine.compute(albumId, w, bands));
-        }
-
-        adapter.setAll(lm);
-    }
-
-    /* ===== Helpers ===== */
-
-    private static void insertSorted(List<AlbumMedia> l, AlbumMedia m) {
-        int i = 0;
-        while (i < l.size() && l.get(i).momentMillis > m.momentMillis) i++;
-        l.add(i, m);
-    }
-
-    private static String resolveLabel(String k, long ms, long now) {
-        return resolveLabel(k, ms, TimeBucketizer.buildBuckets(now));
-    }
-
-    private static String resolveLabel(String k, long ms, List<TimeBucket> bs) {
-        for (TimeBucket b : bs)
-            if (b.key.equals(k))
-                return switch (b.type) {
-                    case TODAY -> "Today";
-                    case YESTERDAY -> "Yesterday";
-                    case THIS_WEEK -> "This Week";
-                    case THIS_MONTH -> "This Month";
-                    default -> "";
-                };
-        return MONTH_LABEL.format(ms);
+        LayoutResult r = state.setMedia(albumId, w, media);
+        adapter.setAll(r.items());
     }
 }

@@ -1,86 +1,79 @@
 package com.github.jaykkumar01.vaultspace.album.band;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Locale;
 
 public final class TimeBucketizer {
 
-    private static final SimpleDateFormat MONTH_FORMAT = new SimpleDateFormat("yyyy-MM", Locale.US);
-
-    private TimeBucketizer(){}
-
-
-
-    public static String resolveKey(long momentMillis, long now) {
-        List<TimeBucket> buckets = TimeBucketizer.buildBuckets(now);
-
-        for (TimeBucket b : buckets) {
-            if (b.contains(momentMillis)) {
-                return b.key; // TODAY / YESTERDAY / THIS_WEEK / THIS_MONTH
-            }
-        }
-
-        // fallback: month bucket
-        return MONTH_FORMAT.format(momentMillis); // yyyy-MM
+    public enum Bucket {
+        TODAY, YESTERDAY, THIS_WEEK, THIS_MONTH, MONTH
     }
 
-    public static List<TimeBucket> buildBuckets(long now){
-        List<TimeBucket> out=new ArrayList<>();
+    private static final SimpleDateFormat MONTH_KEY =
+            new SimpleDateFormat("yyyy-MM", Locale.US);
+    private static final SimpleDateFormat MONTH_LABEL =
+            new SimpleDateFormat("MMM yyyy", Locale.US);
 
+    private final long todayS,todayE;
+    private final long yestS,yestE;
+    private final long weekS,weekE;
+    private final long monthS,monthE;
+
+    private TimeBucketizer(long now){
         Calendar c=Calendar.getInstance();
         c.setTimeInMillis(now);
 
-        // TODAY
-        long todayStart=startOfDay(c);
-        long todayEnd=endOfDay(c);
-        out.add(new TimeBucket(
-                TimeBucketType.TODAY,
-                "today",
-                todayStart,
-                todayEnd
-        ));
+        todayS=startOfDay(c); todayE=endOfDay(c);
 
-        // YESTERDAY
         c.add(Calendar.DAY_OF_YEAR,-1);
-        out.add(new TimeBucket(
-                TimeBucketType.YESTERDAY,
-                "yesterday",
-                startOfDay(c),
-                endOfDay(c)
-        ));
+        yestS=startOfDay(c); yestE=endOfDay(c);
 
-        // THIS WEEK
         c.setTimeInMillis(now);
         c.set(Calendar.DAY_OF_WEEK,c.getFirstDayOfWeek());
-        long weekStart=startOfDay(c);
+        weekS=startOfDay(c);
         c.add(Calendar.DAY_OF_WEEK,6);
-        long weekEnd=endOfDay(c);
-        out.add(new TimeBucket(
-                TimeBucketType.THIS_WEEK,
-                "this_week",
-                weekStart,
-                weekEnd
-        ));
+        weekE=endOfDay(c);
 
-        // THIS MONTH
         c.setTimeInMillis(now);
         c.set(Calendar.DAY_OF_MONTH,1);
-        long monthStart=startOfDay(c);
+        monthS=startOfDay(c);
         c.add(Calendar.MONTH,1);
         c.add(Calendar.MILLISECOND,-1);
-        long monthEnd=c.getTimeInMillis();
-        out.add(new TimeBucket(
-                TimeBucketType.THIS_MONTH,
-                "this_month",
-                monthStart,
-                monthEnd
-        ));
-
-        return out;
+        monthE=c.getTimeInMillis();
     }
+
+    /* ===== Factory ===== */
+
+    public static TimeBucketizer create(long now){
+        return new TimeBucketizer(now);
+    }
+
+    /* ===== Classification ===== */
+
+    public Bucket bucketOf(long ms){
+        if(ms>=todayS && ms<=todayE) return Bucket.TODAY;
+        if(ms>=yestS  && ms<=yestE)  return Bucket.YESTERDAY;
+        if(ms>=weekS  && ms<=weekE)  return Bucket.THIS_WEEK;
+        if(ms>=monthS && ms<=monthE) return Bucket.THIS_MONTH;
+        return Bucket.MONTH;
+    }
+
+    public String keyOf(Bucket b,long ms){
+        return b==Bucket.MONTH ? MONTH_KEY.format(ms) : b.name().toLowerCase();
+    }
+
+    public String labelOf(Bucket b,long ms){
+        return switch(b){
+            case TODAY->"Today";
+            case YESTERDAY->"Yesterday";
+            case THIS_WEEK->"This Week";
+            case THIS_MONTH->"This Month";
+            default->MONTH_LABEL.format(ms);
+        };
+    }
+
+    /* ===== Utils ===== */
 
     private static long startOfDay(Calendar c){
         c.set(Calendar.HOUR_OF_DAY,0);
