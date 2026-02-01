@@ -45,7 +45,6 @@ public final class BandLayoutEngine {
 
         int effectiveWidth = riverWidth - HORIZONTAL_GUTTER * 2;
 
-        int bandIndex = 0;
         for (Band band : bands) {
 
             BandLayout layout = band.isSolo()
@@ -69,7 +68,6 @@ public final class BandLayoutEngine {
             }
 
             out.add(layout);
-            bandIndex++;
         }
 
         return out;
@@ -99,7 +97,7 @@ public final class BandLayoutEngine {
                 band.timeLabel,
                 bandHeight,
                 new MediaFrame[]{
-                        new MediaFrame(width, height, baseX)
+                        new MediaFrame(m, width, height, baseX)
                 }
         );
 
@@ -128,8 +126,8 @@ public final class BandLayoutEngine {
                 band.timeLabel,
                 bandHeight,
                 new MediaFrame[]{
-                        new MediaFrame(pairWidth, h1, startX),
-                        new MediaFrame(pairWidth, h2, startX + pairWidth + PAIR_GAP)
+                        new MediaFrame(a, pairWidth, h1, startX),
+                        new MediaFrame(b, pairWidth, h2, startX + pairWidth + PAIR_GAP)
                 }
         );
 

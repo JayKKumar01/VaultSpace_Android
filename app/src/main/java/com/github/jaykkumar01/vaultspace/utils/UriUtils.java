@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.exifinterface.media.ExifInterface;
@@ -26,6 +27,8 @@ import java.util.TimeZone;
 import java.util.UUID;
 
 public final class UriUtils {
+    private static final String TAG = "VaultSpace:UriUtils";
+
 
     private UriUtils() {
     }
@@ -66,16 +69,28 @@ public final class UriUtils {
                 if (in != null) {
                     ExifInterface exif = new ExifInterface(in);
 
-                    // Origin (trusted only)
                     originMoment = readExifOrigin(exif);
 
-                    rotation = exifRotationToDegrees(exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL));
+                    int exifOrientation =
+                            exif.getAttributeInt(
+                                    ExifInterface.TAG_ORIENTATION,
+                                    ExifInterface.ORIENTATION_NORMAL
+                            );
+
+                    rotation = exifRotationToDegrees(exifOrientation);
 
                     int w = readExifWidth(exif);
                     int h = readExifHeight(exif);
                     aspectRatio = computeAspectRatio(w, h, rotation);
 
-                    // Moment fallback (only if base missing)
+                    // 🔍 ALWAYS LOG (minimal, diagnostic)
+                    Log.d(TAG,
+                            "PHOTO geometry | uri=" + uri +
+                                    " exifOri=" + exifOrientation +
+                                    " rot=" + rotation +
+                                    " w=" + w + " h=" + h +
+                                    " ar=" + aspectRatio);
+
                     if (base.modifiedMillis <= 0 && originMoment > 0) {
                         momentMillis = originMoment;
                     }
@@ -92,7 +107,7 @@ public final class UriUtils {
                 rotation = parseRotation(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION));
 
                 int w = parseInt(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
-                int h = parseInt( r.extractMetadata( MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT ));
+                int h = parseInt(r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
                 aspectRatio = computeAspectRatio(w, h, rotation);
 
                 // Moment fallback (only if base missing)
@@ -131,7 +146,7 @@ public final class UriUtils {
             File dir = new File(ctx.getCacheDir(), "thumbs");
             @SuppressLint("ResultOfMethodCallIgnored")
             boolean ignored = dir.exists() || dir.mkdirs();
-            thumb = ThumbnailGenerator.generate(ctx, uri, type, dir);
+            thumb = ThumbnailGenerator.generate(ctx, uri, type, rotation, dir);
         }
 
         String id = UUID.randomUUID().toString();
@@ -195,7 +210,7 @@ public final class UriUtils {
      * Geometry helpers (PURE, metadata-only)
      * ========================================================== */
 
-    private static float computeAspectRatio(int w,int h,int rotation) {
+    private static float computeAspectRatio(int w, int h, int rotation) {
         if (w <= 0 || h <= 0) return 1f;
         return (rotation == 90 || rotation == 270)
                 ? (h / (float) w)
@@ -211,22 +226,25 @@ public final class UriUtils {
     }
 
     private static int exifRotationToDegrees(int o) {
-        return o == ExifInterface.ORIENTATION_ROTATE_90 ? 90 :
-                o == ExifInterface.ORIENTATION_ROTATE_180 ? 180 :
-                        o == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+        return (o == ExifInterface.ORIENTATION_ROTATE_90
+                || o == ExifInterface.ORIENTATION_TRANSVERSE) ? 90 :
+                (o == ExifInterface.ORIENTATION_ROTATE_180) ? 180 :
+                        (o == ExifInterface.ORIENTATION_ROTATE_270
+                                || o == ExifInterface.ORIENTATION_TRANSPOSE) ? 270 : 0;
     }
 
+
     private static int readExifWidth(ExifInterface exif) {
-        int v = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH,-1);
+        int v = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, -1);
         return v > 0 ? v : exif.getAttributeInt(
-                ExifInterface.TAG_PIXEL_X_DIMENSION,-1
+                ExifInterface.TAG_PIXEL_X_DIMENSION, -1
         );
     }
 
     private static int readExifHeight(ExifInterface exif) {
-        int v = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH,-1);
+        int v = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, -1);
         return v > 0 ? v : exif.getAttributeInt(
-                ExifInterface.TAG_PIXEL_Y_DIMENSION,-1
+                ExifInterface.TAG_PIXEL_Y_DIMENSION, -1
         );
     }
 
@@ -286,13 +304,19 @@ public final class UriUtils {
     }
 
     private static int parseRotation(String v) {
-        try { return v != null ? Integer.parseInt(v) : 0; }
-        catch (Exception e) { return 0; }
+        try {
+            return v != null ? Integer.parseInt(v) : 0;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private static int parseInt(String v) {
-        try { return v != null ? Integer.parseInt(v) : -1; }
-        catch (Exception e) { return -1; }
+        try {
+            return v != null ? Integer.parseInt(v) : -1;
+        } catch (Exception e) {
+            return -1;
+        }
     }
 
     /* =========================
