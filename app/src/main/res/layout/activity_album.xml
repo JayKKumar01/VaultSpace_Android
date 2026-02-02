@@ -205,7 +205,7 @@
         android:id="@+id/uploadItemProgress"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        app:layout_constraintHeight_max="150dp"
+        app:layout_constraintHeight_max="100dp"
         android:visibility="gone"
         android:layout_marginHorizontal="10dp"
         android:layout_marginBottom="5dp"

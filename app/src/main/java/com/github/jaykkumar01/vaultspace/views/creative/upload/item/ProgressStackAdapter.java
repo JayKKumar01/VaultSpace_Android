@@ -82,10 +82,11 @@ final class ProgressStackAdapter
 
         RecyclerView.LayoutParams lp =
                 new RecyclerView.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
         lp.bottomMargin = v.dp(6);
+        lp.rightMargin = v.dp(6); // optional spacing between columns
         v.setLayoutParams(lp);
 
         return new VH(v);

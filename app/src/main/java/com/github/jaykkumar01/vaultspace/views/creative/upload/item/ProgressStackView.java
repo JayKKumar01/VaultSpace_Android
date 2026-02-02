@@ -8,8 +8,10 @@ import android.util.AttributeSet;
 import android.view.Gravity;
 import android.widget.FrameLayout;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -64,8 +66,11 @@ public final class ProgressStackView extends FrameLayout {
         rv.setClipToPadding(false);
         rv.setPadding(dp(16), dp(8), dp(16), dp(8));
 
-        LinearLayoutManager lm = new LinearLayoutManager(getContext());
-        rv.setLayoutManager(lm);
+        GridLayoutManager gm = getGridLayoutManager();
+
+        rv.setLayoutManager(gm);
+
+
 
 
         adapter = new ProgressStackAdapter();
@@ -79,6 +84,26 @@ public final class ProgressStackView extends FrameLayout {
         addView(rv, lp);
 
         hide();
+    }
+
+    @NonNull
+    private GridLayoutManager getGridLayoutManager() {
+        GridLayoutManager gm = new GridLayoutManager(getContext(), 2);
+
+        gm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                int count = adapter.getItemCount();
+
+                // last item & odd count → take full row
+                if (count % 2 == 1 && position == count - 1) {
+                    return 2;
+                }
+
+                return 1; // normal half-width item
+            }
+        });
+        return gm;
     }
 
     /* ================= PUBLIC API ================= */

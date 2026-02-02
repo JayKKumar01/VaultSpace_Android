@@ -6,6 +6,7 @@ import com.github.jaykkumar01.vaultspace.core.upload.base.UploadedItem;
 public final class AlbumMedia {
 
     public final String fileId;
+    public String _bucketKey;
     public String name;
     public String mimeType;
 
