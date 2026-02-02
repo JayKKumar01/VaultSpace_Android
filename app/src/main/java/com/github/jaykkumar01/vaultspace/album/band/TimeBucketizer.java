@@ -6,8 +6,13 @@ import java.util.Locale;
 
 public final class TimeBucketizer {
 
-    public enum Bucket {
-        TODAY, YESTERDAY, THIS_WEEK, THIS_MONTH, MONTH
+    public static final class Result {
+        public final String key;
+        public final String label;
+        Result(String key, String label) {
+            this.key = key;
+            this.label = label;
+        }
     }
 
     private static final SimpleDateFormat MONTH_KEY =
@@ -20,60 +25,53 @@ public final class TimeBucketizer {
     private final long weekS,weekE;
     private final long monthS,monthE;
 
-    private TimeBucketizer(long now){
-        Calendar c=Calendar.getInstance();
+    private TimeBucketizer(long now) {
+        Calendar c = Calendar.getInstance();
         c.setTimeInMillis(now);
 
-        todayS=startOfDay(c); todayE=endOfDay(c);
+        todayS = startOfDay(c); todayE = endOfDay(c);
 
-        c.add(Calendar.DAY_OF_YEAR,-1);
-        yestS=startOfDay(c); yestE=endOfDay(c);
-
-        c.setTimeInMillis(now);
-        c.set(Calendar.DAY_OF_WEEK,c.getFirstDayOfWeek());
-        weekS=startOfDay(c);
-        c.add(Calendar.DAY_OF_WEEK,6);
-        weekE=endOfDay(c);
+        c.add(Calendar.DAY_OF_YEAR, -1);
+        yestS = startOfDay(c); yestE = endOfDay(c);
 
         c.setTimeInMillis(now);
-        c.set(Calendar.DAY_OF_MONTH,1);
-        monthS=startOfDay(c);
-        c.add(Calendar.MONTH,1);
-        c.add(Calendar.MILLISECOND,-1);
-        monthE=c.getTimeInMillis();
+        c.set(Calendar.DAY_OF_WEEK, c.getFirstDayOfWeek());
+        weekS = startOfDay(c);
+        c.add(Calendar.DAY_OF_WEEK, 6);
+        weekE = endOfDay(c);
+
+        c.setTimeInMillis(now);
+        c.set(Calendar.DAY_OF_MONTH, 1);
+        monthS = startOfDay(c);
+        c.add(Calendar.MONTH, 1);
+        c.add(Calendar.MILLISECOND, -1);
+        monthE = c.getTimeInMillis();
     }
 
-    /* ===== Factory ===== */
-
-    public static TimeBucketizer create(long now){
+    public static TimeBucketizer create(long now) {
         return new TimeBucketizer(now);
     }
 
-    /* ===== Classification ===== */
+    /* ===== SINGLE ENTRY POINT ===== */
 
-    public Bucket bucketOf(long ms){
-        if(ms>=todayS && ms<=todayE) return Bucket.TODAY;
-        if(ms>=yestS  && ms<=yestE)  return Bucket.YESTERDAY;
-        if(ms>=weekS  && ms<=weekE)  return Bucket.THIS_WEEK;
-        if(ms>=monthS && ms<=monthE) return Bucket.THIS_MONTH;
-        return Bucket.MONTH;
+    public Result resolve(long ms) {
+        if (ms >= todayS && ms <= todayE)
+            return new Result("today", "Today");
+
+        if (ms >= yestS && ms <= yestE)
+            return new Result("yesterday", "Yesterday");
+
+        if (ms >= weekS && ms <= weekE)
+            return new Result("this_week", "This Week");
+
+        if (ms >= monthS && ms <= monthE)
+            return new Result("this_month", "This Month");
+
+        return new Result(
+                MONTH_KEY.format(ms),
+                MONTH_LABEL.format(ms)
+        );
     }
-
-    public String keyOf(Bucket b,long ms){
-        return b==Bucket.MONTH ? MONTH_KEY.format(ms) : b.name().toLowerCase();
-    }
-
-    public String labelOf(Bucket b,long ms){
-        return switch(b){
-            case TODAY->"Today";
-            case YESTERDAY->"Yesterday";
-            case THIS_WEEK->"This Week";
-            case THIS_MONTH->"This Month";
-            default->MONTH_LABEL.format(ms);
-        };
-    }
-
-    /* ===== Utils ===== */
 
     private static long startOfDay(Calendar c){
         c.set(Calendar.HOUR_OF_DAY,0);

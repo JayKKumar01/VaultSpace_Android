@@ -6,13 +6,11 @@ import java.util.List;
 
 public final class LayoutResult {
 
-    private final boolean full;
     private final int start;
     private final int removeCount;
     private final List<BandLayout> items;
 
-    private LayoutResult(boolean full, int start, int removeCount, List<BandLayout> items) {
-        this.full = full;
+    private LayoutResult(int start, int removeCount, List<BandLayout> items) {
         this.start = start;
         this.removeCount = removeCount;
         this.items = items;
@@ -20,23 +18,21 @@ public final class LayoutResult {
 
     /* ===== Factories ===== */
 
-    public static LayoutResult full(List<BandLayout> items) {
-        return new LayoutResult(true, 0, 0, items);
+    // used by setMedia → adapter.setAll(items)
+    public static LayoutResult setAll(List<BandLayout> items) {
+        return new LayoutResult(0, 0, items);
     }
 
-    public static LayoutResult range(
+    // used by add/remove → adapter.replaceRange(...)
+    public static LayoutResult replaceRange(
             int start,
             int removeCount,
             List<BandLayout> items
     ) {
-        return new LayoutResult(false, start, removeCount, items);
+        return new LayoutResult(start, removeCount, items);
     }
 
     /* ===== Access ===== */
-
-    public boolean isFull() {
-        return full;
-    }
 
     public int start() {
         return start;

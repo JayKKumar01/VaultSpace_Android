@@ -291,5 +291,264 @@ public class Notes {
     // divide in column for the upload progress
 
 
+    // description and pseudo code
+    //Perfect. I’ve cross-checked **the current class line-by-line** against the last description/pseudo-code.
+    //Below is the **corrected, exact description and pseudo-code**, matching the class **1:1**, with **only real behaviors that exist in code** (nothing imagined, nothing missing).
+    //
+    //---
+    //
+    //# ✅ CORRECTED DESCRIPTION + PSEUDO CODE (1:1 with current class)
+    //
+    //---
+    //
+    //## **setMedia**
+    //
+    //### Description (exact behavior)
+    //
+    //* Clears all existing state
+    //* If input list is null or empty:
+    //
+    //  * returns an empty layout list
+    //* Copies all media
+    //* Creates a time bucketizer
+    //* Groups media by time bucket key
+    //* Groups are **not ordered while grouping**
+    //* Groups are then **sorted by time priority**
+    //* For each group, in order:
+    //
+    //  * pairs media
+    //  * creates band layouts
+    //  * **sets time label only on the first band layout**
+    //  * assigns layout start and count
+    //  * appends layouts to the flat list
+    //* Returns the full layout list
+    //
+    //### Pseudo-code
+    //
+    //```
+    //clear all state
+    //
+    //if media list is null or empty
+    //    return empty layout list
+    //
+    //copy media list
+    //create time bucketizer
+    //
+    //for each media item
+    //    find its time key
+    //    add media to its group
+    //
+    //sort groups by time priority
+    //
+    //layoutCursor = 0
+    //for each group in order
+    //    set group.layoutStart = layoutCursor
+    //    pair media in group
+    //    create band layouts
+    //    show label only on first layout
+    //    set group.layoutCount
+    //    append layouts to flat list
+    //    layoutCursor += group.layoutCount
+    //
+    //return full layout list
+    //```
+    //
+    //---
+    //
+    //## **addMedia**
+    //
+    //### Description (exact behavior)
+    //
+    //* If media is null:
+    //
+    //  * returns no-op replace range
+    //* Inserts media into global media list (sorted by time)
+    //* Finds the time group
+    //
+    //**If group does not exist**
+    //
+    //* Creates a new group
+    //* Adds media to it
+    //* Inserts group at correct time priority position
+    //* Computes its layout start
+    //* Builds layouts for the group
+    //* **Sets label only on first layout**
+    //* Inserts layouts into flat list
+    //* Shifts layoutStart of following groups
+    //* Returns inserted range
+    //
+    //**If group exists**
+    //
+    //* Inserts media into group (sorted)
+    //* Rebuilds layouts for that group
+    //* **Label is reassigned so only first layout shows it**
+    //* Diffs old vs new layouts
+    //* If no prefix or suffix matches:
+    //
+    //  * removes entire old group layout
+    //  * inserts full new layout
+    //* Otherwise:
+    //
+    //  * removes only changed middle
+    //  * inserts only changed middle
+    //* Updates group layout count
+    //* Shifts following groups
+    //* Returns changed range
+    //
+    //### Pseudo-code
+    //
+    //```
+    //if media is null
+    //    return no change
+    //
+    //insert media into global list
+    //
+    //find time group
+    //
+    //if group does not exist
+    //    create group
+    //    add media to group
+    //    insert group by time priority
+    //    calculate group layoutStart
+    //    pair media
+    //    create band layouts
+    //    show label only on first layout
+    //    insert layouts into flat list
+    //    shift following groups
+    //    return inserted range
+    //
+    //else
+    //    insert media into group
+    //    pair media
+    //    create new layouts
+    //    show label only on first layout
+    //    diff old layouts vs new layouts
+    //
+    //    if no prefix and no suffix matches
+    //        replace entire group layout
+    //    else
+    //        replace only changed middle part
+    //
+    //    update group layout count
+    //    shift following groups
+    //    return changed range
+    //```
+    //
+    //---
+    //
+    //## **removeMedia**
+    //
+    //### Description (exact behavior)
+    //
+    //* If media is null:
+    //
+    //  * returns no-op replace range
+    //* Finds the time group
+    //* If group not found or media not in group:
+    //
+    //  * returns no-op
+    //* Removes media from group and global list
+    //
+    //**If group becomes empty**
+    //
+    //* Captures group layout start and count
+    //* Removes group from group lists
+    //* Removes all its layouts from flat list
+    //* Shifts following groups
+    //* Returns removed range
+    //
+    //**If group still has media**
+    //
+    //* Rebuilds layouts for group
+    //* **Label moves to new first layout**
+    //* Diffs old vs new layouts
+    //* Either full replace or partial replace
+    //* Updates group layout count
+    //* Shifts following groups
+    //* Returns changed range
+    //
+    //### Pseudo-code
+    //
+    //```
+    //if media is null
+    //    return no change
+    //
+    //find time group
+    //
+    //if group not found or media not in group
+    //    return no change
+    //
+    //remove media from group
+    //remove media from global list
+    //
+    //if group is empty
+    //    capture group layoutStart and layoutCount
+    //    remove group
+    //    remove all its layouts
+    //    shift following groups
+    //    return removed range
+    //
+    //else
+    //    pair remaining media
+    //    create new layouts
+    //    show label only on first layout
+    //    diff old layouts vs new layouts
+    //
+    //    if no prefix and no suffix matches
+    //        replace entire group layout
+    //    else
+    //        replace only changed middle part
+    //
+    //    update group layout count
+    //    shift following groups
+    //    return changed range
+    //```
+    //
+    //---
+    //
+    //## ✅ Final confirmation
+    //
+    //This description and pseudo-code now correctly covers:
+    //
+    //* time priority ordering
+    //* sorted insertion of media
+    //* group insertion/removal
+    //* label-only-on-first-layout rule
+    //* diff fallback vs partial replace
+    //* shifting of following groups
+    //* exact no-op cases
+    //
+    //Nothing extra. Nothing missing.
+    //When you’re ready, next step is cleanly extracting the **helper** using this as the contract.
+
+
+
+
+    //add a delay to notify
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }

@@ -14,7 +14,6 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public final class AlbumContentView extends FrameLayout {

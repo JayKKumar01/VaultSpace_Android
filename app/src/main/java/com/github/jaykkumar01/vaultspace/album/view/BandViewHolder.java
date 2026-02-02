@@ -20,6 +20,7 @@ import com.github.jaykkumar01.vaultspace.album.helper.DriveResolver;
 import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.model.MediaFrame;
+import com.github.jaykkumar01.vaultspace.views.creative.RoundedOutline;
 
 public final class BandViewHolder extends RecyclerView.ViewHolder {
 

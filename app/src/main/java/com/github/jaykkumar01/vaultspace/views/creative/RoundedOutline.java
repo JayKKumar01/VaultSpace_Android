@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.album.view;
+package com.github.jaykkumar01.vaultspace.views.creative;
 
 import android.graphics.Outline;
 import android.view.View;
