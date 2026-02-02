@@ -7,8 +7,8 @@
 
     <!-- Soft circle background -->
     <path
-        android:fillColor="@android:color/white"
-        android:fillAlpha="0.25"
+        android:fillColor="@android:color/black"
+        android:fillAlpha="0.5"
         android:pathData="M12,2a10,10 0 1,0 0,20a10,10 0 1,0 0,-20z"/>
 
     <!-- Play triangle -->

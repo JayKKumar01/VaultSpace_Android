@@ -27,6 +27,10 @@ public final class BandLayoutEngine {
     private static final int VERTICAL_PADDING  = 16;
     private static final int PAIR_GAP          = 12;
 
+    /* ================= Height cap ================= */
+
+    private static final int MAX_MEDIA_HEIGHT = 1700;
+
     /* ================= State ================= */
 
     private final String albumId;
@@ -42,9 +46,7 @@ public final class BandLayoutEngine {
     /* ================= Public API ================= */
 
     public BandLayout compute(Band band) {
-        BandLayout layout = band.isSolo()
-                ? layoutSolo(band)
-                : layoutPair(band);
+        BandLayout layout = band.isSolo() ? layoutSolo(band) : layoutPair(band);
 
         int usedWidth = computeUsedWidth(layout);
         RiverTransform t = RiverNoiseEngine.computeTransform(
@@ -57,14 +59,12 @@ public final class BandLayoutEngine {
 
         layout.rotationDeg = t.rotationDeg;
         for (MediaFrame f : layout.frames) f.baseX += t.xOffset;
-
         return layout;
     }
 
     public List<BandLayout> computeAll(List<Band> bands) {
         List<BandLayout> out = new ArrayList<>(bands.size());
         if (bands.isEmpty() || effectiveWidth <= 0) return out;
-
         for (Band band : bands) out.add(compute(band));
         return out;
     }
@@ -75,24 +75,26 @@ public final class BandLayoutEngine {
         AlbumMedia m = band.first;
 
         float ratio = switch (AspectClass.of(m)) {
-            case WIDE    -> SOLO_WIDE;
+            case WIDE -> SOLO_WIDE;
             case NEUTRAL -> SOLO_NEUTRAL;
-            case TALL    -> SOLO_TALL;
-            default      -> SOLO_VERY_TALL;
+            case TALL -> SOLO_TALL;
+            default -> SOLO_VERY_TALL;
         };
 
         int width = (int) (effectiveWidth * ratio);
         int height = (int) (width / m.aspectRatio);
-        int bandHeight = height + VERTICAL_PADDING * 2;
 
+        int[] clamped = clampByMaxHeight(width, height, m.aspectRatio);
+        width = clamped[0];
+        height = clamped[1];
+
+        int bandHeight = height + VERTICAL_PADDING * 2;
         int baseX = HORIZONTAL_GUTTER + (effectiveWidth - width) / 2;
 
         return new BandLayout(
                 band.timeLabel,
                 bandHeight,
-                new MediaFrame[]{
-                        new MediaFrame(m, width, height, baseX)
-                }
+                new MediaFrame[]{ new MediaFrame(m, width, height, baseX) }
         );
     }
 
@@ -105,25 +107,34 @@ public final class BandLayoutEngine {
         int usableWidth = (int) (effectiveWidth * PAIR_SLACK_RATIO);
         int pairWidth = (usableWidth - PAIR_GAP) / 2;
 
-        int h1 = (int) (pairWidth / a.aspectRatio);
-        int h2 = (int) (pairWidth / b.aspectRatio);
+        int[] f1 = clampByMaxHeight(pairWidth, (int) (pairWidth / a.aspectRatio), a.aspectRatio);
+        int[] f2 = clampByMaxHeight(pairWidth, (int) (pairWidth / b.aspectRatio), b.aspectRatio);
+
+        int w1 = f1[0], h1 = f1[1];
+        int w2 = f2[0], h2 = f2[1];
 
         int bandHeight = Math.max(h1, h2) + VERTICAL_PADDING * 2;
-
-        int totalUsed = pairWidth * 2 + PAIR_GAP;
+        int totalUsed = w1 + w2 + PAIR_GAP;
         int startX = HORIZONTAL_GUTTER + (effectiveWidth - totalUsed) / 2;
 
         return new BandLayout(
                 band.timeLabel,
                 bandHeight,
                 new MediaFrame[]{
-                        new MediaFrame(a, pairWidth, h1, startX),
-                        new MediaFrame(b, pairWidth, h2, startX + pairWidth + PAIR_GAP)
+                        new MediaFrame(a, w1, h1, startX),
+                        new MediaFrame(b, w2, h2, startX + w1 + PAIR_GAP)
                 }
         );
     }
 
-    /* ================= Utils ================= */
+    /* ================= Helpers ================= */
+
+    private static int[] clampByMaxHeight(int width, int height, float aspectRatio) {
+        if (height <= MAX_MEDIA_HEIGHT) return new int[]{ width, height };
+        int h = MAX_MEDIA_HEIGHT;
+        int w = (int) (h * aspectRatio);
+        return new int[]{ w, h };
+    }
 
     private static int computeUsedWidth(BandLayout layout) {
         int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;

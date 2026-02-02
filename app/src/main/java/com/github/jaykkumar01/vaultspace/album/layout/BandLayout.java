@@ -7,7 +7,6 @@ public final class BandLayout {
 
     // semantic
     public final String timeLabel;
-
     // presentation
     public boolean showTimeLabel;
 
