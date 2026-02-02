@@ -22,7 +22,7 @@ public final class BandLayout {
         this.timeLabel = timeLabel;
         this.bandHeight = bandHeight;
         this.frames = frames;
-        this.showTimeLabel = true;
+        this.showTimeLabel = false;
         this.rotationDeg = 0f;
     }
 

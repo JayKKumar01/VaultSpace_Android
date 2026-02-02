@@ -24,67 +24,61 @@ public final class BandLayoutEngine {
     /* ================= Spacing ================= */
 
     private static final int HORIZONTAL_GUTTER = 24;
-    private static final int VERTICAL_PADDING = 16;
-    private static final int PAIR_GAP = 12;
+    private static final int VERTICAL_PADDING  = 16;
+    private static final int PAIR_GAP          = 12;
 
-    private BandLayoutEngine() {}
+    /* ================= State ================= */
 
-    /* ============================================================
-       Public entry
-       ============================================================ */
+    private final String albumId;
+    private final int effectiveWidth;
 
-    public static List<BandLayout> compute(
-            String albumId,
-            int riverWidth,
-            List<Band> bands
-    ) {
-        List<BandLayout> out = new ArrayList<>();
-        if (bands.isEmpty() || riverWidth <= HORIZONTAL_GUTTER * 2) {
-            return out;
-        }
+    /* ================= Constructor ================= */
 
-        int effectiveWidth = riverWidth - HORIZONTAL_GUTTER * 2;
+    public BandLayoutEngine(String albumId, int riverWidth) {
+        this.albumId = albumId;
+        this.effectiveWidth = riverWidth - HORIZONTAL_GUTTER * 2;
+    }
 
-        for (Band band : bands) {
+    /* ================= Public API ================= */
 
-            BandLayout layout = band.isSolo()
-                    ? layoutSolo(effectiveWidth, band)
-                    : layoutPair(effectiveWidth, band);
+    public BandLayout compute(Band band) {
+        BandLayout layout = band.isSolo()
+                ? layoutSolo(band)
+                : layoutPair(band);
 
-            int usedWidth = computeUsedWidth(layout);
-            RiverTransform t = RiverNoiseEngine.computeTransform(
-                    albumId,
-                    band.first.fileId,
-                    effectiveWidth,
-                    usedWidth,
-                    band.isSolo()
-            );
+        int usedWidth = computeUsedWidth(layout);
+        RiverTransform t = RiverNoiseEngine.computeTransform(
+                albumId,
+                band.first.fileId,
+                effectiveWidth,
+                usedWidth,
+                band.isSolo()
+        );
 
+        layout.rotationDeg = t.rotationDeg;
+        for (MediaFrame f : layout.frames) f.baseX += t.xOffset;
 
-            layout.rotationDeg = t.rotationDeg;
+        return layout;
+    }
 
-            for (MediaFrame f : layout.frames) {
-                f.baseX += t.xOffset;
-            }
+    public List<BandLayout> computeAll(List<Band> bands) {
+        List<BandLayout> out = new ArrayList<>(bands.size());
+        if (bands.isEmpty() || effectiveWidth <= 0) return out;
 
-            out.add(layout);
-        }
-
+        for (Band band : bands) out.add(compute(band));
         return out;
     }
 
-    /* ============================================================
-       SOLO band
-       ============================================================ */
+    /* ================= SOLO band ================= */
 
-    private static BandLayout layoutSolo(int effectiveWidth, Band band) {
+    private BandLayout layoutSolo(Band band) {
         AlbumMedia m = band.first;
 
         float ratio = switch (AspectClass.of(m)) {
-            case WIDE -> SOLO_WIDE;
+            case WIDE    -> SOLO_WIDE;
             case NEUTRAL -> SOLO_NEUTRAL;
-            case TALL -> SOLO_TALL;
-            default -> SOLO_VERY_TALL;
+            case TALL    -> SOLO_TALL;
+            default      -> SOLO_VERY_TALL;
         };
 
         int width = (int) (effectiveWidth * ratio);
@@ -100,14 +94,11 @@ public final class BandLayoutEngine {
                         new MediaFrame(m, width, height, baseX)
                 }
         );
-
     }
 
-    /* ============================================================
-       PAIRED band
-       ============================================================ */
+    /* ================= PAIRED band ================= */
 
-    private static BandLayout layoutPair(int effectiveWidth, Band band) {
+    private BandLayout layoutPair(Band band) {
         AlbumMedia a = band.first;
         AlbumMedia b = band.second;
 
@@ -130,17 +121,12 @@ public final class BandLayoutEngine {
                         new MediaFrame(b, pairWidth, h2, startX + pairWidth + PAIR_GAP)
                 }
         );
-
     }
 
-    /* ============================================================
-       Utils
-       ============================================================ */
+    /* ================= Utils ================= */
 
     private static int computeUsedWidth(BandLayout layout) {
-        int minX = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
         for (MediaFrame f : layout.frames) {
             minX = Math.min(minX, f.baseX);
             maxX = Math.max(maxX, f.baseX + f.width);

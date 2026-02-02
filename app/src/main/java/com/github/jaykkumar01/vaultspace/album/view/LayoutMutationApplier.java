@@ -48,8 +48,8 @@ public final class LayoutMutationApplier {
         int removeCount = result.removeCount();
         int start = result.start();
 
-        if (removeCount > 0)
-            flatLayouts.subList(start, start + removeCount).clear();
+        if (removeCount > 0 && start < flatLayouts.size())
+            flatLayouts.subList(start, Math.min(start + removeCount, flatLayouts.size())).clear();
 
         if (!result.items().isEmpty())
             flatLayouts.addAll(start, result.items());

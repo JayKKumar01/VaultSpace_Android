@@ -11,16 +11,20 @@ import java.util.List;
 
 public final class LayoutGroupBuilder {
 
-    public List<BandLayout> build(String albumId,int width,List<AlbumMedia> media,TimeBucketizer b) {
+    /* ================= Bands ================= */
+
+    public List<Band> buildBands(List<AlbumMedia> media, TimeBucketizer bucketizer) {
         if (media == null || media.isEmpty()) return List.of();
-
         AlbumMedia first = media.get(0);
-        TimeBucketizer.Result r = b.resolve(first.momentMillis);
+        TimeBucketizer.Result r = bucketizer.resolve(first.momentMillis);
+        return PairingEngine.pair(media, r.label);
+    }
 
-        List<Band> bands = PairingEngine.pair(media, r.label);
-        List<BandLayout> layouts = BandLayoutEngine.compute(albumId, width, bands);
+    /* ================= Layouts (bulk) ================= */
 
-        for (int i = 0; i < layouts.size(); i++) layouts.get(i).showTimeLabel = (i == 0);
-        return layouts;
+    public List<BandLayout> buildLayouts(String albumId, int width, List<Band> bands) {
+        if (bands == null || bands.isEmpty()) return List.of();
+        BandLayoutEngine engine = new BandLayoutEngine(albumId, width);
+        return engine.computeAll(bands);
     }
 }

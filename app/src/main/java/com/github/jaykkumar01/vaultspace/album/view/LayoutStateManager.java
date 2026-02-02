@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.album.view;
 
+import com.github.jaykkumar01.vaultspace.album.band.Band;
 import com.github.jaykkumar01.vaultspace.album.band.TimeBucketizer;
 import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
@@ -21,7 +22,7 @@ public final class LayoutStateManager {
     private TimeBucketizer bucketizer;
 
     private final LayoutGroupBuilder groupBuilder = new LayoutGroupBuilder();
-    private final LayoutDiffHelper diffHelper = new LayoutDiffHelper();
+    private final BandDiffHelper bandDiffHelper = new BandDiffHelper();
     private final LayoutMutationApplier mutator = new LayoutMutationApplier(groups, flatLayouts);
 
     /* ================= Public API ================= */
@@ -47,9 +48,13 @@ public final class LayoutStateManager {
         int cursor = 0;
         for (Group g : groups) {
             g.layoutStart = cursor;
-            g.layouts = groupBuilder.build(albumId, width, g.media, bucketizer);
+            g.bands = groupBuilder.buildBands(g.media, bucketizer);
+            g.layouts = groupBuilder.buildLayouts(albumId, width, g.bands);
             g.layoutCount = g.layouts.size();
+
             flatLayouts.addAll(g.layouts);
+            if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
+
             cursor += g.layoutCount;
         }
 
@@ -69,25 +74,41 @@ public final class LayoutStateManager {
             g.media.add(m);
             insertGroupOrdered(g);
 
-            List<BandLayout> layouts = groupBuilder.build(albumId, width, g.media, bucketizer);
-            g.layouts = layouts;
-            g.layoutCount = layouts.size();
+            g.bands = groupBuilder.buildBands(g.media, bucketizer);
+            g.layouts = groupBuilder.buildLayouts(albumId, width, g.bands);
+            g.layoutCount = g.layouts.size();
 
-            mutator.insertGroup(g, layouts);
-            return LayoutResult.replaceRange(g.layoutStart, 0, layouts);
+            mutator.insertGroup(g, g.layouts);
+            if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
+            return LayoutResult.replaceRange(g.layoutStart, 0, g.layouts);
         }
 
         insertGroupMediaSorted(g, m);
 
-        List<BandLayout> next = groupBuilder.build(albumId, width, g.media, bucketizer);
-        LayoutResult diff = diffHelper.diff(g.layoutStart, g.layouts, next);
+        List<Band> nextBands = groupBuilder.buildBands(g.media, bucketizer);
+        BandDiff d = bandDiffHelper.diff(g.bands, nextBands);
 
-        mutator.applyDiff(g, diff, next.size() - g.layoutCount);
-        g.layouts = next;
-        g.layoutCount = next.size();
+        if (d.removeCount == 0 && d.items.isEmpty()) {
+            g.bands = nextBands;
+            if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
+            return LayoutResult.replaceRange(0, 0, List.of());
+        }
 
-        return diff;
+        List<BandLayout> inserted = groupBuilder.buildLayouts(albumId, width, d.items);
+
+        LayoutResult rlt = LayoutResult.replaceRange(g.layoutStart + d.start, d.removeCount, inserted);
+
+        mutator.applyDiff(g, rlt, inserted.size() - d.removeCount);
+        if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
+
+
+        g.bands = nextBands;
+        g.layoutCount += inserted.size() - d.removeCount;
+        g.layouts = flatLayouts.subList(g.layoutStart, g.layoutStart + g.layoutCount);
+
+        return rlt;
     }
+
 
     public LayoutResult removeMedia(String albumId, int width, AlbumMedia m) {
         if (m == null) return LayoutResult.replaceRange(0, 0, List.of());
@@ -103,20 +124,41 @@ public final class LayoutStateManager {
             mutator.removeGroup(g);
             groups.remove(g);
             groupByKey.remove(g.key);
+
+            if (start < flatLayouts.size())
+                flatLayouts.get(start).showTimeLabel = true;
+
             return LayoutResult.replaceRange(start, count, List.of());
+
         }
 
-        List<BandLayout> next = groupBuilder.build(albumId, width, g.media, bucketizer);
-        LayoutResult diff = diffHelper.diff(g.layoutStart, g.layouts, next);
+        List<Band> nextBands = groupBuilder.buildBands(g.media, bucketizer);
+        BandDiff d = bandDiffHelper.diff(g.bands, nextBands);
 
-        mutator.applyDiff(g, diff, next.size() - g.layoutCount);
-        g.layouts = next;
-        g.layoutCount = next.size();
+        if (d.removeCount == 0 && d.items.isEmpty()) {
+            g.bands = nextBands;
+            if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
+            return LayoutResult.replaceRange(0, 0, List.of());
+        }
 
-        return diff;
+        List<BandLayout> inserted = groupBuilder.buildLayouts(albumId, width, d.items);
+
+        LayoutResult rlt = LayoutResult.replaceRange(g.layoutStart + d.start, d.removeCount, inserted);
+
+        mutator.applyDiff(g, rlt, inserted.size() - d.removeCount);
+        if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
+
+
+        g.bands = nextBands;
+        g.layoutCount += inserted.size() - d.removeCount;
+        g.layouts = flatLayouts.subList(g.layoutStart, g.layoutStart + g.layoutCount);
+
+        return rlt;
     }
 
+
     /* ================= Helpers ================= */
+
 
     private TimeBucketizer bucketizer() {
         if (bucketizer == null) bucketizer = TimeBucketizer.create(System.currentTimeMillis());
