@@ -29,7 +29,7 @@ public final class DriveResolver {
     private static final String TAG = "VaultSpace:ThumbResolver";
     private static final String THUMB_PREFIX = "thumb_";
     private static final String THUMB_EXT = ".jpg";
-    private static final long MAX_THUMB_CACHE_BYTES = 120L * 1024 * 1024; // 120 MB
+    private static final long MAX_THUMB_CACHE_BYTES = 12L * 1024 * 1024;
     private static final long TOUCH_INTERVAL_MS = 60_000; // 1 minute
 
 

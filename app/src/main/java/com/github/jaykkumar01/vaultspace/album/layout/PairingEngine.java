@@ -9,7 +9,10 @@ import java.util.List;
 
 public final class PairingEngine {
 
-    private static final int PAIR_THRESHOLD = 1;
+    /* ================= Config ================= */
+
+    // ONLY knob controlling pairing strictness
+    private static final int PAIR_THRESHOLD = 4;
 
     private PairingEngine() {}
 
@@ -28,6 +31,7 @@ public final class PairingEngine {
             AlbumMedia first = media.get(i);
             if (first == null) { i++; continue; }
 
+            // last item → solo
             if (i == n - 1) {
                 out.add(new Band(first, null, timeLabel));
                 break;
@@ -53,16 +57,17 @@ public final class PairingEngine {
     }
 
     /* ============================================================
-       Scoring (BASED ON EFFECTIVE ASPECT)
+       Scoring (FULLY EXPRESSIVE, NO LIMITS)
        ============================================================ */
 
     private static int score(AlbumMedia a, AlbumMedia b) {
         AspectClass A = AspectClass.of(a);
         AspectClass B = AspectClass.of(b);
-        if (A == null || B == null) return -1;
+        if (A == null || B == null) return Integer.MIN_VALUE;
 
-        if (A == B) return 3;
-        if (A == AspectClass.NEUTRAL || B == AspectClass.NEUTRAL) return 2;
-        return 1;
+        int distance = Math.abs(A.ordinal() - B.ordinal());
+
+        // higher = more similar
+        return 6 - distance;
     }
 }
