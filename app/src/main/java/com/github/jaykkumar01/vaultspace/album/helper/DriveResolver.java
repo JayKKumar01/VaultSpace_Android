@@ -1,6 +1,7 @@
 package com.github.jaykkumar01.vaultspace.album.helper;
 
 import android.content.Context;
+import android.nfc.Tag;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -20,8 +21,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public final class DriveResolver {
@@ -31,6 +34,7 @@ public final class DriveResolver {
     private static final String THUMB_EXT = ".jpg";
     private static final long MAX_THUMB_CACHE_BYTES = 12L * 1024 * 1024;
     private static final long TOUCH_INTERVAL_MS = 60_000; // 1 minute
+    private final ConcurrentHashMap<String, AtomicBoolean> liveRequests = new ConcurrentHashMap<>();
 
 
     private final Context appContext;
@@ -121,11 +125,38 @@ public final class DriveResolver {
      * STEP 2: async resolution entry
      * ========================================================== */
 
-    public void resolveAsync(
-            @NonNull AlbumMedia media,
-            @NonNull Consumer<String> consumer
-    ) {
-        executor.execute(() -> consumer.accept(resolveOnce(media)));
+    public void resolveAsync(@NonNull AlbumMedia media, @NonNull Consumer<String> consumer) {
+        AtomicBoolean alive = new AtomicBoolean(true);
+        liveRequests.put(media.fileId, alive);
+
+        Log.d(TAG, "[ASYNC] start id=" + media.fileId);
+
+        executor.execute(() -> {
+            if (!alive.get()) {
+                Log.d(TAG, "[ASYNC] drop-before id=" + media.fileId);
+                return;
+            }
+
+            String path = resolveOnce(media);
+
+            if (!alive.get()) {
+                Log.d(TAG, "[ASYNC] drop-after id=" + media.fileId);
+                return;
+            }
+
+            Log.d(TAG, "[ASYNC] done id=" + media.fileId
+                    + (path != null ? "" : " (null)"));
+
+            consumer.accept(path);
+        });
+    }
+
+
+
+
+    public void cancel(@NonNull String mediaId) {
+        AtomicBoolean flag = liveRequests.remove(mediaId);
+        if (flag != null) flag.set(false);
     }
 
     /* ==========================================================
@@ -235,16 +266,32 @@ public final class DriveResolver {
 
         long total = 0;
         for (java.io.File f : files) total += f.length();
+
+        // 🔑 ALWAYS log current total
+        Log.d(TAG, "Thumb cache size: " + (total / 1024) + "KB");
+
         if (total <= MAX_THUMB_CACHE_BYTES) return;
 
-        java.util.Arrays.sort(files, java.util.Comparator.comparingLong(java.io.File::lastModified));
+        java.util.Arrays.sort(
+                files,
+                java.util.Comparator.comparingLong(java.io.File::lastModified)
+        );
 
         for (java.io.File f : files) {
             long len = f.length();
-            if (f.delete()) total -= len;
+            if (f.delete()) {
+                total -= len;
+                Log.d(
+                        TAG,
+                        "Thumb evicted: " + f.getName()
+                                + " (" + (len / 1024) + "KB)"
+                                + ", total=" + (total / 1024) + "KB"
+                );
+            }
             if (total <= MAX_THUMB_CACHE_BYTES) break;
         }
     }
+
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private static void touchIfStale(@NonNull java.io.File f) {

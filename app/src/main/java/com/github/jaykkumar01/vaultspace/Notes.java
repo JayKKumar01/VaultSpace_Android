@@ -526,6 +526,8 @@ public class Notes {
 
     //add a delay to notify
 
+    // I need to cancel the load on view hide
+
 
 
 

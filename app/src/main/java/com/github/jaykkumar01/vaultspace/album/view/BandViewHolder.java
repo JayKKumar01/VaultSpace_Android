@@ -25,10 +25,13 @@ import com.github.jaykkumar01.vaultspace.album.layout.BandLayout;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.model.MediaFrame;
 
+import java.util.ArrayList;
+
 public final class BandViewHolder extends RecyclerView.ViewHolder {
 
     /* ================= Fields ================= */
 
+    private final ArrayList<String> activeMediaIds = new ArrayList<>(2);
 
     private final TextView timeLabel;
     private final FrameLayout band;
@@ -69,6 +72,7 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
     /* ================= Bind ================= */
 
     public void bind(@NonNull BandLayout layout) {
+        activeMediaIds.clear();
         bindHeader(layout);
         band.removeAllViews();
         band.setRotation(layout.rotationDeg);
@@ -108,6 +112,7 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         card.addView(content);
         band.addView(card);
 
+        activeMediaIds.add(m.fileId);
         loadImageAsync(c, image, m);
     }
 
@@ -234,8 +239,6 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
     }
 
 
-
-
     private static TextView createTimeView(Context c, String timeLabel, long millis) {
         TextView t = new TextView(c);
         t.setText(TimeBucketizer.formatTimeForKey(c, timeLabel, millis));
@@ -247,16 +250,29 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
     }
 
     private void loadImageAsync(Context c, ImageView image, AlbumMedia m) {
-        Drawable placeholder = AppCompatResources.getDrawable(c, m.isVideo ? R.drawable.ic_play_badge :R.drawable.ic_photo);
+        Drawable placeholder = AppCompatResources.getDrawable(c, m.isVideo ? R.drawable.ic_play_badge : R.drawable.ic_photo);
+        image.setTag(m.fileId);
         resolver.resolveAsync(m, path -> {
             if (path == null) return;
-            image.post(() -> Glide.with(image)
-                    .load(path)
-                    .placeholder(placeholder)
-                    .error(placeholder)
-                    .into(image));
+            image.post(() -> {
+                if (!m.fileId.equals(image.getTag())) return;
+                Glide.with(image)
+                        .load(path)
+                        .placeholder(placeholder)
+                        .error(placeholder)
+                        .into(image);
+            });
         });
     }
+
+    public void cancelLoads() {
+        for (int i = 0, n = activeMediaIds.size(); i < n; i++)
+            resolver.cancel(activeMediaIds.get(i));
+        activeMediaIds.clear();
+    }
+
+
+
 
     /* ================= Utils ================= */
 

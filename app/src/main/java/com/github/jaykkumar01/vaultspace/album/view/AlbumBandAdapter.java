@@ -65,4 +65,11 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
     public void onBindViewHolder(@NonNull BandViewHolder holder, int position) {
         holder.bind(items.get(position));
     }
+
+    @Override
+    public void onViewRecycled(@NonNull BandViewHolder holder) {
+        super.onViewRecycled(holder);
+        holder.cancelLoads();
+    }
+
 }

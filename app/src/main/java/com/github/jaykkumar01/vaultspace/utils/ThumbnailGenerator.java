@@ -4,10 +4,10 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageDecoder;
-import android.graphics.Matrix;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,9 +22,12 @@ import java.util.UUID;
 public final class ThumbnailGenerator {
 
     /* ================= Constants ================= */
-    private static final float MAX_ASPECT = 16f / 9f;
-    private static final int MIN_THUMB_DIM = 256;
 
+    private static final String TAG = "VaultSpace:ThumbGen";
+
+    private static final float MAX_ASPECT = 16f / 9f;
+    private static final float EXTREME_ASPECT = 3.0f;
+    private static final int MIN_THUMB_DIM = 256;
 
     /* ================= Public API ================= */
 
@@ -35,7 +38,9 @@ public final class ThumbnailGenerator {
             @NonNull UploadType type,
             @NonNull File outputDir
     ) {
+        long t0 = System.nanoTime();
         Bitmap bmp = null;
+
         try {
             bmp = (type == UploadType.VIDEO)
                     ? decodeVideo(context, uri)
@@ -44,13 +49,16 @@ public final class ThumbnailGenerator {
             if (bmp == null) return null;
 
             bmp = smartCropIfExtreme(bmp);
-
             bmp = clampToMinSide(bmp);
 
             File out = new File(outputDir, UUID.randomUUID() + ".jpg");
             try (FileOutputStream fos = new FileOutputStream(out)) {
                 bmp.compress(Bitmap.CompressFormat.JPEG, 75, fos);
             }
+
+            long ms = (System.nanoTime() - t0) / 1_000_000;
+            Log.d(TAG, "Thumb gen (" + type + ") in " + ms + "ms");
+
             return out.getAbsolutePath();
 
         } catch (Throwable ignored) {
@@ -64,21 +72,25 @@ public final class ThumbnailGenerator {
 
     @Nullable
     private static Bitmap decodeImage(@NonNull Context context, @NonNull Uri uri) throws Exception {
+
+        // -------- API 28+ --------
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             return ImageDecoder.decodeBitmap(
                     ImageDecoder.createSource(context.getContentResolver(), uri),
                     (d, info, src) -> {
                         d.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
-                        d.setTargetSampleSize(
-                                calculateSampleSize(
-                                        info.getSize().getWidth(),
-                                        info.getSize().getHeight()
-                                )
-                        );
+
+                        int w = info.getSize().getWidth();
+                        int h = info.getSize().getHeight();
+
+                        if (!isExtremeAspect(w, h)) {
+                            d.setTargetSampleSize(calculateSampleSize(w, h));
+                        }
                     }
             );
         }
 
+        // -------- Pre-P --------
         try (InputStream is = context.getContentResolver().openInputStream(uri)) {
             if (is == null) return null;
 
@@ -86,8 +98,10 @@ public final class ThumbnailGenerator {
             o.inJustDecodeBounds = true;
             BitmapFactory.decodeStream(is, null, o);
 
-            o.inSampleSize = calculateSampleSize(o.outWidth, o.outHeight);
             o.inJustDecodeBounds = false;
+            o.inSampleSize = isExtremeAspect(o.outWidth, o.outHeight)
+                    ? 1
+                    : calculateSampleSize(o.outWidth, o.outHeight);
 
             try (InputStream is2 = context.getContentResolver().openInputStream(uri)) {
                 return BitmapFactory.decodeStream(is2, null, o);
@@ -119,19 +133,25 @@ public final class ThumbnailGenerator {
         boolean wide = ratio > 1f;
         int newW = wide ? Math.round(h * MAX_ASPECT) : w;
         int newH = wide ? h : Math.round(w * MAX_ASPECT);
-        int x = (w - newW) >> 1, y = (h - newH) >> 1;
+        int x = (w - newW) >> 1;
+        int y = (h - newH) >> 1;
 
         Bitmap out = Bitmap.createBitmap(src, x, y, newW, newH);
         if (out != src) src.recycle();
         return out;
     }
 
-
     /* ================= Utils ================= */
+
+    private static boolean isExtremeAspect(int w, int h) {
+        float r = (float) w / h;
+        return r > EXTREME_ASPECT || r < 1f / EXTREME_ASPECT;
+    }
 
     private static int calculateSampleSize(int w, int h) {
         int s = 1;
-        while ((w / s) > MIN_THUMB_DIM * 4 || (h / s) > MIN_THUMB_DIM * 4) s <<= 1;
+        while ((w / s) > MIN_THUMB_DIM * 4 || (h / s) > MIN_THUMB_DIM * 4)
+            s <<= 1;
         return s;
     }
 
@@ -139,7 +159,6 @@ public final class ThumbnailGenerator {
     private static Bitmap clampToMinSide(@NonNull Bitmap src) {
         int w = src.getWidth(), h = src.getHeight();
         int min = Math.min(w, h);
-
         if (min < MIN_THUMB_DIM) return src;
 
         boolean widthIsMin = w <= h;
@@ -152,8 +171,6 @@ public final class ThumbnailGenerator {
         if (out != src) src.recycle();
         return out;
     }
-
-
 
     private ThumbnailGenerator() {}
 }
