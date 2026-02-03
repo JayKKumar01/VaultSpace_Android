@@ -29,6 +29,9 @@ public final class DriveResolver {
     private static final String TAG = "VaultSpace:ThumbResolver";
     private static final String THUMB_PREFIX = "thumb_";
     private static final String THUMB_EXT = ".jpg";
+    private static final long MAX_THUMB_CACHE_BYTES = 120L * 1024 * 1024; // 120 MB
+    private static final long TOUCH_INTERVAL_MS = 60_000; // 1 minute
+
 
     private final Context appContext;
     private final ExecutorService executor;
@@ -36,7 +39,7 @@ public final class DriveResolver {
 
     public DriveResolver(@NonNull Context context) {
         this.appContext = context.getApplicationContext();
-        this.executor = Executors.newFixedThreadPool(3);
+        this.executor = Executors.newFixedThreadPool(4);
         this.primaryDrive = DriveClientProvider.getPrimaryDrive(context);
     }
 
@@ -153,10 +156,15 @@ public final class DriveResolver {
                 THUMB_PREFIX + thumbFileId + THUMB_EXT
         );
 
-        if (out.exists()) return out.getAbsolutePath();
+        if (out.exists()) {
+            touchIfStale(out);
+            return out.getAbsolutePath();
+        }
+
         return fetchAndCache(primaryDrive, thumbFileId, out);
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private String fetchAndCache(
             @NonNull Drive drive,
             @NonNull String thumbFileId,
@@ -164,6 +172,7 @@ public final class DriveResolver {
     ) {
         try (OutputStream os = new FileOutputStream(out)) {
             drive.files().get(thumbFileId).executeMediaAndDownloadTo(os);
+            executor.execute(this::trimThumbCacheIfNeeded);
             return out.getAbsolutePath();
         } catch (Exception e) {
             Log.w(TAG, "Drive thumbnail fetch failed id=" + thumbFileId, e);
@@ -182,10 +191,15 @@ public final class DriveResolver {
                 THUMB_PREFIX + sha1(url) + THUMB_EXT
         );
 
-        if (out.exists()) return out.getAbsolutePath();
+        if (out.exists()) {
+            touchIfStale(out);
+            return out.getAbsolutePath();
+        }
+
         return downloadHttp(url, out);
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private String downloadHttp(String url, java.io.File out) {
         HttpURLConnection conn = null;
         try (FileOutputStream fos = new FileOutputStream(out)) {
@@ -199,6 +213,7 @@ public final class DriveResolver {
                 int n;
                 while ((n = in.read(buf)) > 0) fos.write(buf, 0, n);
             }
+            executor.execute(this::trimThumbCacheIfNeeded);
             return out.getAbsolutePath();
         } catch (Exception e) {
             Log.w(TAG, "HTTP thumbnail fetch failed", e);
@@ -208,6 +223,37 @@ public final class DriveResolver {
             if (conn != null) conn.disconnect();
         }
     }
+
+    /* ==========================================================
+     * LRU thumbnail cache trim (best-effort)
+     * ========================================================== */
+
+    private void trimThumbCacheIfNeeded() {
+        java.io.File dir = appContext.getCacheDir();
+        java.io.File[] files = dir.listFiles((d, n) -> n.startsWith(THUMB_PREFIX));
+        if (files == null || files.length == 0) return;
+
+        long total = 0;
+        for (java.io.File f : files) total += f.length();
+        if (total <= MAX_THUMB_CACHE_BYTES) return;
+
+        java.util.Arrays.sort(files, java.util.Comparator.comparingLong(java.io.File::lastModified));
+
+        for (java.io.File f : files) {
+            long len = f.length();
+            if (f.delete()) total -= len;
+            if (total <= MAX_THUMB_CACHE_BYTES) break;
+        }
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static void touchIfStale(@NonNull java.io.File f) {
+        long now = System.currentTimeMillis();
+        if (now - f.lastModified() > TOUCH_INTERVAL_MS)
+            f.setLastModified(now);
+    }
+
+
 
     /* ==========================================================
      * Utils

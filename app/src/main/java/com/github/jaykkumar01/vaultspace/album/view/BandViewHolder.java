@@ -29,6 +29,7 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
 
     /* ================= Fields ================= */
 
+
     private final TextView timeLabel;
     private final FrameLayout band;
     private final DriveResolver resolver;
@@ -174,7 +175,15 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
                         ConstraintLayout.LayoutParams.MATCH_PARENT,
                         0
                 );
-        lp.dimensionRatio = f.width + ":" + f.height;
+
+
+        float ar = (float) f.width / f.height;
+
+        lp.dimensionRatio = ar >= 1f
+                ? (int) (ar * 1000) + ":1000"
+                : "1000:" + (int) (1000 / ar);
+
+
         lp.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
         lp.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
         lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
@@ -250,6 +259,7 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
     }
 
     /* ================= Utils ================= */
+
 
     private static int dp(Context c, int v) {
         return (int) (v * c.getResources().getDisplayMetrics().density);

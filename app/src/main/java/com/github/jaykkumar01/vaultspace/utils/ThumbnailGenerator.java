@@ -22,8 +22,9 @@ import java.util.UUID;
 public final class ThumbnailGenerator {
 
     /* ================= Constants ================= */
+    private static final float MAX_ASPECT = 16f / 9f;
+    private static final int MIN_THUMB_DIM = 256;
 
-    private static final int THUMB_SIZE = 256;
 
     /* ================= Public API ================= */
 
@@ -42,7 +43,9 @@ public final class ThumbnailGenerator {
 
             if (bmp == null) return null;
 
-            bmp = clampToThumbSize(bmp);
+            bmp = smartCropIfExtreme(bmp);
+
+            bmp = clampToMinSide(bmp);
 
             File out = new File(outputDir, UUID.randomUUID() + ".jpg");
             try (FileOutputStream fos = new FileOutputStream(out)) {
@@ -106,35 +109,51 @@ public final class ThumbnailGenerator {
 
     /* ================= Geometry ================= */
 
-    private static Bitmap applyRotation(@NonNull Bitmap src, int rotation) {
-        if (rotation == 0) return src;
-        Matrix m = new Matrix();
-        m.postRotate(rotation);
-        Bitmap out = Bitmap.createBitmap(src, 0, 0, src.getWidth(), src.getHeight(), m, true);
+    @NonNull
+    private static Bitmap smartCropIfExtreme(@NonNull Bitmap src) {
+        int w = src.getWidth(), h = src.getHeight();
+        float ratio = (float) w / h;
+
+        if (ratio >= 1f / MAX_ASPECT && ratio <= MAX_ASPECT) return src;
+
+        boolean wide = ratio > 1f;
+        int newW = wide ? Math.round(h * MAX_ASPECT) : w;
+        int newH = wide ? h : Math.round(w * MAX_ASPECT);
+        int x = (w - newW) >> 1, y = (h - newH) >> 1;
+
+        Bitmap out = Bitmap.createBitmap(src, x, y, newW, newH);
         if (out != src) src.recycle();
         return out;
     }
+
 
     /* ================= Utils ================= */
 
     private static int calculateSampleSize(int w, int h) {
         int s = 1;
-        while ((w / s) > THUMB_SIZE * 2 || (h / s) > THUMB_SIZE * 2) s <<= 1;
+        while ((w / s) > MIN_THUMB_DIM * 4 || (h / s) > MIN_THUMB_DIM * 4) s <<= 1;
         return s;
     }
 
     @NonNull
-    private static Bitmap clampToThumbSize(@NonNull Bitmap src) {
+    private static Bitmap clampToMinSide(@NonNull Bitmap src) {
         int w = src.getWidth(), h = src.getHeight();
-        if (w <= THUMB_SIZE && h <= THUMB_SIZE) return src;
+        int min = Math.min(w, h);
 
-        float scale = Math.min((float) THUMB_SIZE / w, (float) THUMB_SIZE / h);
-        Bitmap out = Bitmap.createScaledBitmap(
-                src, Math.round(w * scale), Math.round(h * scale), true
-        );
+        if (min < MIN_THUMB_DIM) return src;
+
+        boolean widthIsMin = w <= h;
+        float ratio = (float) h / w;
+
+        int outW = widthIsMin ? MIN_THUMB_DIM : Math.round(MIN_THUMB_DIM / ratio);
+        int outH = widthIsMin ? Math.round(MIN_THUMB_DIM * ratio) : MIN_THUMB_DIM;
+
+        Bitmap out = Bitmap.createScaledBitmap(src, outW, outH, true);
         if (out != src) src.recycle();
         return out;
     }
+
+
 
     private ThumbnailGenerator() {}
 }
