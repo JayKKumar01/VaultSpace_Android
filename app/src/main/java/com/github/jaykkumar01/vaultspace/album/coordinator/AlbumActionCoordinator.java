@@ -81,14 +81,7 @@ public final class AlbumActionCoordinator {
         uriSelection.selectMediaUris();
     }
 
-    public void onMediaClicked(AlbumMedia media, int position) {
-        if (released) return;
-        Log.d(TAG, "Media clicked pos=" + position);
-    }
-
-    public void onMediaLongPressed(AlbumMedia media, int position) {
-        if (released) return;
-        Log.d(TAG, "Media long pressed pos=" + position);
+    public void onDownloadMedia(AlbumMedia m) {
     }
 
     /* ============================================================

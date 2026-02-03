@@ -12,8 +12,12 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
     /* ===== State ===== */
 
     private final ArrayList<BandLayout> items = new ArrayList<>();
+    private OnMediaActionListener listener;
 
     /* ===== Public APIs ===== */
+    public void setMediaActionListener(OnMediaActionListener mediaActionListener) {
+        this.listener = mediaActionListener;
+    }
 
     /* Full replace */
     public void setAll(List<BandLayout> newItems) {
@@ -58,7 +62,7 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
     @NonNull
     @Override
     public BandViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        return BandViewHolder.create(parent);
+        return BandViewHolder.create(parent,listener);
     }
 
     @Override
@@ -71,5 +75,4 @@ public final class AlbumBandAdapter extends RecyclerView.Adapter<BandViewHolder>
         super.onViewRecycled(holder);
         holder.cancelLoads();
     }
-
 }

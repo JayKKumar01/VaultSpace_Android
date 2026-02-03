@@ -16,13 +16,11 @@ import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class AlbumContentView extends FrameLayout {
+public final class AlbumContentView extends FrameLayout{
 
     private final RecyclerView rv;
     private final AlbumBandAdapter adapter;
     private final LayoutStateManager state;
-
-    private final List<AlbumMedia> media = new ArrayList<>();
     private String albumId;
 
     public AlbumContentView(Context c) {
@@ -40,7 +38,6 @@ public final class AlbumContentView extends FrameLayout {
         rv = new RecyclerView(c);
         rv.setLayoutManager(new LinearLayoutManager(c));
         rv.setOverScrollMode(OVER_SCROLL_NEVER);
-//        rv.setItemAnimator(null); // 🔒 disable all animations
 
 
         adapter = new AlbumBandAdapter();
@@ -50,6 +47,10 @@ public final class AlbumContentView extends FrameLayout {
         addView(rv, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
     }
 
+    public void setMediaActionListener(OnMediaActionListener mediaActionListener){
+       adapter.setMediaActionListener(mediaActionListener);
+    }
+
     public void setAlbum(String id) {
         albumId = id;
     }
@@ -57,14 +58,12 @@ public final class AlbumContentView extends FrameLayout {
     /* ===== FULL SET ===== */
 
     public void setMedia(Iterable<AlbumMedia> snapshot) {
-        media.clear();
+        List<AlbumMedia> media = new ArrayList<>();
         for (AlbumMedia m : snapshot) if (m != null) media.add(m);
-
-        // DESC by momentMillis
         media.sort((a, b) -> Long.compare(b.momentMillis, a.momentMillis));
-
-        rebuild();
+        rebuild(media);
     }
+
 
     /* ===== ADD (simple wiring) ===== */
 
@@ -82,24 +81,24 @@ public final class AlbumContentView extends FrameLayout {
 
     /* ===== REMOVE (simple wiring) ===== */
 
-    public void removeMedia(AlbumMedia m) {
-        if (m == null) return;
+    public void removeMedia(String id) {
+        if (id == null) return;
         int w = rv.getWidth();
         if (w == 0) {
-            rv.post(() -> removeMedia(m));
+            rv.post(() -> removeMedia(id));
             return;
         }
 
-        LayoutResult r = state.removeMedia(albumId, w, m);
+        LayoutResult r = state.removeMedia(albumId, w, id);
         adapter.replaceRange(r.start(), r.removeCount(), r.items());
     }
 
     /* ===== REBUILD ===== */
 
-    private void rebuild() {
+    private void rebuild(List<AlbumMedia> media) {
         int w = rv.getWidth();
         if (w == 0) {
-            rv.post(this::rebuild);
+            rv.post(() -> rebuild(media));
             return;
         }
 

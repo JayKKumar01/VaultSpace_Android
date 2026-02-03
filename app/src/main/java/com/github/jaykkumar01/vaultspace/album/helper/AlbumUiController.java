@@ -4,20 +4,24 @@ import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import androidx.annotation.NonNull;
+
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.album.view.AlbumContentView;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.album.view.OnMediaActionListener;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
 public final class AlbumUiController {
 
 
+    private final Context context;
 
     public interface Callback {
         void onAddMediaClicked();
-        void onMediaClicked(AlbumMedia media, int position);
-        void onMediaLongPressed(AlbumMedia media, int position);
+        void onMediaClicked(AlbumMedia media);
+        void onMediaLongPressed(AlbumMedia media);
     }
 
     private final Callback callback;
@@ -25,18 +29,14 @@ public final class AlbumUiController {
     private final LoadingStateView loadingView;
     private final EmptyStateView emptyView;
     private final AlbumContentView contentView;
-    private final String albumId;
-    private final String albumName;
 
     public AlbumUiController(
             Context context,
             FrameLayout container,
             Callback callback,
-            String albumId,
-            String albumName) {
+            String albumId) {
+        this.context = context;
         this.callback = callback;
-        this.albumId = albumId;
-        this.albumName = albumName;
 
         loadingView = new LoadingStateView(context);
         emptyView = new EmptyStateView(context);
@@ -83,7 +83,7 @@ public final class AlbumUiController {
     }
 
     public void onMediaRemoved(String mediaId) {
-
+        contentView.removeMedia(mediaId);
     }
 
     /* ---------------- Setup ---------------- */
@@ -103,16 +103,16 @@ public final class AlbumUiController {
     }
 
     private void wireContentCallbacks() {
-//        contentView.setListener(new AlbumContentView.Listener() {
-//            @Override
-//            public void onItemClick(AlbumMedia media, int position) {
-//                callback.onMediaClicked(media, position);
-//            }
-//
-//            @Override
-//            public void onItemLongPress(AlbumMedia media, int position) {
-//                callback.onMediaLongPressed(media, position);
-//            }
-//        });
+        contentView.setMediaActionListener(new OnMediaActionListener() {
+            @Override
+            public void onMediaClick(@NonNull AlbumMedia media) {
+                callback.onMediaClicked(media);
+            }
+
+            @Override
+            public void onMediaLongPress(@NonNull AlbumMedia media) {
+                callback.onMediaLongPressed(media);
+            }
+        });
     }
 }

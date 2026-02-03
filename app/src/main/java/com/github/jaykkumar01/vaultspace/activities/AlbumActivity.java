@@ -139,7 +139,7 @@ public class AlbumActivity extends AppCompatActivity {
     private void setupUiHelpers() {
         modalHost = ModalHost.attach(this);
         albumModalHandler = new AlbumModalHandler(modalHost);
-        uiController = new AlbumUiController(this, contentContainer, uiCallback, albumId, albumName);
+        uiController = new AlbumUiController(this, contentContainer, uiCallback, albumId);
     }
 
     private void setupRepository() {
@@ -220,19 +220,22 @@ public class AlbumActivity extends AppCompatActivity {
         });
     }
 
-    private void handleMediaClicked(AlbumMedia m, int p) {
-        actionCoordinator.onMediaClicked(m, p);
+    private void handleMediaClicked(AlbumMedia m) {
+        albumModalHandler.showMediaPreview(m);
     }
 
-    private void handleMediaLongPressed(AlbumMedia m, int p) {
-        actionCoordinator.onMediaLongPressed(m, p);
+    private void handleMediaLongPressed(AlbumMedia m) {
+        albumModalHandler.showActionList(() -> actionCoordinator.onDownloadMedia(m), () -> repo.removeMedia(albumId,m));
     }
 
     /* ---------- Action Callbacks ---------- */
 
-    private void handleMediaSelected(int size) { /* future hook */ }
+    private void handleMediaSelected(int size) {
+        albumModalHandler.showLoading();
+    }
 
     private void handleMediaResolved(List<UploadSelection> selections) {
+        albumModalHandler.clearLoading();
         shouldClearGroup = false;
         uploadOrchestrator.enqueue(albumId, albumName, selections);
     }
@@ -317,7 +320,8 @@ public class AlbumActivity extends AppCompatActivity {
 
     private boolean isValidTransition(UiState from, UiState to) {
         return switch (from) {
-            case IDLE -> to == UiState.LOADING || to == UiState.EMPTY || to == UiState.CONTENT || to == UiState.ERROR;
+            case IDLE ->
+                    to == UiState.LOADING || to == UiState.EMPTY || to == UiState.CONTENT || to == UiState.ERROR;
             case LOADING -> to == UiState.EMPTY || to == UiState.CONTENT || to == UiState.ERROR;
             case EMPTY -> to == UiState.CONTENT || to == UiState.LOADING || to == UiState.ERROR;
             case CONTENT -> to == UiState.EMPTY || to == UiState.LOADING || to == UiState.ERROR;

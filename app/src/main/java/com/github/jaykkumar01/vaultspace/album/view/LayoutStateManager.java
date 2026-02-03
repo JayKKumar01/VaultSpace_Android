@@ -15,6 +15,8 @@ public final class LayoutStateManager {
     /* ================= State ================= */
 
     private final List<AlbumMedia> media = new ArrayList<>();
+    private final Map<String, AlbumMedia> mediaById = new HashMap<>();
+
     private final List<Group> groups = new ArrayList<>();
     private final Map<String, Group> groupByKey = new HashMap<>();
     private final List<BandLayout> flatLayouts = new ArrayList<>();
@@ -35,6 +37,7 @@ public final class LayoutStateManager {
         bucketizer = TimeBucketizer.create(System.currentTimeMillis());
 
         for (AlbumMedia m : media) {
+            mediaById.put(m.fileId, m);
             TimeBucketizer.Result r = bucketizer.resolve(m.momentMillis);
             groupByKey.computeIfAbsent(r.key, k -> {
                 Group g = new Group(k);
@@ -42,6 +45,7 @@ public final class LayoutStateManager {
                 return g;
             }).media.add(m);
         }
+
 
         groups.sort((a, b) -> Integer.compare(groupOrder(a.key), groupOrder(b.key)));
 
@@ -63,6 +67,7 @@ public final class LayoutStateManager {
 
     public LayoutResult addMedia(String albumId, int width, AlbumMedia m) {
         if (m == null) return LayoutResult.replaceRange(0, 0, List.of());
+        mediaById.put(m.fileId, m);
 
         insertMediaSorted(m);
 
@@ -110,7 +115,8 @@ public final class LayoutStateManager {
     }
 
 
-    public LayoutResult removeMedia(String albumId, int width, AlbumMedia m) {
+    public LayoutResult removeMedia(String albumId, int width, String mediaId) {
+        AlbumMedia m = mediaById.get(mediaId);
         if (m == null) return LayoutResult.replaceRange(0, 0, List.of());
 
         TimeBucketizer.Result r = bucketizer().resolve(m.momentMillis);
@@ -128,8 +134,8 @@ public final class LayoutStateManager {
             if (start < flatLayouts.size())
                 flatLayouts.get(start).showTimeLabel = true;
 
+            mediaById.remove(mediaId); // ✅ added
             return LayoutResult.replaceRange(start, count, List.of());
-
         }
 
         List<Band> nextBands = groupBuilder.buildBands(g.media, bucketizer);
@@ -138,6 +144,8 @@ public final class LayoutStateManager {
         if (d.removeCount == 0 && d.items.isEmpty()) {
             g.bands = nextBands;
             if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
+
+            mediaById.remove(mediaId); // ✅ added
             return LayoutResult.replaceRange(0, 0, List.of());
         }
 
@@ -148,13 +156,14 @@ public final class LayoutStateManager {
         mutator.applyDiff(g, rlt, inserted.size() - d.removeCount);
         if (g.layoutCount > 0) flatLayouts.get(g.layoutStart).showTimeLabel = true;
 
-
         g.bands = nextBands;
         g.layoutCount += inserted.size() - d.removeCount;
         g.layouts = flatLayouts.subList(g.layoutStart, g.layoutStart + g.layoutCount);
 
+        mediaById.remove(mediaId); // ✅ added
         return rlt;
     }
+
 
 
     /* ================= Helpers ================= */
@@ -167,10 +176,12 @@ public final class LayoutStateManager {
 
     private void clear() {
         media.clear();
+        mediaById.clear();   // ✅ REQUIRED
         groups.clear();
         groupByKey.clear();
         flatLayouts.clear();
     }
+
 
     private void insertMediaSorted(AlbumMedia m) {
         int idx = findInsertIndexDesc(media, m.momentMillis);

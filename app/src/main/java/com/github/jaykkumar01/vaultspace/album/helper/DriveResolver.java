@@ -129,8 +129,6 @@ public final class DriveResolver {
         AtomicBoolean alive = new AtomicBoolean(true);
         liveRequests.put(media.fileId, alive);
 
-        Log.d(TAG, "[ASYNC] start id=" + media.fileId);
-
         executor.execute(() -> {
             if (!alive.get()) {
                 Log.d(TAG, "[ASYNC] drop-before id=" + media.fileId);
@@ -143,9 +141,6 @@ public final class DriveResolver {
                 Log.d(TAG, "[ASYNC] drop-after id=" + media.fileId);
                 return;
             }
-
-            Log.d(TAG, "[ASYNC] done id=" + media.fileId
-                    + (path != null ? "" : " (null)"));
 
             consumer.accept(path);
         });

@@ -3,6 +3,7 @@ package com.github.jaykkumar01.vaultspace.album.view;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -36,21 +37,24 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
     private final TextView timeLabel;
     private final FrameLayout band;
     private final DriveResolver resolver;
+    private final OnMediaActionListener listener;
 
     /* ================= Constructor ================= */
 
     private BandViewHolder(@NonNull LinearLayout root,
                            @NonNull TextView timeLabel,
-                           @NonNull FrameLayout band) {
+                           @NonNull FrameLayout band,
+                           @NonNull OnMediaActionListener listener) {
         super(root);
         this.timeLabel = timeLabel;
         this.band = band;
+        this.listener = listener;
         this.resolver = new DriveResolver(root.getContext());
     }
 
     /* ================= Creation ================= */
 
-    public static BandViewHolder create(@NonNull ViewGroup parent) {
+    public static BandViewHolder create(@NonNull ViewGroup parent, OnMediaActionListener listener) {
         Context c = parent.getContext();
 
         LinearLayout root = new LinearLayout(c);
@@ -66,7 +70,7 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         root.addView(label);
         root.addView(band);
 
-        return new BandViewHolder(root, label, band);
+        return new BandViewHolder(root, label, band, listener);
     }
 
     /* ================= Bind ================= */
@@ -75,10 +79,9 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         activeMediaIds.clear();
         bindHeader(layout);
         band.removeAllViews();
-        band.setRotation(layout.rotationDeg);
 
         for (MediaFrame f : layout.frames)
-            renderFrame(f, layout.timeLabel);
+            renderFrame(f, layout.timeLabel,layout.rotationDeg);
     }
 
     private void bindHeader(BandLayout layout) {
@@ -90,31 +93,44 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
 
     /* ================= Media Rendering ================= */
 
-    private void renderFrame(@NonNull MediaFrame f, String timeLabel) {
+    private void renderFrame(@NonNull MediaFrame f, String timeLabel, float rotationDeg) {
         Context c = band.getContext();
         AlbumMedia m = f.media;
 
-        CardView card = createCard(c, f);
+        // 1️⃣ Card (physical object)
+        CardView card = createCard(c, f, rotationDeg);
+
+        // 2️⃣ Content (visuals)
         LinearLayout content = createCardContent(c);
         ConstraintLayout frame = createRatioFrame(c);
         ImageView image = createImageView(c);
         TextView time = createTimeView(c, timeLabel, m.momentMillis);
 
         frame.addView(image, createRatioLayoutParams(f));
-
-        if (m.isVideo) {
-            frame.addView(createVideoOverlay(c));
-        }
+        if (m.isVideo) frame.addView(createVideoOverlay(c));
 
         content.addView(frame);
         content.addView(time);
 
+        // 4️⃣ Assemble
         card.addView(content);
         band.addView(card);
 
+        // 5️⃣ Click callbacks
+        card.setOnClickListener(v -> {
+            if (listener != null) listener.onMediaClick(m);
+        });
+
+        card.setOnLongClickListener(v -> {
+            if (listener != null) listener.onMediaLongPress(m);
+            return true;
+        });
+
+        // 6️⃣ Image loading
         activeMediaIds.add(m.fileId);
         loadImageAsync(c, image, m);
     }
+
 
     /* ================= Factories ================= */
 
@@ -137,25 +153,39 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         return f;
     }
 
-    private static CardView createCard(Context c, MediaFrame f) {
+    private static CardView createCard(Context c, MediaFrame f, float rotationDeg) {
         CardView card = new CardView(c);
+
         card.setCardBackgroundColor(c.getColor(R.color.vs_surface_soft));
         card.setRadius(dp(c, 4));
         card.setCardElevation(dp(c, 4));
         card.setUseCompatPadding(true);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setLongClickable(true);
+
+        TypedValue out = new TypedValue();
+        c.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, out, true);
+        card.setForeground(AppCompatResources.getDrawable(c, out.resourceId));
 
         FrameLayout.LayoutParams lp =
-                new FrameLayout.LayoutParams(
-                        f.width,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
+                new FrameLayout.LayoutParams(f.width, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.leftMargin = f.baseX;
         lp.topMargin = dp(c, 6);
         lp.gravity = Gravity.CENTER_VERTICAL;
-
         card.setLayoutParams(lp);
+
+        // ✅ rotation stays EXACTLY like this
+        card.setLayerType(CardView.LAYER_TYPE_HARDWARE, null);
+        card.setRotation(rotationDeg);
+        card.setRotationX(0.4f);
+        card.setRotationY(-0.4f);
+        card.setCameraDistance(8000 * c.getResources().getDisplayMetrics().density);
+
         return card;
     }
+
+
 
     private static LinearLayout createCardContent(Context c) {
         LinearLayout l = new LinearLayout(c);
@@ -270,8 +300,6 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
             resolver.cancel(activeMediaIds.get(i));
         activeMediaIds.clear();
     }
-
-
 
 
     /* ================= Utils ================= */

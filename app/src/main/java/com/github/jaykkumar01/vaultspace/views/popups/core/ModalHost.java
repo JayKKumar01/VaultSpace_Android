@@ -288,6 +288,9 @@ public final class ModalHost{
         }
     }
 
+    public void dismissAll(ModalEnums.DismissResult dismissResult) {
+    }
+
 
     private void dismissActive(ModalEnums.DismissResult result, Object dismissedData) {
         ActiveEntry entry = active;
