@@ -6,7 +6,6 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -86,17 +85,20 @@ public final class DownloadService extends Service {
     private void ensureForeground() {
         if (foregroundStarted) return;
 
-        startForeground(
-                NOTIFICATION_ID,
+        NotificationCompat.Builder fg =
                 new NotificationCompat.Builder(this, CHANNEL_ID)
                         .setSmallIcon(android.R.drawable.stat_sys_download)
-                        .setContentTitle("Downloading…")
+                        .setContentTitle("VaultSpace")
+                        .setContentText("Downloading files…")
+                        .setOngoing(true)
                         .setOnlyAlertOnce(true)
-                        .build()
-        );
+                        .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                        .setPriority(NotificationCompat.PRIORITY_LOW);
 
+        startForeground(FG_NOTIFICATION_ID, fg.build());
         foregroundStarted = true;
     }
+
 
     /* ================= Pending Cleanup ================= */
 

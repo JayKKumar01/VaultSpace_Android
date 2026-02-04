@@ -5,6 +5,8 @@ import static com.github.jaykkumar01.vaultspace.core.download.base.NotificationD
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
@@ -34,17 +36,22 @@ public final class DownloadOrchestrator implements DownloadServiceCallbacks {
     private boolean active;
     private boolean serviceRunning;
 
+    private int successCount;
+    private int failureCount;
+    private String lastSuccessName;
+
     /* ================= Dependencies ================= */
 
     private final Context app;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final DownloadManager downloadManager;
     private final NotificationController notifier;
+    private final Handler main = new Handler(Looper.getMainLooper());
 
     /* ================= Constructor ================= */
 
-    public DownloadOrchestrator(Context appContext) {
-        this.app = appContext.getApplicationContext();
+    public DownloadOrchestrator(Context context) {
+        this.app = context.getApplicationContext();
         this.downloadManager = new DownloadManager(app);
         this.notifier = new NotificationController(app);
     }
@@ -63,7 +70,8 @@ public final class DownloadOrchestrator implements DownloadServiceCallbacks {
         cancelled.set(true);
         queue.clear();
         ids.clear();
-        notifier.dismiss();
+        resetBatch();
+        notifier.stopForeground();
         stopService();
     }
 
@@ -73,6 +81,11 @@ public final class DownloadOrchestrator implements DownloadServiceCallbacks {
     public synchronized void onServiceStarted() {
         serviceRunning = true;
         cancelled.set(false);
+
+        successCount = 0;
+        failureCount = 0;
+        lastSuccessName = null;
+
         maybeStartNext();
     }
 
@@ -81,9 +94,12 @@ public final class DownloadOrchestrator implements DownloadServiceCallbacks {
         serviceRunning = false;
         cancelled.set(true);
         active = false;
+
         queue.clear();
         ids.clear();
-        notifier.dismiss();
+        resetBatch();
+
+        notifier.stopForeground();
         executor.shutdownNow();
     }
 
@@ -100,11 +116,11 @@ public final class DownloadOrchestrator implements DownloadServiceCallbacks {
         synchronized (this) { req = queue.poll(); }
         if (req == null) { finishIfIdle(); return; }
 
-        notifier.showInitial(req.name);
+        notifier.startForeground(req.name, getPendingCount());
 
         downloadManager.downloadAndFinalize(req, new DriveDownloadCallback() {
             @Override public void onProgress(long d, long t) {
-                notifier.updateProgress(req.name, d, t);
+                notifier.updateProgress(req.name, d, t, getPendingCount());
             }
             @Override public void onCompleted() {
                 onFinished(req, true);
@@ -119,9 +135,11 @@ public final class DownloadOrchestrator implements DownloadServiceCallbacks {
         ids.remove(req.fileId);
         active = false;
 
-        if (!cancelled.get()) {
-            if (success) notifier.showCompleted(req.name);
-            else notifier.showFailed(req.name);
+        if (success) {
+            successCount++;
+            lastSuccessName = req.name;
+        } else {
+            failureCount++;
         }
 
         maybeStartNext();
@@ -130,8 +148,35 @@ public final class DownloadOrchestrator implements DownloadServiceCallbacks {
 
     private synchronized void finishIfIdle() {
         if (active || !queue.isEmpty()) return;
-        notifier.dismiss();
+
+        final int successSnapshot = successCount;
+        final int failureSnapshot = failureCount;
+        final String lastFileSnapshot = lastSuccessName;
+
+        main.postDelayed(() -> {
+            notifier.stopForeground();
+            notifier.showCompletionSummary(
+                    successSnapshot,
+                    failureSnapshot,
+                    lastFileSnapshot
+            );
+            notifier.reset();
+        }, 800);
+
         stopService();
+    }
+
+    /* ================= Helpers ================= */
+
+    private int getPendingCount() {
+        return queue.size() + (active ? 1 : 0);
+    }
+
+    private void resetBatch() {
+        successCount = 0;
+        failureCount = 0;
+        lastSuccessName = null;
+        notifier.reset();
     }
 
     /* ================= Service Control ================= */
