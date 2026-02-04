@@ -3,8 +3,10 @@ package com.github.jaykkumar01.vaultspace.album.coordinator;
 import android.net.Uri;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.github.jaykkumar01.vaultspace.album.helper.AlbumMediaActionHandler;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.selection.UriSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadSelectionHelper;
@@ -36,6 +38,8 @@ public final class AlbumActionCoordinator {
     private final UriSelection uriSelection;
     private final UploadSelectionHelper uploadSelectionHelper;
     private final ExecutorService executor;
+    private final AlbumMediaActionHandler mediaActionHandler;
+
 
     /* ============================================================
      * Constructor
@@ -47,6 +51,8 @@ public final class AlbumActionCoordinator {
         // 🔑 Coordinator OWNS executor
         this.executor = Executors.newSingleThreadExecutor();
         this.uploadSelectionHelper = new UploadSelectionHelper(activity, albumId);
+        this.mediaActionHandler = new AlbumMediaActionHandler(activity);
+
 
         this.uriSelection = new UriSelection(activity, uris -> {
             if (released || uris.isEmpty()) return;
@@ -82,7 +88,15 @@ public final class AlbumActionCoordinator {
     }
 
     public void onDownloadMedia(AlbumMedia m) {
+        if (released || m == null) return;
+        mediaActionHandler.downloadMedia(m);
     }
+
+    public void onDeleteMedia(String id, Runnable onSuccess, Runnable onFailure) {
+        if (released) return;
+        mediaActionHandler.deleteMedia(id, onSuccess, onFailure);
+    }
+
 
     /* ============================================================
      * Lifecycle

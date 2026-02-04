@@ -58,6 +58,11 @@
             android:name=".core.upload.service.UploadForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name=".core.download.service.DownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
     </application>
 
 </manifest>

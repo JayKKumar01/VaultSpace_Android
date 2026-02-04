@@ -2,7 +2,6 @@ package com.github.jaykkumar01.vaultspace.album.helper;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -31,6 +30,7 @@ public final class AlbumModalHandler {
     private final LoadingSpec loadingSpec;
     private final ConfirmSpec retryLoadSpec;
     private final ConfirmSpec cancelUploadSpec;
+    private final ConfirmSpec deleteMediaSpec;
     private final UploadFailureListSpec uploadFailureSpec;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -40,6 +40,7 @@ public final class AlbumModalHandler {
         this.loadingSpec = new LoadingSpec();
         this.retryLoadSpec = createRetryLoadSpec();
         this.cancelUploadSpec = createCancelUploadSpec();
+        this.deleteMediaSpec = createDeleteMediaSpec();
         this.uploadFailureSpec = new UploadFailureListSpec();
     }
 
@@ -69,12 +70,20 @@ public final class AlbumModalHandler {
         });
     }
 
-    public void showCancelConfirm(Runnable onCancel) {
+    public void showCancelConfirm(Runnable onPositive) {
         runOnMainThread(() -> {
-            cancelUploadSpec.setPositiveAction(onCancel);
+            cancelUploadSpec.setPositiveAction(onPositive);
             modalHost.request(cancelUploadSpec);
         });
     }
+
+    public void showDeleteConfirm(Runnable onPositive) {
+        runOnMainThread(() -> {
+            deleteMediaSpec.setPositiveAction(onPositive);
+            modalHost.request(deleteMediaSpec);
+        });
+    }
+
 
     public void showUploadFailures(
             @NonNull List<UploadSelection> failures,
@@ -100,6 +109,7 @@ public final class AlbumModalHandler {
             modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
             modalHost.dismiss(retryLoadSpec, DismissResult.SYSTEM);
             modalHost.dismiss(cancelUploadSpec, DismissResult.SYSTEM);
+            modalHost.dismiss(deleteMediaSpec, DismissResult.SYSTEM);
             modalHost.dismiss(uploadFailureSpec, DismissResult.SYSTEM);
         });
     }
@@ -148,6 +158,21 @@ public final class AlbumModalHandler {
         spec.setNegativeText("Continue");
         return spec;
     }
+
+    private static ConfirmSpec createDeleteMediaSpec() {
+        ConfirmSpec spec = new ConfirmSpec(
+                "Delete media?",
+                "This action cannot be undone.",
+                true,
+                ConfirmView.RISK_DESTRUCTIVE,
+                null,
+                null
+        );
+        spec.setPositiveText("Delete");
+        spec.setNegativeText("Cancel");
+        return spec;
+    }
+
 
     public void showMediaPreview(AlbumMedia m) {
     }

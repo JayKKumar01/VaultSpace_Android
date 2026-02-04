@@ -225,7 +225,18 @@ public class AlbumActivity extends AppCompatActivity {
     }
 
     private void handleMediaLongPressed(AlbumMedia m) {
-        albumModalHandler.showActionList(() -> actionCoordinator.onDownloadMedia(m), () -> repo.removeMedia(albumId,m));
+        albumModalHandler.showActionList(
+                () -> actionCoordinator.onDownloadMedia(m),
+                () -> albumModalHandler.showDeleteConfirm(() -> {
+                    albumModalHandler.showLoading();
+                    actionCoordinator.onDeleteMedia(
+                            m.fileId,
+                            () -> {
+                                repo.removeMedia(albumId, m);
+                                albumModalHandler.clearLoading();
+                            },
+                            () -> albumModalHandler.clearLoading());
+                }));
     }
 
     /* ---------- Action Callbacks ---------- */

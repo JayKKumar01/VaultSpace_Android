@@ -7,12 +7,15 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.github.jaykkumar01.vaultspace.core.download.base.DriveDownloadCallback;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.google.api.services.drive.Drive;
 
+import java.io.File;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * AlbumDriveHelper
@@ -52,6 +55,15 @@ public final class AlbumDriveHelper {
             }
         });
     }
+
+    public void downloadMedia(
+            AlbumMedia media,
+            File outputFile,
+            DriveDownloadCallback callback,
+            AtomicBoolean cancelled
+    ) {
+    }
+
 
     private void postResult(FetchCallback cb, List<AlbumMedia> items) {
         mainHandler.post(() -> cb.onResult(items));
