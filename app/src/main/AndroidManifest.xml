@@ -21,11 +21,15 @@
         android:theme="@style/Theme.VaultSpace"
         tools:targetApi="31">
         <activity
-            android:name=".activities.SetupActivity"
+            android:name=".activities.MediaActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
-        <!-- ================= Demo ================= -->
+        <activity
+            android:name=".activities.SetupActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" /> <!-- ================= Demo ================= -->
         <activity
             android:name=".activities.DemoActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
@@ -62,7 +66,6 @@
             android:name=".core.download.service.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
-
     </application>
 
 </manifest>

@@ -174,6 +174,13 @@ public final class AlbumMediaRepository {
         notifyCounts(albumId);
     }
 
+    public AlbumMedia getMediaById(String albumId,String fileId) {
+        AlbumMediaEntry entry = cache.getOrCreateEntry(albumId);
+        if (!entry.isInitialized()) return null;
+        return entry.getByMediaId(fileId);
+    }
+
+
     /* ================= Refresh ================= */
 
     public void refreshAlbum(Context c,String albumId) {

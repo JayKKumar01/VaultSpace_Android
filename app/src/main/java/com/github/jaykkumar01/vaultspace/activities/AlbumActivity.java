@@ -221,11 +221,12 @@ public class AlbumActivity extends AppCompatActivity {
     }
 
     private void handleMediaClicked(AlbumMedia m) {
-        albumModalHandler.showMediaPreview(m);
+        actionCoordinator.showMediaPreview(m);
     }
 
     private void handleMediaLongPressed(AlbumMedia m) {
         albumModalHandler.showActionList(
+                m.name,
                 () -> actionCoordinator.onDownloadMedia(m),
                 () -> albumModalHandler.showDeleteConfirm(() -> {
                     albumModalHandler.showLoading();

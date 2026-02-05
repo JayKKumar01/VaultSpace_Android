@@ -46,9 +46,9 @@ public final class AlbumModalHandler {
 
     /* ---------- Public API ---------- */
 
-    public void showActionList(Runnable onDownload, Runnable onDelete){
+    public void showActionList(String name, Runnable onDownload, Runnable onDelete){
         runOnMainThread(() -> modalHost.request(new ListSpec(
-                "Media Action",
+                name,
                 Arrays.asList("Download", "Delete"),
                 index -> {
                     if (index == 0) {
@@ -171,9 +171,5 @@ public final class AlbumModalHandler {
         spec.setPositiveText("Delete");
         spec.setNegativeText("Cancel");
         return spec;
-    }
-
-
-    public void showMediaPreview(AlbumMedia m) {
     }
 }

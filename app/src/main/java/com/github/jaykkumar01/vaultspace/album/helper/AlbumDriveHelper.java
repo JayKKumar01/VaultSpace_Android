@@ -56,14 +56,6 @@ public final class AlbumDriveHelper {
         });
     }
 
-    public void downloadMedia(
-            AlbumMedia media,
-            File outputFile,
-            DriveDownloadCallback callback,
-            AtomicBoolean cancelled
-    ) {
-    }
-
 
     private void postResult(FetchCallback cb, List<AlbumMedia> items) {
         mainHandler.post(() -> cb.onResult(items));

@@ -90,7 +90,7 @@ public final class AlbumMediaEntry {
     /**
      * O(1) lookup by fileId.
      */
-    public AlbumMedia getByFileId(String fileId) {
+    public AlbumMedia getByMediaId(String fileId) {
         if (!initialized || fileId == null) return null;
         return mediaById.get(fileId);
     }

@@ -68,20 +68,8 @@ dependencies {
     annotationProcessor(libs.room.compiler)
 
 
-//    implementation("androidx.browser:browser:1.8.0")
-//    // Google Play Services (account + auth)
-//    implementation("com.google.android.gms:play-services-auth:21.4.0")
-//// Google API client (Android)
-//    implementation("com.google.api-client:google-api-client-android:2.6.0")
-//// Google Drive API v3
-//    implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
-//    implementation("com.github.bumptech.glide:glide:4.16.0")
-//    implementation(libs.swiperefreshlayout)
-//    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
-//    // Room (Java)
-//    implementation("androidx.room:room-runtime:2.8.4")
-//    annotationProcessor("androidx.room:room-compiler:2.8.4")
-
+    implementation("androidx.media3:media3-exoplayer:1.9.1")
+    implementation("androidx.media3:media3-ui:1.9.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
