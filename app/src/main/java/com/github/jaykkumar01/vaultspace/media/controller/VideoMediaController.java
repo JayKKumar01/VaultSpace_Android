@@ -1,4 +1,5 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
+
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -26,6 +27,8 @@ import java.util.Map;
 
 @UnstableApi
 public final class VideoMediaController {
+
+    private static final long CACHE_LIMIT_BYTES = 100L * 1024 * 1024;
 
     private final PlayerView view;
     private final VideoMediaDriveHelper driveHelper;
@@ -95,22 +98,29 @@ public final class VideoMediaController {
                                 @NonNull String token) {
 
                 releasePlayer();
-                initCache();
 
                 DefaultHttpDataSource.Factory http =
                         new DefaultHttpDataSource.Factory()
                                 .setAllowCrossProtocolRedirects(true)
                                 .setDefaultRequestProperties(buildHeaders(token));
 
-                CacheDataSource.Factory cacheFactory =
-                        new CacheDataSource.Factory()
-                                .setCache(cache)
-                                .setUpstreamDataSourceFactory(http)
-                                .setCacheReadDataSourceFactory(new FileDataSource.Factory())
-                                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+                DefaultMediaSourceFactory mediaSourceFactory;
+
+                if (media.sizeBytes <= CACHE_LIMIT_BYTES) {
+                    initCache();
+                    CacheDataSource.Factory cacheFactory =
+                            new CacheDataSource.Factory()
+                                    .setCache(cache)
+                                    .setUpstreamDataSourceFactory(http)
+                                    .setCacheReadDataSourceFactory(new FileDataSource.Factory())
+                                    .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+                    mediaSourceFactory = new DefaultMediaSourceFactory(cacheFactory);
+                } else {
+                    mediaSourceFactory = new DefaultMediaSourceFactory(http);
+                }
 
                 player = new ExoPlayer.Builder(view.getContext())
-                        .setMediaSourceFactory(new DefaultMediaSourceFactory(cacheFactory))
+                        .setMediaSourceFactory(mediaSourceFactory)
                         .build();
 
                 player.setRepeatMode(Player.REPEAT_MODE_ONE);

@@ -531,6 +531,7 @@ public class Notes {
 
 
 
+    // add the add media button in album activity
 
 
 
