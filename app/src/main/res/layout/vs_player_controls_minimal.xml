@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
+
+    <!-- Back -->
+    <ImageButton
+        android:id="@+id/exo_back"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="12dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_arrow_back"
+        app:tint="@android:color/white"/>
+
+    <!-- Center Play / Pause -->
+    <ImageButton
+        android:id="@id/exo_play_pause"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_gravity="center"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@null"
+        app:tint="@android:color/white"/>
+
+    <!-- Bottom Controls -->
+    <LinearLayout
+        android:id="@id/exo_bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:background="@drawable/bg_bottom_gradient">
+
+        <!-- Row 1: Seek bar only -->
+        <androidx.media3.ui.DefaultTimeBar
+            android:id="@id/exo_progress"
+            android:layout_width="match_parent"
+            android:layout_height="18dp"
+            app:played_color="@android:color/white"
+            app:buffered_color="#66FFFFFF"
+            app:unplayed_color="#33FFFFFF"
+            app:scrubber_color="@android:color/white"/>
+
+        <!-- Row 2: Time (left) + Fullscreen (right) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="6dp">
+
+            <!-- REQUIRED container -->
+            <LinearLayout
+                android:id="@id/exo_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@id/exo_position"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" / "
+                    android:textColor="#88FFFFFF"
+                    android:textSize="12sp"/>
+
+                <TextView
+                    android:id="@id/exo_duration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="12sp"/>
+            </LinearLayout>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"/>
+
+            <ImageButton
+                android:id="@+id/video_fullscreen"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_fullscreen"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@null"
+                app:tint="@android:color/white"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>
