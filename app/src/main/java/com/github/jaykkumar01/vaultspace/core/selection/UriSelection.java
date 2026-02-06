@@ -46,4 +46,15 @@ public class UriSelection {
     public void selectAnyUris() {
         launcher.launch(new String[]{"*/*"});
     }
+
+    public void releasePersistableUriPermission(Uri uri) {
+        try {
+            activity.getContentResolver().releasePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+            );
+        } catch (SecurityException ignored) {
+            // Permission might already be released or never persisted
+        }
+    }
 }

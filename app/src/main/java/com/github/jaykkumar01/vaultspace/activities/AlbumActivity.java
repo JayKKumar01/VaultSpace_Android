@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.activities;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
@@ -10,6 +11,7 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatButton;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -54,6 +56,8 @@ public class AlbumActivity extends AppCompatActivity {
     private ImageView btnBack;
     private FrameLayout contentContainer;
     private AlbumMetaInfoView albumMetaInfo;
+    private AppCompatButton btnAddMedia;
+
     private UploadStatusView uploadStatusView;
     private ProgressStackView progressStackView;
 
@@ -265,7 +269,9 @@ public class AlbumActivity extends AppCompatActivity {
         uploadStatusController.onCancelled();
     }
 
-    private void handleUploadSuccess(UploadedItem item) {
+    private void handleUploadSuccess(UploadedItem item, Uri uri) {
+        if (uri != null) actionCoordinator.releaseUriPermission(uri);
+        //here remove the uri permission not needed
     }
 
     private void handleUploadFailure(UploadSelection s) {
@@ -372,6 +378,7 @@ public class AlbumActivity extends AppCompatActivity {
     private void bindViews() {
         tvAlbumName = findViewById(R.id.tvAlbumName);
         btnBack = findViewById(R.id.btnBack);
+        btnAddMedia = findViewById(R.id.btnAddMedia);
         contentContainer = findViewById(R.id.stateContainer);
         albumMetaInfo = findViewById(R.id.albumMetaInfo);
         uploadStatusView = findViewById(R.id.uploadStatusView);
@@ -381,7 +388,9 @@ public class AlbumActivity extends AppCompatActivity {
     private void bindHeader() {
         tvAlbumName.setText(albumName);
         btnBack.setOnClickListener(v -> finish());
+        btnAddMedia.setOnClickListener(v -> handleAddMediaClicked());
     }
+
 
     private void setupBackHandling() {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {

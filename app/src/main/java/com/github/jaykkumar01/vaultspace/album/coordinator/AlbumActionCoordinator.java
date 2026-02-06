@@ -4,14 +4,12 @@ import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.activities.MediaActivity;
 import com.github.jaykkumar01.vaultspace.album.helper.AlbumMediaActionHandler;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
 import com.github.jaykkumar01.vaultspace.core.selection.UriSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.helper.UploadSelectionHelper;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
@@ -92,6 +90,10 @@ public final class AlbumActionCoordinator {
     public void onAddMediaClicked() {
         if (released) return;
         uriSelection.selectMediaUris();
+    }
+
+    public void releaseUriPermission(Uri uri) {
+        uriSelection.releasePersistableUriPermission(uri);
     }
 
     public void showMediaPreview(AlbumMedia m) {

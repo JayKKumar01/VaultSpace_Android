@@ -10,6 +10,24 @@
     tools:context=".activities.AlbumActivity">
 
     <!-- ================= Header Card ================= -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnAddMedia2"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_header_button"
+        android:fontFamily="sans-serif-medium"
+        android:foreground="?attr/selectableItemBackgroundBorderless"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:text="Add memories"
+        android:textAllCaps="false"
+        android:textColor="@color/vs_username_highlight"
+        android:textSize="11sp"
+        app:layout_constraintBottom_toTopOf="@id/tvPhilosophy"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <androidx.cardview.widget.CardView
         android:id="@+id/albumHeaderCard"
         android:layout_width="0dp"
@@ -145,31 +163,50 @@
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
                 <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/albumRight"
                     android:layout_width="0dp"
                     android:layout_height="0dp"
-                    android:id="@+id/albumRight"
                     app:layout_constraintStart_toEndOf="@id/albumLeft"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent">
-                    <!-- Right: Philosophy -->
+
+                    <!-- Add Media Button -->
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btnAddMedia"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:text="Add memories"
+                        android:textSize="11sp"
+                        android:textAllCaps="false"
+                        android:textColor="@color/vs_username_highlight"
+                        android:background="@drawable/bg_header_button"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        android:fontFamily="sans-serif-medium"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintBottom_toTopOf="@id/tvPhilosophy"/>
+
+                    <!-- Philosophy -->
                     <TextView
                         android:id="@+id/tvPhilosophy"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:textAlignment="center"
                         android:text="No limits · Just memories"
+                        android:textAlignment="center"
                         android:textColor="@color/vs_brand_text"
                         android:textSize="11sp"
-                        android:clickable="true"
+                        android:alpha="0.85"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"/>
 
-
-
-
                 </androidx.constraintlayout.widget.ConstraintLayout>
+
+
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
