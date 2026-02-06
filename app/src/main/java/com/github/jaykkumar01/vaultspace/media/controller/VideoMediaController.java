@@ -1,14 +1,17 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
-
 import android.view.View;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.FileDataSource;
+import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.ui.PlayerView;
@@ -17,13 +20,19 @@ import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
 import com.github.jaykkumar01.vaultspace.media.helper.VideoMediaDriveHelper;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
+@UnstableApi
 public final class VideoMediaController {
 
     private final PlayerView view;
     private final VideoMediaDriveHelper driveHelper;
+    private final File cacheDir;
+    private final StandaloneDatabaseProvider databaseProvider;
+
+    private SimpleCache cache;
     private ExoPlayer player;
     private AlbumMedia media;
     private MediaLoadCallback callback;
@@ -33,6 +42,8 @@ public final class VideoMediaController {
                                 @NonNull PlayerView playerView) {
         this.view = playerView;
         this.driveHelper = new VideoMediaDriveHelper(activity);
+        this.cacheDir = new File(activity.getCacheDir(), "video_tmp");
+        this.databaseProvider = new StandaloneDatabaseProvider(activity);
         this.view.setVisibility(View.GONE);
     }
 
@@ -66,6 +77,7 @@ public final class VideoMediaController {
 
     public void release() {
         releasePlayer();
+        releaseCache();
         driveHelper.release();
         callback = null;
         media = null;
@@ -78,20 +90,27 @@ public final class VideoMediaController {
 
         driveHelper.resolve(media, new VideoMediaDriveHelper.Callback() {
 
-            @OptIn(markerClass = UnstableApi.class)
             @Override
             public void onReady(@NonNull String url,
                                 @NonNull String token) {
 
                 releasePlayer();
+                initCache();
 
-                DefaultHttpDataSource.Factory httpFactory =
+                DefaultHttpDataSource.Factory http =
                         new DefaultHttpDataSource.Factory()
                                 .setAllowCrossProtocolRedirects(true)
                                 .setDefaultRequestProperties(buildHeaders(token));
 
+                CacheDataSource.Factory cacheFactory =
+                        new CacheDataSource.Factory()
+                                .setCache(cache)
+                                .setUpstreamDataSourceFactory(http)
+                                .setCacheReadDataSourceFactory(new FileDataSource.Factory())
+                                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+
                 player = new ExoPlayer.Builder(view.getContext())
-                        .setMediaSourceFactory(new DefaultMediaSourceFactory(httpFactory))
+                        .setMediaSourceFactory(new DefaultMediaSourceFactory(cacheFactory))
                         .build();
 
                 player.setRepeatMode(Player.REPEAT_MODE_ONE);
@@ -108,6 +127,17 @@ public final class VideoMediaController {
                 if (callback != null) callback.onMediaError(e);
             }
         });
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private void initCache() {
+        if (cache != null) return;
+        if (!cacheDir.exists()) cacheDir.mkdirs();
+        cache = new SimpleCache(
+                cacheDir,
+                new LeastRecentlyUsedCacheEvictor(Long.MAX_VALUE),
+                databaseProvider
+        );
     }
 
     private Player.Listener playerListener() {
@@ -128,6 +158,27 @@ public final class VideoMediaController {
             player.release();
             player = null;
         }
+    }
+
+    private void releaseCache() {
+        if (cache != null) {
+            try {
+                cache.release();
+            } catch (Exception ignored) {}
+            deleteDir(cacheDir);
+            cache = null;
+        }
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static void deleteDir(File dir) {
+        if (dir == null || !dir.exists()) return;
+        File[] files = dir.listFiles();
+        if (files != null) for (File f : files) {
+            if (f.isDirectory()) deleteDir(f);
+            else f.delete();
+        }
+        dir.delete();
     }
 
     private static Map<String, String> buildHeaders(String token) {
