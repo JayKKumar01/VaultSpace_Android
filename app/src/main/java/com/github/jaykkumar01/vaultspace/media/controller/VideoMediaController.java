@@ -34,40 +34,40 @@ public final class VideoMediaController {
     private long resumePosition = 0L;
 
     public VideoMediaController(@NonNull AppCompatActivity activity,
-                                @NonNull PlayerView playerView) {
+                                @NonNull PlayerView playerView){
         this.view = playerView;
         this.driveHelper = new VideoMediaDriveHelper(activity);
         view.setVisibility(View.GONE);
     }
 
-    public void setCallback(MediaLoadCallback callback) {
+    public void setCallback(MediaLoadCallback callback){
         this.callback = callback;
     }
 
-    public void show(@NonNull AlbumMedia media) {
+    public void show(@NonNull AlbumMedia media){
         this.media = media;
         view.setVisibility(View.GONE);
     }
 
     /* ---------------- lifecycle ---------------- */
 
-    public void onStart() {
-        if (player == null && media != null) prepare();
+    public void onStart(){
+        if(player == null && media != null) prepare();
     }
 
-    public void onResume() {
-        if (player != null) player.setPlayWhenReady(playWhenReady);
+    public void onResume(){
+        if(player != null) player.setPlayWhenReady(playWhenReady);
     }
 
-    public void onPause() {
+    public void onPause(){
         releasePlayerInternal();
     }
 
-    public void onStop() {
+    public void onStop(){
         releasePlayerInternal();
     }
 
-    public void release() {
+    public void release(){
         releasePlayerInternal();
         driveHelper.release();
         callback = null;
@@ -76,15 +76,16 @@ public final class VideoMediaController {
 
     /* ---------------- player ---------------- */
 
-    private void prepare() {
-        if (media == null) return;
+    private void prepare(){
+        if(media == null) return;
 
         view.setVisibility(View.GONE);
-        if (callback != null) callback.onMediaLoading();
+        notifyLoading("Getting things ready…");
 
-        driveHelper.resolve(media, new VideoMediaDriveHelper.Callback() {
+        driveHelper.resolve(media,new VideoMediaDriveHelper.Callback(){
             @Override
-            public void onReady(@NonNull String url, @NonNull String token) {
+            public void onReady(@NonNull String url,@NonNull String token){
+
                 DefaultMediaSourceFactory factory =
                         new DefaultMediaSourceFactory(buildHttpFactory(token));
 
@@ -100,40 +101,47 @@ public final class VideoMediaController {
                 player.setMediaItem(MediaItem.fromUri(url));
                 player.prepare();
 
-                if (resumePosition > 0) player.seekTo(resumePosition);
+                if(resumePosition > 0) player.seekTo(resumePosition);
             }
 
             @Override
-            public void onError(@NonNull Exception e) {
-                if (callback != null) callback.onMediaError(e);
+            public void onError(@NonNull Exception e){
+                if(callback != null) callback.onMediaError(e);
             }
         });
     }
 
-    private Player.Listener playerListener() {
-        return new Player.Listener() {
+    private Player.Listener playerListener(){
+        return new Player.Listener(){
             @Override
-            public void onPlaybackStateChanged(int state) {
-                if (state == Player.STATE_READY && player != null) {
+            public void onPlaybackStateChanged(int state){
+                if(state == Player.STATE_BUFFERING)
+                    notifyLoading("Loading video…");
+
+                if(state == Player.STATE_READY && player != null){
                     view.setVisibility(View.VISIBLE);
-                    if (callback != null) callback.onMediaReady();
+                    if(callback != null) callback.onMediaReady();
                     player.removeListener(this);
                 }
             }
         };
     }
 
-    private void releasePlayerInternal() {
-        if (player == null) return;
+    private void releasePlayerInternal(){
+        if(player == null) return;
         resumePosition = player.getCurrentPosition();
         playWhenReady = player.getPlayWhenReady();
         player.release();
         player = null;
     }
 
-    /* ---------------- networking ---------------- */
+    /* ---------------- helpers ---------------- */
 
-    private static DefaultHttpDataSource.Factory buildHttpFactory(String token) {
+    private void notifyLoading(String text){
+        if(callback != null) callback.onMediaLoading(text);
+    }
+
+    private static DefaultHttpDataSource.Factory buildHttpFactory(String token){
         DefaultHttpDataSource.Factory http =
                 new DefaultHttpDataSource.Factory()
                         .setAllowCrossProtocolRedirects(true);
@@ -142,9 +150,9 @@ public final class VideoMediaController {
         return http;
     }
 
-    private static Map<String, String> buildHeaders(String token) {
-        Map<String, String> h = new HashMap<>();
-        h.put("Authorization", "Bearer " + token);
+    private static Map<String,String> buildHeaders(String token){
+        Map<String,String> h = new HashMap<>();
+        h.put("Authorization","Bearer "+token);
         return h;
     }
 }

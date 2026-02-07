@@ -171,8 +171,8 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
     }
 
     @Override
-    public void onMediaLoading() {
-        loadingState.setText("Loading media…");
+    public void onMediaLoading(String text) {
+        loadingState.setText(text);
         loadingState.setVisibility(View.VISIBLE);
     }
 
