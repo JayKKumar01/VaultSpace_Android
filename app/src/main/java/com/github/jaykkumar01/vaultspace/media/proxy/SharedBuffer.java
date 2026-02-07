@@ -1,42 +1,43 @@
 package com.github.jaykkumar01.vaultspace.media.proxy;
 
+import android.util.Log;
+
 public final class SharedBuffer {
 
+    private static final String TAG = "Proxy:SharedBuffer";
+
     private final byte[] buffer;
-    private final int capacity;
+    private int writePos, readPos, size;
+    private boolean closed;
 
-    private int writePos = 0;
-    private int readPos = 0;
-    private int size = 0;
-
-    private boolean closed = false;
-
-    public SharedBuffer(int maxBytes) {
-        this.capacity = maxBytes;
-        this.buffer = new byte[maxBytes];
+    public SharedBuffer(int capacity) {
+        buffer = new byte[capacity];
+        Log.d(TAG, "init capacity=" + capacity);
     }
 
     public synchronized void write(byte[] src, int len) throws InterruptedException {
-        int offset = 0;
-        while (offset < len) {
-            while (size == capacity && !closed) wait();
+        if (closed) return;
+
+        int off = 0;
+        while (off < len) {
+            while (size == buffer.length && !closed) wait();
             if (closed) return;
 
-            int space = capacity - size;
-            int toWrite = Math.min(space, len - offset);
+            int space = buffer.length - size;
+            int n = Math.min(space, len - off);
 
-            int first = Math.min(toWrite, capacity - writePos);
-            System.arraycopy(src, offset, buffer, writePos, first);
-            writePos = (writePos + first) % capacity;
+            int first = Math.min(n, buffer.length - writePos);
+            System.arraycopy(src, off, buffer, writePos, first);
+            writePos = (writePos + first) % buffer.length;
             size += first;
-            offset += first;
+            off += first;
 
-            int remaining = toWrite - first;
-            if (remaining > 0) {
-                System.arraycopy(src, offset, buffer, writePos, remaining);
-                writePos += remaining;
-                size += remaining;
-                offset += remaining;
+            int remain = n - first;
+            if (remain > 0) {
+                System.arraycopy(src, off, buffer, writePos, remain);
+                writePos += remain;
+                size += remain;
+                off += remain;
             }
 
             notifyAll();
@@ -47,33 +48,26 @@ public final class SharedBuffer {
         while (size == 0 && !closed) wait();
         if (size == 0) return -1;
 
-        int toRead = Math.min(out.length, size);
-
-        int first = Math.min(toRead, capacity - readPos);
+        int n = Math.min(out.length, size);
+        int first = Math.min(n, buffer.length - readPos);
         System.arraycopy(buffer, readPos, out, 0, first);
-        readPos = (readPos + first) % capacity;
+        readPos = (readPos + first) % buffer.length;
         size -= first;
 
-        int remaining = toRead - first;
-        if (remaining > 0) {
-            System.arraycopy(buffer, readPos, out, first, remaining);
-            readPos += remaining;
-            size -= remaining;
+        int remain = n - first;
+        if (remain > 0) {
+            System.arraycopy(buffer, readPos, out, first, remain);
+            readPos += remain;
+            size -= remain;
         }
 
         notifyAll();
-        return toRead;
-    }
-
-    public synchronized void clear() {
-        size = 0;
-        readPos = 0;
-        writePos = 0;
-        notifyAll();
+        return n;
     }
 
     public synchronized void close() {
         closed = true;
         notifyAll();
+        Log.d(TAG, "closed");
     }
 }
