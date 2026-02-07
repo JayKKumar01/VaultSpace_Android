@@ -10,7 +10,7 @@
     tools:context=".activities.MediaActivity">
 
     <!-- Image viewer -->
-    <ImageView
+    <com.github.jaykkumar01.vaultspace.views.creative.image.VaultImageView
         android:id="@+id/imageView"
         android:layout_width="0dp"
         android:layout_height="0dp"

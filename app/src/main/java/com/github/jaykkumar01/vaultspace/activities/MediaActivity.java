@@ -21,6 +21,7 @@ import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
 import com.github.jaykkumar01.vaultspace.media.controller.ImageMediaController;
 import com.github.jaykkumar01.vaultspace.media.controller.VideoMediaController;
+import com.github.jaykkumar01.vaultspace.views.creative.image.VaultImageView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
 @UnstableApi
@@ -31,7 +32,7 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
     private String albumId;
     private String fileId;
 
-    private ImageView imageView;
+    private VaultImageView imageView;
     private PlayerView playerView;
     private LoadingStateView loadingState;
     private ImageButton fullscreenButton;
