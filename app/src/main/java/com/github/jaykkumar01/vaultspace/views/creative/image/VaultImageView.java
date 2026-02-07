@@ -75,11 +75,24 @@ public final class VaultImageView extends AppCompatImageView {
     /* ---------------- touch ---------------- */
 
     @Override
-    public boolean onTouchEvent(MotionEvent e) {
-        boolean r1 = scaleDetector.onTouchEvent(e);
-        boolean r2 = gestureDetector.onTouchEvent(e);
-        return r1 || r2 || super.onTouchEvent(e);
+    public boolean onTouchEvent(MotionEvent e){
+        boolean r1=scaleDetector.onTouchEvent(e);
+        boolean r2=gestureDetector.onTouchEvent(e);
+
+        if(e.getAction()==MotionEvent.ACTION_UP){
+            performClick();
+        }
+
+        return r1||r2||super.onTouchEvent(e);
     }
+
+
+    @Override
+    public boolean performClick(){
+        super.performClick();
+        return true;
+    }
+
 
     /* ---------------- helpers ---------------- */
 
