@@ -1,7 +1,6 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -30,7 +29,6 @@ import java.util.Map;
 @UnstableApi
 public final class VideoMediaController {
 
-    private static final String TAG = "VaultSpace:VideoCtrl";
     private static final long CACHE_LIMIT_BYTES = 200L * 1024 * 1024;
 
     private final PlayerView view;
@@ -53,7 +51,6 @@ public final class VideoMediaController {
         this.driveHelper = new VideoMediaDriveHelper(activity);
         this.databaseProvider = new StandaloneDatabaseProvider(activity);
         this.view.setVisibility(View.GONE);
-        Log.d(TAG, "controller created");
     }
 
     public void setCallback(MediaLoadCallback callback) {
@@ -63,33 +60,25 @@ public final class VideoMediaController {
     public void show(@NonNull AlbumMedia media) {
         this.media = media;
         view.setVisibility(View.GONE);
-        Log.d(TAG, "show media id=" + media.fileId);
     }
 
-    /* ============================== lifecycle ============================== */
-
     public void onStart() {
-        Log.d(TAG, "onStart");
         if (player == null && media != null) prepare();
     }
 
     public void onResume() {
-        Log.d(TAG, "onResume");
         if (player != null) player.setPlayWhenReady(playWhenReady);
     }
 
     public void onPause() {
-        Log.d(TAG, "onPause");
         releasePlayerInternal();
     }
 
     public void onStop() {
-        Log.d(TAG, "onStop");
         releasePlayerInternal();
     }
 
     public void release() {
-        Log.d(TAG, "release (destroy)");
         releasePlayerInternal();
         releaseCache();
         driveHelper.release();
@@ -97,20 +86,14 @@ public final class VideoMediaController {
         media = null;
     }
 
-    /* ============================== prepare ============================== */
-
     private void prepare() {
         if (media == null) return;
-
-        Log.d(TAG, "prepare player");
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading();
 
         driveHelper.resolve(media, new VideoMediaDriveHelper.Callback() {
             @Override
             public void onReady(@NonNull String url, @NonNull String token) {
-                Log.d(TAG, "drive resolved, building player");
-
                 DefaultMediaSourceFactory mediaSourceFactory =
                         buildMediaSourceFactory(view.getContext(), token);
 
@@ -126,15 +109,11 @@ public final class VideoMediaController {
                 player.setMediaItem(MediaItem.fromUri(url));
                 player.prepare();
 
-                if (resumePosition > 0) {
-                    Log.d(TAG, "seek to " + resumePosition);
-                    player.seekTo(resumePosition);
-                }
+                if (resumePosition > 0) player.seekTo(resumePosition);
             }
 
             @Override
             public void onError(@NonNull Exception e) {
-                Log.e(TAG, "media resolve failed", e);
                 if (callback != null) callback.onMediaError(e);
             }
         });
@@ -147,7 +126,6 @@ public final class VideoMediaController {
                         .setDefaultRequestProperties(buildHeaders(token));
 
         if (media.sizeBytes > CACHE_LIMIT_BYTES) {
-            Log.d(TAG, "cache skipped (size > limit)");
             return new DefaultMediaSourceFactory(http);
         }
 
@@ -163,18 +141,16 @@ public final class VideoMediaController {
         return new DefaultMediaSourceFactory(cacheFactory);
     }
 
-    /* ============================== cache ============================== */
-
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private void initCache(Context c) {
         if (cache != null) return;
         cacheDir = new File(c.getCacheDir(), "video_tmp_" + System.nanoTime());
         cacheDir.mkdirs();
         cache = new SimpleCache(
                 cacheDir,
-                new LeastRecentlyUsedCacheEvictor(Long.MAX_VALUE),
+                new LeastRecentlyUsedCacheEvictor(CACHE_LIMIT_BYTES),
                 databaseProvider
         );
-        Log.d(TAG, "cache created: " + cacheDir.getName());
     }
 
     private void releaseCache() {
@@ -183,17 +159,13 @@ public final class VideoMediaController {
         try { cache.release(); } catch (Exception ignored) {}
         cache = null;
         cacheDir = null;
-        Log.d(TAG, "cache released");
         new Thread(() -> deleteDir(oldDir)).start();
     }
-
-    /* ============================== player ============================== */
 
     private void releasePlayerInternal() {
         if (player == null) return;
         resumePosition = player.getCurrentPosition();
         playWhenReady = player.getPlayWhenReady();
-        Log.d(TAG, "player released at " + resumePosition);
         player.release();
         player = null;
     }
@@ -203,7 +175,6 @@ public final class VideoMediaController {
             @Override
             public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_READY) {
-                    Log.d(TAG, "player READY");
                     view.setVisibility(View.VISIBLE);
                     if (callback != null) callback.onMediaReady();
                     if (player != null) player.removeListener(this);
@@ -211,8 +182,6 @@ public final class VideoMediaController {
             }
         };
     }
-
-    /* ============================== utils ============================== */
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private static void deleteDir(File dir) {
