@@ -64,23 +64,17 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
         if (videoController != null) videoController.onStart();
     }
 
-//    @Override
-//    protected void onResume() {
-//        super.onResume();
-//        if (videoController != null) videoController.onResume();
-//    }
-//
-//    @Override
-//    protected void onPause() {
-//        if (videoController != null) videoController.onPause();
-//        super.onPause();
-//    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (videoController != null) videoController.onResume();
+    }
 
-//    @Override
-//    protected void onStop() {
-//        if (videoController != null) videoController.onStop();
-//        super.onStop();
-//    }
+    @Override
+    protected void onPause() {
+        if (videoController != null) videoController.onPause();
+        super.onPause();
+    }
 
     private void setupWindow() {
         EdgeToEdge.enable(this);

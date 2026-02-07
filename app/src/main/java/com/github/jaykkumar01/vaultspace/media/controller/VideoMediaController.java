@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
 
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 
@@ -15,7 +16,7 @@ import androidx.media3.ui.PlayerView;
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
 import com.github.jaykkumar01.vaultspace.media.helper.VideoMediaDriveHelper;
-import com.github.jaykkumar01.vaultspace.media.proxy.ProgressiveProxyController;
+import com.github.jaykkumar01.vaultspace.media.proxy.FastStartProxyController;
 
 @UnstableApi
 public final class VideoMediaController {
@@ -26,26 +27,28 @@ public final class VideoMediaController {
     private final VideoMediaDriveHelper driveHelper;
 
     private ExoPlayer player;
-    private ProgressiveProxyController proxy;
+    private FastStartProxyController proxy;
+
     private AlbumMedia media;
     private MediaLoadCallback callback;
 
+    private long tPrepare;
     private boolean playWhenReady = true;
 
-    public VideoMediaController(@NonNull AppCompatActivity a,
-                                @NonNull PlayerView v) {
-        Log.d(TAG, "ctor()");
-        view = v;
-        driveHelper = new VideoMediaDriveHelper(a);
+    public VideoMediaController(@NonNull AppCompatActivity activity,
+                                @NonNull PlayerView playerView) {
+        view = playerView;
+        driveHelper = new VideoMediaDriveHelper(activity);
         view.setVisibility(View.GONE);
     }
+
+    /* ======================= Public ======================= */
 
     public void setCallback(MediaLoadCallback cb) {
         callback = cb;
     }
 
     public void show(@NonNull AlbumMedia m) {
-        Log.d(TAG, "show(): " + m.name);
         media = m;
         view.setVisibility(View.GONE);
     }
@@ -54,16 +57,48 @@ public final class VideoMediaController {
         if (player == null && media != null) prepare();
     }
 
+    public void onPause() {
+        if (player != null) {
+            playWhenReady = player.getPlayWhenReady();
+            player.pause();
+        }
+    }
+
+    public void onResume() {
+        if (player != null) {
+            player.setPlayWhenReady(playWhenReady);
+        }
+    }
+
+    public void release() {
+        if (player != null) {
+            player.release();
+            player = null;
+        }
+        if (proxy != null) {
+            proxy.stop();
+            proxy = null;
+        }
+        driveHelper.release();
+    }
+
+    /* ======================= Core ======================= */
+
     private void prepare() {
-        Log.d(TAG, "prepare()");
+        tPrepare = SystemClock.elapsedRealtime();
         if (callback != null) callback.onMediaLoading();
 
         driveHelper.resolve(media, new VideoMediaDriveHelper.Callback() {
+
             @Override
-            public void onReady(@NonNull String url, @NonNull String token) {
-                proxy = new ProgressiveProxyController(url, token, media.sizeBytes);
-                proxy.start();
-                startPlayer(proxy.videoUrl());
+            public void onReady(@NonNull String url,
+                                @NonNull String token) {
+
+                proxy = new FastStartProxyController(
+                        url, token, media.sizeBytes
+                );
+
+                proxy.start(localUrl -> startPlayer(localUrl));
             }
 
             @Override
@@ -73,31 +108,40 @@ public final class VideoMediaController {
         });
     }
 
-    private void startPlayer(String url) {
-        Log.d(TAG, "startPlayer(): " + url);
+    /* ======================= Player ======================= */
 
+    private void startPlayer(String url) {
         DefaultHttpDataSource.Factory http =
-                new DefaultHttpDataSource.Factory()
-                        .setAllowCrossProtocolRedirects(false);
+                new DefaultHttpDataSource.Factory();
 
         player = new ExoPlayer.Builder(view.getContext())
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(http))
                 .build();
 
-        player.setPlayWhenReady(playWhenReady);
-        player.addListener(listener());
+        player.setPlayWhenReady(true);
+        player.setRepeatMode(Player.REPEAT_MODE_ONE);
+        player.addListener(playerListener());
 
         view.setPlayer(player);
         player.setMediaItem(MediaItem.fromUri(url));
         player.prepare();
     }
 
-    private Player.Listener listener() {
+    private Player.Listener playerListener() {
         return new Player.Listener() {
+
             @Override
             public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_READY) {
-                    Log.d(TAG, "Player READY");
+                    long readyMs =
+                            SystemClock.elapsedRealtime() - tPrepare;
+                    long sizeMb =
+                            media.sizeBytes / (1024 * 1024);
+
+                    Log.d(TAG,
+                            "READY in " + readyMs + " ms | " +
+                                    sizeMb + " MB");
+
                     view.setVisibility(View.VISIBLE);
                     if (callback != null) callback.onMediaReady();
                 }
@@ -105,16 +149,8 @@ public final class VideoMediaController {
 
             @Override
             public void onPlayerError(@NonNull PlaybackException error) {
-                Log.e(TAG, "Player error", error);
                 if (callback != null) callback.onMediaError(error);
             }
         };
-    }
-
-    public void release() {
-        Log.d(TAG, "release()");
-        if (player != null) player.release();
-        if (proxy != null) proxy.stop();
-        driveHelper.release();
     }
 }
