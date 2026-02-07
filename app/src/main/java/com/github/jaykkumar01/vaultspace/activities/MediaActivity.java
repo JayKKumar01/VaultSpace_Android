@@ -150,8 +150,8 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
     private void updateFullscreenIcon(int orientation) {
         fullscreenButton.setImageResource(
                 orientation == Configuration.ORIENTATION_LANDSCAPE
-                        ? R.drawable.ic_fullscreen_exit
-                        : R.drawable.ic_fullscreen
+                        ? R.drawable.outline_arrows_input_24
+                        : R.drawable.outline_arrows_output_24
         );
     }
 

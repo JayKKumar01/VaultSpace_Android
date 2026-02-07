@@ -99,7 +99,7 @@
                 android:id="@+id/video_fullscreen"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
-                android:src="@drawable/ic_fullscreen"
+                android:src="@drawable/outline_arrows_output_24"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@null"
                 app:tint="@android:color/white"/>
