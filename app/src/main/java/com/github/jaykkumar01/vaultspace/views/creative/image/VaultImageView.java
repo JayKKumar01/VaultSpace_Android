@@ -20,6 +20,8 @@ public final class VaultImageView extends AppCompatImageView {
     private static final float MAX_SCALE = 4f;
     private static final long DOUBLE_TAP_ANIM_MS = 200;
     private static final long RESET_ANIM_MS = 140;
+    private static final float RELATIVE_ZOOM_FACTOR = 4f;   // zoom relative to base
+    private static final float ABSOLUTE_MIN_MAX_SCALE = 6f; // floor for small images
 
     /* ---------------- state ---------------- */
 
@@ -130,15 +132,26 @@ public final class VaultImageView extends AppCompatImageView {
 
     /* ---------------- math helpers (NO rendering) ---------------- */
 
+    private float getMaxScale(){
+        return Math.max(baseScale * RELATIVE_ZOOM_FACTOR, ABSOLUTE_MIN_MAX_SCALE);
+    }
+
+
     private void translateBy(float dx,float dy){
         drawMatrix.postTranslate(dx, dy);
         clamp();
     }
 
     private void scaleBy(float factor,float px,float py){
+
         float target = currentScale * factor;
-        if(target < baseScale) factor = baseScale / currentScale;
-        else if(target > MAX_SCALE) factor = MAX_SCALE / currentScale;
+        float maxScale = getMaxScale();
+
+        if(target < baseScale)
+            factor = baseScale / currentScale;
+        else if(target > maxScale)
+            factor = maxScale / currentScale;
+
 
         drawMatrix.postTranslate(-px, -py);
         drawMatrix.postScale(factor, factor);
