@@ -36,11 +36,16 @@ public final class VideoMediaController {
         view.setVisibility(View.GONE);
     }
 
+    /* ---------------- public api ---------------- */
+
     public void setCallback(MediaLoadCallback callback) {
         this.callback = callback;
     }
 
     public void show(@NonNull AlbumMedia media) {
+        if (this.media != null && !this.media.fileId.equals(media.fileId)) {
+            resumePosition = 0L; // new file → new timeline
+        }
         this.media = media;
         view.setVisibility(View.GONE);
     }
@@ -70,11 +75,11 @@ public final class VideoMediaController {
         media = null;
     }
 
-    /* ---------------- player ---------------- */
+    /* ---------------- internal ---------------- */
 
     private void prepare() {
         view.setVisibility(View.GONE);
-        notifyLoading("Loading video…");
+        if (callback != null) callback.onMediaLoading("Loading video…");
 
         driveHelper.prepare(media, new VideoMediaDriveHelper.Callback() {
             @Override
@@ -82,13 +87,7 @@ public final class VideoMediaController {
                     @NonNull DefaultMediaSourceFactory factory,
                     @NonNull String url) {
 
-                player = new ExoPlayer.Builder(view.getContext())
-                        .setMediaSourceFactory(factory)
-                        .build();
-
-                player.setRepeatMode(Player.REPEAT_MODE_ONE);
-                player.setPlayWhenReady(playWhenReady);
-                player.addListener(playerListener());
+                player = buildPlayer(factory);
 
                 view.setPlayer(player);
                 player.setMediaItem(MediaItem.fromUri(url));
@@ -102,6 +101,17 @@ public final class VideoMediaController {
                 if (callback != null) callback.onMediaError(e);
             }
         });
+    }
+
+    private ExoPlayer buildPlayer(@NonNull DefaultMediaSourceFactory factory) {
+        ExoPlayer p = new ExoPlayer.Builder(view.getContext())
+                .setMediaSourceFactory(factory)
+                .build();
+
+        p.setRepeatMode(Player.REPEAT_MODE_ONE);
+        p.setPlayWhenReady(playWhenReady);
+        p.addListener(playerListener());
+        return p;
     }
 
     private Player.Listener playerListener() {
@@ -122,9 +132,5 @@ public final class VideoMediaController {
         playWhenReady = player.getPlayWhenReady();
         player.release();
         player = null;
-    }
-
-    private void notifyLoading(String text) {
-        if (callback != null) callback.onMediaLoading(text);
     }
 }

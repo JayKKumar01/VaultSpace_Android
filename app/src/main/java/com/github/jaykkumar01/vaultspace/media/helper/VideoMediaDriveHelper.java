@@ -68,13 +68,14 @@ public final class VideoMediaDriveHelper {
 
                 headers.put("Authorization", "Bearer " + token);
 
-                DefaultHttpDataSource.Factory http =
-                        new DefaultHttpDataSource.Factory()
-                                .setAllowCrossProtocolRedirects(true)
-                                .setDefaultRequestProperties(headers);
 
-                DefaultMediaSourceFactory factory =
-                        new DefaultMediaSourceFactory(http);
+                DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
+                        .setAllowCrossProtocolRedirects(true)
+                        .setDefaultRequestProperties(headers);
+
+                DefaultMediaSourceFactory factory = new DefaultMediaSourceFactory(DriveSingleFileCacheHelper.wrap(
+                        credential.getContext(), media.fileId, http));
+
 
                 String url =
                         "https://www.googleapis.com/drive/v3/files/"

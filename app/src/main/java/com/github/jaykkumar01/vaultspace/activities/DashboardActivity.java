@@ -13,11 +13,13 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.media3.common.util.UnstableApi;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
@@ -32,6 +34,7 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper.*;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
 
+import com.github.jaykkumar01.vaultspace.media.helper.DriveSingleFileCacheHelper;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
@@ -378,10 +381,18 @@ public class DashboardActivity extends AppCompatActivity {
         finish();
     }
 
+    @OptIn(markerClass = UnstableApi.class)
+    private void releaseCache(){
+        if (authState == AuthState.EXIT || isFinishing()) {
+            DriveSingleFileCacheHelper.releaseAndDelete(this);
+        }
+    }
+
     private void showToast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -390,6 +401,7 @@ public class DashboardActivity extends AppCompatActivity {
         albumsUi.onRelease();
         filesUi.onRelease();
         expandVaultHelper.release();
+        releaseCache();
     }
 
 }
