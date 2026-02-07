@@ -76,6 +76,12 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
         super.onPause();
     }
 
+    @Override
+    protected void onStop() {
+        if (videoController != null) videoController.onStop();
+        super.onStop();
+    }
+
     private void setupWindow() {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_media);
