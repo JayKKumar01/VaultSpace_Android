@@ -87,29 +87,45 @@ public final class ImageMediaController {
         imageView.setImageBitmapSafe(bmp);
     }
 
-    private static Bitmap rotateIfNeeded(@NonNull Bitmap src, int rotation) {
-        if (rotation == 0) return src;
+    private static Bitmap rotateIfNeeded(@NonNull Bitmap src,int rotation){
+        if(rotation == 0){
+            Log.d(TAG,"rotateIfNeeded: rotation=0, using original bitmap "
+                    + src.getWidth()+"x"+src.getHeight());
+            return src;
+        }
 
-        Matrix m = new Matrix();
+        Log.d(TAG,"rotateIfNeeded: input bitmap "
+                + src.getWidth()+"x"+src.getHeight()
+                + ", rotation="+rotation+"°");
 
-        int r = Math.abs(rotation);
+        Matrix m=new Matrix();
+        int r=Math.abs(rotation);
 
-        if (rotation < 0) {
+        if(rotation < 0){
             // mirror first (EXIF-style)
-            m.setScale(-1f, 1f);
+            Log.d(TAG,"rotateIfNeeded: applying mirror (EXIF)");
+            m.setScale(-1f,1f);
         }
 
         m.postRotate(r);
 
-        try {
-            Bitmap out = Bitmap.createBitmap(
-                    src, 0, 0, src.getWidth(), src.getHeight(), m, true
+        try{
+            Bitmap out=Bitmap.createBitmap(
+                    src,0,0,src.getWidth(),src.getHeight(),m,true
             );
-            if (out != src) src.recycle();
+
+            Log.d(TAG,"rotateIfNeeded: output bitmap "
+                    + out.getWidth()+"x"+out.getHeight()
+                    + ", reused="+(out==src));
+
+            if(out!=src) src.recycle();
             return out;
-        } catch (Exception e) {
+
+        }catch(Exception e){
+            Log.e(TAG,"rotateIfNeeded: failed, returning original",e);
             return src;
         }
     }
+
 
 }

@@ -1,7 +1,6 @@
 package com.github.jaykkumar01.vaultspace.album.helper;
 
 import android.content.Context;
-import android.nfc.Tag;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -96,28 +95,36 @@ public final class DriveResolver {
 
         Map<String, String> props = file.getAppProperties();
         if (props != null) {
-            try {
-                String ar = props.get("vs_aspect_ratio");
-                if (ar != null) aspectRatio = Float.parseFloat(ar);
-            } catch (Exception ignored) {
-            }
-
-            try {
-                String rot = props.get("vs_rotation");
-                if (rot != null) rotation = Integer.parseInt(rot);
-            } catch (Exception ignored) {
-            }
+            aspectRatio = parseFloatSafe(props.get("vs_aspect_ratio"));
+            rotation = parseIntSafe(props.get("vs_rotation"));
         }
 
-        // Hard safety clamps (important for layout stability)
         if (aspectRatio <= 0f || Float.isNaN(aspectRatio) || Float.isInfinite(aspectRatio))
             aspectRatio = 1f;
 
-        if (rotation != 0 && rotation != 90 && rotation != 180 && rotation != 270)
+        int abs = Math.abs(rotation);
+        if (abs != 0 && abs != 90 && abs != 180 && abs != 270)
             rotation = 0;
 
         return new MediaGeometry(aspectRatio, rotation);
     }
+
+    private static float parseFloatSafe(String v) {
+        try {
+            return Float.parseFloat(v);
+        } catch (Exception e) {
+            return (float) 1.0;
+        }
+    }
+
+    private static int parseIntSafe(String v) {
+        try {
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
 
 
 
@@ -145,8 +152,6 @@ public final class DriveResolver {
             consumer.accept(path);
         });
     }
-
-
 
 
     public void cancel(@NonNull String mediaId) {
