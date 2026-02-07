@@ -74,7 +74,7 @@ public final class VideoMediaController {
 
     private void prepare() {
         view.setVisibility(View.GONE);
-        notifyLoading("Getting things ready…");
+        notifyLoading("Loading video…");
 
         driveHelper.prepare(media, new VideoMediaDriveHelper.Callback() {
             @Override
@@ -108,9 +108,6 @@ public final class VideoMediaController {
         return new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int state) {
-                if (state == Player.STATE_BUFFERING)
-                    notifyLoading("Loading video…");
-
                 if (state == Player.STATE_READY && player != null) {
                     view.setVisibility(View.VISIBLE);
                     if (callback != null) callback.onMediaReady();

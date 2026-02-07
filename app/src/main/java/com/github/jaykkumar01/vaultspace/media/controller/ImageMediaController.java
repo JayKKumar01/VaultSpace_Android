@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -17,6 +18,8 @@ import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
 import com.github.jaykkumar01.vaultspace.media.helper.ImageMediaDriveHelper;
 
 public final class ImageMediaController {
+    private static final String TAG = "VaultSpace:ImageMedia";
+
 
     private final ImageView imageView;
     private final ImageMediaDriveHelper driveHelper;
@@ -39,6 +42,9 @@ public final class ImageMediaController {
     public void show(@NonNull AlbumMedia media){
         imageView.setVisibility(View.VISIBLE);
         notifyLoading("Loading image…");
+
+
+        Log.d(TAG,"media rotation = " + media.rotation + "°");
 
         driveHelper.loadOriginalBitmap(
                 media,
@@ -89,12 +95,29 @@ public final class ImageMediaController {
                 .into(imageView);
     }
 
-    private static Bitmap rotateIfNeeded(@NonNull Bitmap src,int rotation){
+    private static Bitmap rotateIfNeeded(@NonNull Bitmap src, int rotation){
         if(rotation == 0) return src;
+
         Matrix m = new Matrix();
-        m.setRotate(rotation);
-        return Bitmap.createBitmap(
-                src,0,0,src.getWidth(),src.getHeight(),m,true
-        );
+
+        int r = Math.abs(rotation);
+
+        if(rotation < 0){
+            // mirror first (EXIF-style)
+            m.setScale(-1f, 1f);
+        }
+
+        m.postRotate(r);
+
+        try {
+            Bitmap out = Bitmap.createBitmap(
+                    src, 0, 0, src.getWidth(), src.getHeight(), m, true
+            );
+            if(out != src) src.recycle();
+            return out;
+        } catch (Exception e){
+            return src;
+        }
     }
+
 }

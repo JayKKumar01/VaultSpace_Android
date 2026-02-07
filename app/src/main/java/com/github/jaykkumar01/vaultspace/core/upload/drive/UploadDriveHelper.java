@@ -105,6 +105,13 @@ public final class UploadDriveHelper {
         appProps.put("vs_aspect_ratio", Float.toString(selection.aspectRatio));
         appProps.put("vs_rotation", Integer.toString(selection.rotation));
 
+        Log.d(TAG,
+                "UPLOAD props | ar=" + selection.aspectRatio +
+                        " rot=" + selection.rotation +
+                        " mirror=" + (selection.rotation < 0) +
+                        " absRot=" + Math.abs(selection.rotation));
+
+
 
         long origin = selection.originMoment;
         long moment = selection.momentMillis;

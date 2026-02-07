@@ -129,7 +129,8 @@ public final class UriUtils {
                     momentMillis = readVideoDateTaken(cr, uri);
                     if (momentMillis <= 0) momentMillis = originMoment;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
 
@@ -224,27 +225,61 @@ public final class UriUtils {
      * Geometry helpers (PURE, metadata-only)
      * ========================================================== */
 
-    private static float computeAspectRatio(int w, int h, int rotation) {
-        if (w <= 0 || h <= 0) return 1f;
-        return (rotation == 90 || rotation == 270)
+    private static float computeAspectRatio(int w, int h, int rotation){
+        if(w <= 0 || h <= 0){
+            Log.d(TAG,
+                    "AR compute SKIP | invalid dims w=" + w +
+                            " h=" + h +
+                            " rot=" + rotation);
+            return 1f;
+        }
+
+        int r = Math.abs(rotation);
+        boolean swapped = (r == 90 || r == 270);
+
+        float ar = swapped
                 ? (h / (float) w)
                 : (w / (float) h);
+
+        Log.d(TAG,
+                "AR compute | w=" + w +
+                        " h=" + h +
+                        " rot=" + rotation +
+                        " absRot=" + r +
+                        " mirror=" + (rotation < 0) +
+                        " axisSwap=" + swapped +
+                        " ar=" + ar);
+
+        return ar;
     }
+
+
 
     private static float sanitizeAspectRatio(float ar) {
         return (ar <= 0f || Float.isNaN(ar) || Float.isInfinite(ar)) ? 1f : ar;
     }
 
-    private static int sanitizeRotation(int r) {
-        return (r == 0 || r == 90 || r == 180 || r == 270) ? r : 0;
+    private static int sanitizeRotation(int r){
+        int a = Math.abs(r);
+        return (a == 0 || a == 90 || a == 180 || a == 270) ? r : 0;
     }
 
+
     private static int exifRotationToDegrees(int o) {
-        return (o == ExifInterface.ORIENTATION_ROTATE_90
-                || o == ExifInterface.ORIENTATION_TRANSVERSE) ? 90 :
-                (o == ExifInterface.ORIENTATION_ROTATE_180) ? 180 :
-                        (o == ExifInterface.ORIENTATION_ROTATE_270
-                                || o == ExifInterface.ORIENTATION_TRANSPOSE) ? 270 : 0;
+        return switch (o) {
+
+            case ExifInterface.ORIENTATION_ROTATE_90 -> 90;
+            case ExifInterface.ORIENTATION_ROTATE_180 -> 180;
+            case ExifInterface.ORIENTATION_ROTATE_270 -> 270;
+
+            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> -0;   // mirror, no rotation
+            case ExifInterface.ORIENTATION_FLIP_VERTICAL -> -180;  // mirror + 180
+
+            case ExifInterface.ORIENTATION_TRANSPOSE -> -270;      // mirror + 90
+            case ExifInterface.ORIENTATION_TRANSVERSE -> -90;      // mirror + 270
+
+            default -> 0;
+        };
     }
 
 
