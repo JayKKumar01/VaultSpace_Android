@@ -7,6 +7,7 @@ import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
+import android.view.VelocityTracker;
 import android.view.animation.DecelerateInterpolator;
 
 import androidx.annotation.NonNull;
@@ -17,11 +18,10 @@ public final class VaultImageView extends AppCompatImageView {
 
     private static final float MAX_SCALE_STEP = 1.08f;
     private static final float MIN_SCALE_STEP = 0.92f;
-    private static final float MAX_SCALE = 4f;
     private static final long DOUBLE_TAP_ANIM_MS = 200;
     private static final long RESET_ANIM_MS = 140;
-    private static final float RELATIVE_ZOOM_FACTOR = 4f;   // zoom relative to base
-    private static final float ABSOLUTE_MIN_MAX_SCALE = 6f; // floor for small images
+    private static final float RELATIVE_ZOOM_FACTOR = 4f;
+    private static final float ABSOLUTE_MIN_MAX_SCALE = 6f;
 
     /* ---------------- state ---------------- */
 
@@ -44,11 +44,28 @@ public final class VaultImageView extends AppCompatImageView {
     private final GestureDetector gestureDetector;
     private ValueAnimator scaleAnimator;
 
+    /* ---------------- pan velocity ---------------- */
+
+    private VelocityTracker velocityTracker;
+    private final PanFlingHelper panFling;
+
     public VaultImageView(Context c, @Nullable AttributeSet a){
         super(c, a);
         setScaleType(ScaleType.MATRIX);
+
         scaleDetector = new ScaleGestureDetector(c, new ScaleListener());
         gestureDetector = new GestureDetector(c, new GestureListener());
+
+        panFling = new PanFlingHelper(new PanFlingHelper.Callback() {
+            @Override
+            public void onDelta(float dx, float dy){
+                translateBy(dx, dy);
+                requestRender();
+            }
+
+            @Override
+            public void onStop(){}
+        });
     }
 
     /* ---------------- public API ---------------- */
@@ -60,7 +77,8 @@ public final class VaultImageView extends AppCompatImageView {
     }
 
     public void reset(){
-        runScaleAnimation(currentScale, baseScale, getWidth() * .5f, getHeight() * .5f, RESET_ANIM_MS);
+        runScaleAnimation(currentScale, baseScale,
+                getWidth() * .5f, getHeight() * .5f, RESET_ANIM_MS);
     }
 
     /* ---------------- base matrix ---------------- */
@@ -85,6 +103,7 @@ public final class VaultImageView extends AppCompatImageView {
         currentScale = baseScale;
 
         cancelAnimation();
+        panFling.stop();
         renderScheduled = false;
         renderNow();
     }
@@ -99,13 +118,41 @@ public final class VaultImageView extends AppCompatImageView {
 
     @Override
     public boolean onTouchEvent(MotionEvent e){
-        boolean r1 = scaleDetector.onTouchEvent(e);
-        boolean r2 = gestureDetector.onTouchEvent(e);
+        scaleDetector.onTouchEvent(e);
+        gestureDetector.onTouchEvent(e);
 
-        if(e.getAction() == MotionEvent.ACTION_UP)
-            performClick();
+        switch(e.getActionMasked()){
+            case MotionEvent.ACTION_DOWN:
+                panFling.stop();
+                velocityTracker = VelocityTracker.obtain();
+                velocityTracker.addMovement(e);
+                break;
 
-        return r1 || r2 || super.onTouchEvent(e);
+            case MotionEvent.ACTION_MOVE:
+                if(velocityTracker != null)
+                    velocityTracker.addMovement(e);
+                break;
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if(velocityTracker != null){
+                    velocityTracker.addMovement(e);
+                    velocityTracker.computeCurrentVelocity(1000);
+
+                    if(currentScale > baseScale && !isScaling){
+                        panFling.start(
+                                velocityTracker.getXVelocity(),
+                                velocityTracker.getYVelocity()
+                        );
+                    }
+
+                    velocityTracker.recycle();
+                    velocityTracker = null;
+                }
+                performClick();
+                break;
+        }
+        return true;
     }
 
     @Override
@@ -130,12 +177,11 @@ public final class VaultImageView extends AppCompatImageView {
         setImageMatrix(drawMatrix);
     }
 
-    /* ---------------- math helpers (NO rendering) ---------------- */
+    /* ---------------- math helpers ---------------- */
 
     private float getMaxScale(){
         return Math.max(baseScale * RELATIVE_ZOOM_FACTOR, ABSOLUTE_MIN_MAX_SCALE);
     }
-
 
     private void translateBy(float dx,float dy){
         drawMatrix.postTranslate(dx, dy);
@@ -143,7 +189,6 @@ public final class VaultImageView extends AppCompatImageView {
     }
 
     private void scaleBy(float factor,float px,float py){
-
         float target = currentScale * factor;
         float maxScale = getMaxScale();
 
@@ -151,7 +196,6 @@ public final class VaultImageView extends AppCompatImageView {
             factor = baseScale / currentScale;
         else if(target > maxScale)
             factor = maxScale / currentScale;
-
 
         drawMatrix.postTranslate(-px, -py);
         drawMatrix.postScale(factor, factor);
@@ -184,10 +228,11 @@ public final class VaultImageView extends AppCompatImageView {
         drawMatrix.postTranslate(dx, dy);
     }
 
-    /* ---------------- animation ---------------- */
+    /* ---------------- scale animation ---------------- */
 
     private void runScaleAnimation(float start,float end,float px,float py,long duration){
         cancelAnimation();
+        panFling.stop();
 
         final float[] last = { start };
 
@@ -195,9 +240,9 @@ public final class VaultImageView extends AppCompatImageView {
         scaleAnimator.setDuration(duration);
         scaleAnimator.setInterpolator(new DecelerateInterpolator());
         scaleAnimator.addUpdateListener(a -> {
-            float value = (float) a.getAnimatedValue();
-            float factor = value / last[0];
-            last[0] = value;
+            float v = (float) a.getAnimatedValue();
+            float factor = v / last[0];
+            last[0] = v;
 
             scaleBy(factor, px, py);
             requestRender();
@@ -220,6 +265,7 @@ public final class VaultImageView extends AppCompatImageView {
         public boolean onScaleBegin(@NonNull ScaleGestureDetector d){
             isScaling = true;
             cancelAnimation();
+            panFling.stop();
             return true;
         }
 
@@ -258,6 +304,7 @@ public final class VaultImageView extends AppCompatImageView {
         public boolean onScroll(MotionEvent e1,@NonNull MotionEvent e2,float dx,float dy){
             if(isScaling || currentScale <= baseScale) return false;
 
+            panFling.stop();
             translateBy(-dx, -dy);
             requestRender();
             return true;
