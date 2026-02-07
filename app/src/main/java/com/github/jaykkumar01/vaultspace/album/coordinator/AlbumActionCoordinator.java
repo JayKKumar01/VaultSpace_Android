@@ -93,7 +93,6 @@ public final class AlbumActionCoordinator {
     }
 
     public void releaseUriPermission(Uri uri) {
-        uriSelection.releasePersistableUriPermission(uri);
     }
 
     public void showMediaPreview(AlbumMedia m) {

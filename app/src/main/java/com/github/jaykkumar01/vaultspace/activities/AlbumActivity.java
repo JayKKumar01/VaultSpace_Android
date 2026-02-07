@@ -269,9 +269,7 @@ public class AlbumActivity extends AppCompatActivity {
         uploadStatusController.onCancelled();
     }
 
-    private void handleUploadSuccess(UploadedItem item, Uri uri) {
-        if (uri != null) actionCoordinator.releaseUriPermission(uri);
-        //here remove the uri permission not needed
+    private void handleUploadSuccess(UploadedItem item) {
     }
 
     private void handleUploadFailure(UploadSelection s) {

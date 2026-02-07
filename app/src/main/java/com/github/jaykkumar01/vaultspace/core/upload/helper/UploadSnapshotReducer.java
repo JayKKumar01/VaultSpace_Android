@@ -1,6 +1,8 @@
 package com.github.jaykkumar01.vaultspace.core.upload.helper;
 
 import android.content.Context;
+
+import com.github.jaykkumar01.vaultspace.core.selection.UriSelection;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
@@ -51,6 +53,7 @@ public final class UploadSnapshotReducer {
         UploadSnapshot old = uploadCache.getSnapshot(groupId);
         if (old == null) return null;
 
+        UriSelection.releasePermission(appContext,selection.uri);
         retryStore.removeRetry(selection);
 
         UploadSnapshot updated = new UploadSnapshot(

@@ -3,6 +3,7 @@ package com.github.jaykkumar01.vaultspace.core.upload.helper;
 import android.content.Context;
 import android.util.Log;
 
+import com.github.jaykkumar01.vaultspace.core.selection.UriSelection;
 import com.github.jaykkumar01.vaultspace.core.session.UploadRetryStore;
 import com.github.jaykkumar01.vaultspace.core.session.cache.UploadCache;
 import com.github.jaykkumar01.vaultspace.core.upload.base.FailureReason;
@@ -121,6 +122,7 @@ public final class UploadFailureCoordinator {
     public void clearGroup(String groupId) {
         List<UploadSelection> rows = retryStore.getRetriesForGroup(groupId);
         for (UploadSelection e : rows) {
+            UriSelection.releasePermission(appContext,e.uri);
             if (e.thumbnailPath == null) continue;
             File f = new File(e.thumbnailPath);
             if (f.exists() && !f.delete())

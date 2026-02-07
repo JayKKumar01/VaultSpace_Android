@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.core.selection;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 
@@ -50,6 +51,17 @@ public class UriSelection {
     public void releasePersistableUriPermission(Uri uri) {
         try {
             activity.getContentResolver().releasePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+            );
+        } catch (SecurityException ignored) {
+            // Permission might already be released or never persisted
+        }
+    }
+
+    public static void releasePermission(Context context,Uri uri) {
+        try {
+            context.getContentResolver().releasePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
             );

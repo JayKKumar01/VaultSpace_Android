@@ -1,7 +1,6 @@
 package com.github.jaykkumar01.vaultspace.core.upload;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -150,7 +149,7 @@ public final class UploadManager implements UploadTask.Callback {
     public void onSuccess(String gid, UploadSelection s, UploadedItem item){
         controlExecutor.execute(()->{
             orchestrator.dispatchUploadSuccess(gid,item);
-            emitSuccess(gid,item,s.uri);
+            emitSuccess(gid,item);
             UploadSnapshot u = snapshotReducer.onSuccess(gid,s);
             snapshotReducer.finalizeSnapshot(u);
             emitSnapshot(gid,u);
@@ -225,10 +224,10 @@ public final class UploadManager implements UploadTask.Callback {
             mainHandler.post(o::onCancelled);
     }
 
-    private void emitSuccess(String groupId, UploadedItem item, Uri uri) {
+    private void emitSuccess(String groupId, UploadedItem item) {
         UploadObserver o = observers.get(groupId);
         if (o != null)
-            mainHandler.post(() -> o.onSuccess(item,uri));
+            mainHandler.post(() -> o.onSuccess(item));
     }
 
     private void emitFailure(String groupId, UploadSelection selection) {

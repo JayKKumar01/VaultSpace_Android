@@ -14,14 +14,14 @@ public final class UploadObserverImpl implements UploadObserver {
 
     private final Consumer<UploadSnapshot> onSnapshot;
     private final Runnable onCancelled;
-    private final BiConsumer<UploadedItem,Uri> onSuccess;
+    private final Consumer<UploadedItem> onSuccess;
     private final Consumer<UploadSelection> onFailure;
     private final TriConsumer<UploadSelection, Long, Long> onProgress;
 
     public UploadObserverImpl(
             Consumer<UploadSnapshot> onSnapshot,
             Runnable onCancelled,
-            BiConsumer<UploadedItem, Uri> onSuccess,
+            Consumer<UploadedItem> onSuccess,
             Consumer<UploadSelection> onFailure,
             TriConsumer<UploadSelection, Long, Long> onProgress
     ) {
@@ -34,7 +34,7 @@ public final class UploadObserverImpl implements UploadObserver {
 
     @Override public void onSnapshot(UploadSnapshot s) { onSnapshot.accept(s); }
     @Override public void onCancelled() { onCancelled.run(); }
-    @Override public void onSuccess(UploadedItem i, Uri uri) { onSuccess.accept(i,uri); }
+    @Override public void onSuccess(UploadedItem i) { onSuccess.accept(i); }
     @Override public void onFailure(UploadSelection s) { onFailure.accept(s); }
 
     @Override

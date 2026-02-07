@@ -12,6 +12,7 @@ import android.widget.ImageView;
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.R;
@@ -22,6 +23,7 @@ import com.github.jaykkumar01.vaultspace.media.controller.ImageMediaController;
 import com.github.jaykkumar01.vaultspace.media.controller.VideoMediaController;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
+@UnstableApi
 public final class MediaActivity extends AppCompatActivity implements MediaLoadCallback {
 
     private static final String TAG = "VaultSpace:Media";
