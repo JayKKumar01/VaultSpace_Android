@@ -137,6 +137,15 @@ public final class AlbumMediaRepository {
         return out;
     }
 
+    public boolean isAlbumEmpty(String albumId) {
+        AlbumMediaEntry entry = cache.getOrCreateEntry(albumId);
+        synchronized (lock) {
+            return entry.isEmpty();
+        }
+    }
+
+
+
     /* ================= Mutations (O(1)) ================= */
 
     public void addMedia(String albumId,AlbumMedia media) {

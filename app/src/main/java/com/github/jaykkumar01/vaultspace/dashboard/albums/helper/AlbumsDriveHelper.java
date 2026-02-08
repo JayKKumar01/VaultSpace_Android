@@ -120,35 +120,51 @@ public final class AlbumsDriveHelper {
 
     /* ================= Cover ================= */
 
-    public void setAlbumCover(ExecutorService exec, String albumId, String coverFileId, Success<String> ok, Failure err) {
+    public void setAlbumCover(ExecutorService exec,String albumId,String coverFileId,Success<String> ok,Failure err) {
         exec.execute(() -> {
             try {
-                drive.files().update(albumId, new File().setAppProperties(
-                        Map.of(PROP_COVER, coverFileId)
-                )).setFields("id").execute();
+                File current = drive.files().get(albumId).setFields("appProperties").execute();
+                Map<String,String> merged = withProp(current.getAppProperties(), coverFileId);
+
+                drive.files().update(albumId,new File().setAppProperties(merged)).setFields("id").execute();
 
                 String path = coverResolver.resolve(coverFileId);
                 post(() -> ok.call(path));
 
             } catch (Exception e) {
-                Log.e(TAG, "setAlbumCover failed", e);
+                Log.e(TAG,"setAlbumCover failed",e);
                 post(() -> err.call(e));
             }
         });
     }
 
-    public void clearAlbumCover(ExecutorService exec, String albumId, String coverFileId, Runnable ok, Failure err) {
+
+    public void clearAlbumCover(ExecutorService exec,String albumId,String coverFileId,Runnable ok,Failure err) {
         exec.execute(() -> {
             try {
-                drive.files().update(albumId, new File().setAppProperties(null)).setFields("id").execute();
+                File current = drive.files().get(albumId).setFields("appProperties").execute();
+                Map<String,String> merged = withProp(current.getAppProperties(), null);
+
+                drive.files().update(albumId,new File().setAppProperties(merged)).setFields("id").execute();
+
                 coverResolver.clear(coverFileId);
                 post(ok);
+
             } catch (Exception e) {
-                Log.e(TAG, "clearAlbumCover failed", e);
+                Log.e(TAG,"clearAlbumCover failed",e);
                 post(() -> err.call(e));
             }
         });
     }
+
+
+    private static Map<String,String> withProp(Map<String,String> base, String value) {
+        Map<String,String> out = base == null ? new java.util.HashMap<>() : new java.util.HashMap<>(base);
+        if (value == null) out.remove(AlbumsDriveHelper.PROP_COVER);
+        else out.put(AlbumsDriveHelper.PROP_COVER,value);
+        return out.isEmpty() ? null : out;
+    }
+
 
     /* ================= Helpers ================= */
 

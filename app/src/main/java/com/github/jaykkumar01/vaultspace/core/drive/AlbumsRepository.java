@@ -150,11 +150,16 @@ public final class AlbumsRepository {
 
 
 
-    public void setAlbumCover(AlbumInfo old, String coverFileId, Failure err) {
-        drive.setAlbumCover(executor, old.id, coverFileId,
+    public void setAlbumCover(String albumId,String coverFileId,Failure err) {
+        AlbumInfo old;
+        synchronized (lock) { old = cache.getAlbumById(albumId); }
+        if (old == null) return;
+
+        drive.setAlbumCover(executor, albumId, coverFileId,
                 path -> {
                     AlbumInfo updated = new AlbumInfo(
-                            old.id, old.name, old.createdTime, System.currentTimeMillis(), path
+                            old.id, old.name, old.createdTime,
+                            System.currentTimeMillis(), path
                     );
                     synchronized (lock) { cache.replaceAlbum(updated); }
                     notifyUpdated(updated);
@@ -163,11 +168,17 @@ public final class AlbumsRepository {
         );
     }
 
-    public void clearAlbumCover(AlbumInfo old, String coverFileId, Failure err) {
-        drive.clearAlbumCover(executor, old.id, coverFileId,
+
+    public void clearAlbumCover(String albumId,String coverFileId,Failure err) {
+        AlbumInfo old;
+        synchronized (lock) { old = cache.getAlbumById(albumId); }
+        if (old == null) return;
+
+        drive.clearAlbumCover(executor, albumId, coverFileId,
                 () -> {
                     AlbumInfo updated = new AlbumInfo(
-                            old.id, old.name, old.createdTime, System.currentTimeMillis(), null
+                            old.id, old.name, old.createdTime,
+                            System.currentTimeMillis(), null
                     );
                     synchronized (lock) { cache.replaceAlbum(updated); }
                     notifyUpdated(updated);
@@ -175,6 +186,7 @@ public final class AlbumsRepository {
                 e -> mainHandler.post(() -> err.call(e))
         );
     }
+
 
     /* ================= Listeners ================= */
 

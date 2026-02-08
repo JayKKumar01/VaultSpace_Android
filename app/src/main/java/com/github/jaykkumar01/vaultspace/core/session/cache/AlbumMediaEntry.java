@@ -95,6 +95,11 @@ public final class AlbumMediaEntry {
         return mediaById.get(fileId);
     }
 
+    public boolean isEmpty() {
+        return initialized && mediaById.isEmpty();
+    }
+
+
     /* ==========================================================
      * Mutation APIs (ALL O(1))
      * ========================================================== */
