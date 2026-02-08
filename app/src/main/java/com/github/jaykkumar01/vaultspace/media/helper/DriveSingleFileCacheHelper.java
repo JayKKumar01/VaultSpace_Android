@@ -19,7 +19,7 @@ import java.io.File;
 public final class DriveSingleFileCacheHelper {
 
     private static final String TAG = "DriveExoCache";
-    private static final long MAX_CACHE_BYTES = 256L * 1024L * 1024L;
+    private static final long MAX_CACHE_BYTES = 120L * 1024L * 1024L;
 
     private static SimpleCache cache;
     private static DatabaseProvider db;

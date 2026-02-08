@@ -11,6 +11,7 @@ import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.utils.VaultFabUtil;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class AlbumsContentView extends FrameLayout
@@ -80,9 +81,12 @@ public class AlbumsContentView extends FrameLayout
     /* ---------------- Public API ---------------- */
 
     /** Initial load only */
-    public void setAlbums(List<AlbumInfo> albums) {
-        adapter.submitAlbums(albums);
+    public void setAlbums(Iterable<AlbumInfo> albums) {
+        List<AlbumInfo> list = new ArrayList<>();
+        for (AlbumInfo a : albums) list.add(a);
+        adapter.submitAlbums(list);
     }
+
 
     /** Incremental insert (newest-first UX) */
     public void addAlbum(AlbumInfo album) {
