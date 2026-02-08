@@ -9,11 +9,11 @@
     app:cardElevation="3dp"
     app:cardUseCompatPadding="true">
 
+    <!-- Only for square enforcement -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <!-- Square container -->
         <FrameLayout
             android:id="@+id/square_container"
             android:layout_width="0dp"
@@ -22,75 +22,75 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintDimensionRatio="1:1">
 
-            <!-- Album cover (FIT, not crop) -->
+            <!-- Album cover -->
             <ImageView
                 android:id="@+id/album_cover"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_album_loading"
-                android:scaleType="fitCenter"
-                android:background="@color/vs_surface_soft"/>
+                android:scaleType="centerCrop"
+                android:background="@color/vs_surface_soft"
+                android:contentDescription="@null"/>
 
-            <!-- Placeholder icon (visible when image has padding space) -->
+            <!-- Placeholder -->
             <ImageView
                 android:id="@+id/album_placeholder"
-                android:visibility="gone"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_gravity="center"
-                android:contentDescription="@null"
+                android:scaleType="fitCenter"
                 android:src="@drawable/ic_album_placeholder"
-                android:scaleType="fitCenter"/>
+                android:contentDescription="@null"/>
 
-            <!-- Bottom scrim -->
-            <View
+            <!-- Bottom title container (scrim as background) -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:layout_gravity="bottom"
-                android:background="@drawable/bg_album_title_scrim"/>
-
-            <!-- Album name -->
-            <TextView
-                android:id="@+id/album_name"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
+                android:background="@drawable/bg_album_title_scrim"
+                android:gravity="center_vertical"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
-                android:paddingBottom="10dp"
-                android:text="Album name"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="@color/vs_text_header"
-                android:singleLine="true"
-                android:ellipsize="end"/>
+                android:paddingBottom="10dp">
 
-            <!-- Overflow menu (⋮) -->
-            <ImageButton
-                android:id="@+id/album_overflow"
-                android:layout_width="20dp"
-                android:layout_height="36dp"
-                android:layout_gravity="top|end"
-                android:padding="6dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_more_vert"
-                app:tint="@color/vs_icon_on_media" />
+                <TextView
+                    android:id="@+id/album_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:layout_gravity="bottom"
+                    android:text="Album Name"
+                    android:textStyle="bold"
+                    android:textColor="@color/vs_text_header"
+                    android:singleLine="true"
+                    android:ellipsize="end"/>
 
+            </LinearLayout>
 
+            <!-- Overflow container (scrim as background) -->
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="end"
+                android:background="@drawable/bg_album_overflow_scrim">
+
+                <ImageButton
+                    android:id="@+id/album_overflow"
+                    android:layout_width="match_parent"
+                    android:layout_height="20dp"
+                    android:layout_marginTop="5dp"
+                    android:scaleType="fitCenter"
+                    android:layout_gravity="top|end"
+                    android:contentDescription="@null"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_more_vert"
+                    app:tint="@color/vs_icon_on_media"/>
+
+            </FrameLayout>
 
         </FrameLayout>
-
-        <!-- Spacer to give parent height -->
-        <View
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            app:layout_constraintTop_toBottomOf="@id/square_container"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
