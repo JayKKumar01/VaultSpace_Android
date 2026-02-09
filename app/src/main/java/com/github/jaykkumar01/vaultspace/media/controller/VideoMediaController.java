@@ -1,5 +1,6 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
 
+import android.content.Context;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -12,31 +13,41 @@ import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
-import com.github.jaykkumar01.vaultspace.media.base.VideoMediaPrepareCallback;
-import com.github.jaykkumar01.vaultspace.media.helper.VideoMediaProvider;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class VideoMediaController {
 
+    private final Context context;
+    /* ---------------- ui ---------------- */
     private final PlayerView view;
+
+    /* ---------------- playback ---------------- */
 
     private ExoPlayer player;
     private AlbumMedia media;
+
+    /* ---------------- callbacks ---------------- */
+
     private MediaLoadCallback callback;
-    private VideoMediaProvider provider;
+
+    /* ---------------- orchestration ---------------- */
+
+    private VideoMediaSession session;
+
+
+    /* ---------------- state ---------------- */
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
+    private final AtomicBoolean preparing = new AtomicBoolean(false);
 
-    /* progress state (download only) */
-    private int lastProgressPercent = -1;
-    private long lastProgressUpdateMs = 0L;
+    /* ---------------- constructor ---------------- */
 
-
-    public VideoMediaController(
-            @NonNull AppCompatActivity activity,
-            @NonNull PlayerView playerView) {
+    public VideoMediaController(@NonNull Context context, @NonNull PlayerView playerView) {
+        this.context = context;
         this.view = playerView;
-        view.setVisibility(View.GONE);
+        this.view.setVisibility(View.GONE);
     }
 
     /* ---------------- public api ---------------- */
@@ -50,8 +61,6 @@ public final class VideoMediaController {
             resumePosition = 0L;
         }
         this.media = media;
-        this.provider = new VideoMediaProvider(view.getContext(), media);
-        lastProgressPercent = -1;
         view.setVisibility(View.GONE);
     }
 
@@ -62,11 +71,11 @@ public final class VideoMediaController {
     }
 
     public void onResume() {
-        if (player == null) {
-            if (media != null) prepare();
-            return;
+        if (player != null) {
+            player.setPlayWhenReady(playWhenReady);
+        } else if (media != null) {
+            prepare();
         }
-        player.setPlayWhenReady(playWhenReady);
     }
 
     public void onPause() {
@@ -79,62 +88,55 @@ public final class VideoMediaController {
 
     public void release() {
         releasePlayerInternal();
-        if (provider != null) provider.release();
         callback = null;
         media = null;
     }
 
-    /* ---------------- internal ---------------- */
+    /* ---------------- prepare (lifecycle gate) ---------------- */
 
     private void prepare() {
+        if (!preparing.compareAndSet(false, true)) return;
+
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading("Loading video…");
 
-        provider.prepare(media, new VideoMediaPrepareCallback() {
+        /*
+         * PREPARE SESSION STARTS HERE
+         */
+        session = new VideoMediaSession(context, this);
+        session.start(media);
 
-            @Override
-            public void onProgress(long downloaded, long total) {
-                if (callback == null || total <= 0) return;
-
-                int percent = (int) ((downloaded * 100) / total);
-                long now = System.currentTimeMillis();
-
-                // 🔕 percent dedupe
-                if (percent == lastProgressPercent) return;
-
-                // ⏱ time throttle (avoid rapid UI churn)
-                if (now - lastProgressUpdateMs < 120) return;
-
-                lastProgressPercent = percent;
-                lastProgressUpdateMs = now;
-
-                callback.onMediaLoading(
-                        "Downloading video • "
-                                + formatBytes(downloaded) + " / "
-                                + formatBytes(total) + " (" + percent + "%)"
-                );
-            }
-
-
-            @Override
-            public void onReady(
-                    @NonNull DefaultMediaSourceFactory factory,
-                    @NonNull MediaItem item) {
-
-                player = buildPlayer(factory);
-                view.setPlayer(player);
-                player.setMediaItem(item);
-                player.prepare();
-
-                if (resumePosition > 0) player.seekTo(resumePosition);
-            }
-
-            @Override
-            public void onError(@NonNull Exception e) {
-                if (callback != null) callback.onMediaError(e);
-            }
-        });
     }
+
+    /* ---------------- attach (commit point) ---------------- */
+
+    public void attach(@NonNull DefaultMediaSourceFactory factory,
+                       @NonNull MediaItem item) {
+
+        // ❌ DO NOT kill session here
+        // releasePlayerInternal();
+
+        // Only release existing player instance
+        if (player != null) {
+            resumePosition = player.getCurrentPosition();
+            playWhenReady = player.getPlayWhenReady();
+            player.release();
+            player = null;
+        }
+
+        if (!preparing.compareAndSet(true, false)) return;
+
+        player = buildPlayer(factory);
+        view.setPlayer(player);
+        player.setMediaItem(item);
+        player.prepare();
+
+        if (resumePosition > 0) player.seekTo(resumePosition);
+    }
+
+
+
+    /* ---------------- player ---------------- */
 
     private ExoPlayer buildPlayer(@NonNull DefaultMediaSourceFactory factory) {
         ExoPlayer p = new ExoPlayer.Builder(view.getContext())
@@ -151,6 +153,7 @@ public final class VideoMediaController {
             @Override
             public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_READY && player != null) {
+                    session.onPlayerReady();
                     view.setVisibility(View.VISIBLE);
                     if (callback != null) callback.onMediaReady();
                 }
@@ -158,20 +161,23 @@ public final class VideoMediaController {
         };
     }
 
+    /* ---------------- release ---------------- */
+
     private void releasePlayerInternal() {
+        preparing.set(false);
+
+        // 🔥 kill session first
+        if (session != null) {
+            session.release();
+            session = null;
+        }
+
         if (player == null) return;
+
         resumePosition = player.getCurrentPosition();
         playWhenReady = player.getPlayWhenReady();
+
         player.release();
         player = null;
-    }
-
-    /* ---------------- utils ---------------- */
-
-    private static String formatBytes(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        float kb = bytes / 1024f;
-        if (kb < 1024) return String.format("%.1f KB", kb);
-        return String.format("%.1f MB", kb / 1024f);
     }
 }

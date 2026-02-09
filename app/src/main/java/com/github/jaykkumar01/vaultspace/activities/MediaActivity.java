@@ -183,7 +183,7 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
     }
 
     @Override
-    public void onMediaError(Throwable t) {
+    public void onMediaError(Exception e) {
         loadingState.setVisibility(View.GONE);
         exit();
     }

@@ -555,6 +555,27 @@ public class Notes {
     //  Today is not sorted properly also add level Time:
 
 
+    // first check cahce exists
+    // if yes play from that
+    // if no, start the default url
+    // default url works within time > ok cool
+    // url fails with timeout> switch to download
+
+
+    // init > (if small wait 2 second else wait 10)
+    // while waiting if (we get another init > switch to download)
+    // while waiting if (start > before 10, okay)
+
+    //need to check data consistency also, because of this
+    //[1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] health window started
+    //2026-02-10 03:39:42.505 25576-26799 UrlPlaybackObserver     com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] INIT #1
+    //2026-02-10 03:39:46.993 25576-26799 UrlPlaybackObserver     com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] START received
+    //2026-02-10 03:39:47.003 25576-26799 UrlPlaybackObserver     com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] DATA received (3 bytes)
+    //2026-02-10 03:39:47.003 25576-26799 UrlPlaybackObserver     com.github.jaykkumar01.vaultspace    I  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] DECISION = HEALTHY (transfer, 4591 ms)
+    // video does not start at all, waited too much
+
+
+
 
 
 

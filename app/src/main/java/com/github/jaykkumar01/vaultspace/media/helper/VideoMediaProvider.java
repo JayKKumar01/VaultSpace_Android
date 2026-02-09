@@ -29,7 +29,7 @@ public final class VideoMediaProvider {
                 "select source=" + (download ? "DOWNLOAD" : "URL")
                         + " rotation=" + media.rotation
                         + " size=" + media.sizeBytes);
-
+        download = false;
         source = download
                 ? new DriveDownloadMediaSource(context)
                 : new DriveUrlMediaSource(context);
