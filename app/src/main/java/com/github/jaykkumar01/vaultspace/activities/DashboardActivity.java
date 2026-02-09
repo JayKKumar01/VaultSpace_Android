@@ -381,13 +381,6 @@ public class DashboardActivity extends AppCompatActivity {
         finish();
     }
 
-    @OptIn(markerClass = UnstableApi.class)
-    private void releaseCache(){
-        if (authState == AuthState.EXIT || isFinishing()) {
-            DriveSingleFileCacheHelper.releaseAndDelete(this);
-        }
-    }
-
     private void showToast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
@@ -401,7 +394,6 @@ public class DashboardActivity extends AppCompatActivity {
         albumsUi.onRelease();
         filesUi.onRelease();
         expandVaultHelper.release();
-        releaseCache();
     }
 
 }

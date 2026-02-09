@@ -61,6 +61,8 @@ public final class UriUtils {
 
         float aspectRatio = 1f;
         int rotation = 0;
+        long durationMillis = 0;
+
 
         /* ---------- Media-aware extraction ---------- */
 
@@ -117,13 +119,17 @@ public final class UriUtils {
 
                 aspectRatio = computeAspectRatio(w, h, rotation);
 
-                // 🔍 ALWAYS LOG (video diagnostics)
+                // ✅ duration (ONE metadata call, zero extra cost)
+                durationMillis = parseLong(
+                        r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                );
+
                 Log.d(TAG,
-                        "VIDEO geometry | uri=" + uri +
-                                " rotMeta=" + rotStr +
+                        "VIDEO meta | uri=" + uri +
                                 " rot=" + rotation +
                                 " w=" + w + " h=" + h +
-                                " ar=" + aspectRatio);
+                                " ar=" + aspectRatio +
+                                " durMs=" + durationMillis);
 
                 if (base.modifiedMillis <= 0) {
                     momentMillis = readVideoDateTaken(cr, uri);
@@ -176,8 +182,10 @@ public final class UriUtils {
                 momentMillis,
                 aspectRatio,
                 rotation,
+                durationMillis,
                 thumb
         );
+
     }
 
     /* =========================
@@ -367,6 +375,15 @@ public final class UriUtils {
             return -1;
         }
     }
+
+    private static long parseLong(String v) {
+        try {
+            return v != null ? Long.parseLong(v) : 0L;
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
 
     /* =========================
      * Internal holder

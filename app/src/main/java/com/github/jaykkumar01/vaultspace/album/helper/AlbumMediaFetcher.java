@@ -90,6 +90,8 @@ final class AlbumMediaFetcher {
         Moments m = driveResolver.resolveMoments(file);
         MediaGeometry g = driveResolver.resolveGeometry(file);
 
+        long duration = driveResolver.resolveDuration(file);
+
         UploadedItem item = new UploadedItem(
                 file.getId(),
                 file.getName(),
@@ -98,10 +100,12 @@ final class AlbumMediaFetcher {
                 m.originMoment,
                 m.momentMillis,
                 m.vsOrigin,
-                g.aspectRatio,   // 🟢 NEW
-                g.rotation,      // 🟢 NEW
+                g.aspectRatio,
+                g.rotation,
+                duration,        // 🟢 FIX
                 thumbRef
         );
+
 
 
         return new AlbumMedia(item);

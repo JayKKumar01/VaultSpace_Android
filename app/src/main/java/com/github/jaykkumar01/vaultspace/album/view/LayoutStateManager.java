@@ -205,17 +205,18 @@ public final class LayoutStateManager {
 
     private int groupOrder(String key) {
         return switch (key) {
-            case "today" -> 0;
-            case "yesterday" -> 1;
-            case "this_week" -> 2;
-            case "this_month" -> 3;
+            case TimeBucketizer.KEY_TODAY -> Integer.MIN_VALUE;
+            case TimeBucketizer.KEY_YESTERDAY -> Integer.MIN_VALUE + 1;
+            case TimeBucketizer.KEY_THIS_WEEK -> Integer.MIN_VALUE + 2;
+            case TimeBucketizer.KEY_THIS_MONTH -> Integer.MIN_VALUE + 3;
             default -> {
                 int y = Integer.parseInt(key.substring(0, 4));
                 int m = Integer.parseInt(key.substring(5, 7));
-                yield 10_000 - (y * 12 + m);
+                yield -(y * 12 + m); // newer month = smaller negative
             }
         };
     }
+
 
     private void insertGroupOrdered(Group g) {
         int idx = 0;

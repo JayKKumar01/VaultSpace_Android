@@ -2,7 +2,6 @@ package com.github.jaykkumar01.vaultspace.core.upload.base;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
 public final class UploadedItem {
 
     @NonNull public final String fileId;
@@ -14,11 +13,12 @@ public final class UploadedItem {
     public final long originMoment;
     public final long momentMillis;
 
-    public final boolean vsOrigin;   // true = real origin, false = promoted moment
+    public final boolean vsOrigin;
 
-    // 🔑 layout-critical (NEW)
-    public final float aspectRatio;  // width / height (already rotation-corrected)
-    public final int rotation;       // 0, 90, 180, 270
+    public final float aspectRatio;
+    public final int rotation;
+
+    public final long durationMillis;   // 🟢 VIDEO ONLY (0 for non-video)
 
     @Nullable public final String thumbnailLink;
 
@@ -32,6 +32,7 @@ public final class UploadedItem {
             boolean vsOrigin,
             float aspectRatio,
             int rotation,
+            long durationMillis,
             @Nullable String thumbnailLink
     ) {
         this.fileId = fileId;
@@ -43,6 +44,7 @@ public final class UploadedItem {
         this.vsOrigin = vsOrigin;
         this.aspectRatio = aspectRatio;
         this.rotation = rotation;
+        this.durationMillis = durationMillis;
         this.thumbnailLink = thumbnailLink;
     }
 

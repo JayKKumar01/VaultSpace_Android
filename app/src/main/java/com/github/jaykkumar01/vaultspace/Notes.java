@@ -536,6 +536,14 @@ public class Notes {
 
 
 
+    // if player does not start soon, fallback to download using input stream
+
+    //fix the recylerview for some glitched thumbnails album media
+
+    // invalidate caches memory caches on starting dashboard
+
+
+    // based on codec + rotation do that
 
 
 
@@ -544,8 +552,7 @@ public class Notes {
 
 
 
-
-
+    //  Today is not sorted properly also add level Time:
 
 
 

@@ -6,36 +6,33 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
-import com.github.jaykkumar01.vaultspace.media.base.VideoMediaPrepareCallback;
-import com.github.jaykkumar01.vaultspace.media.helper.VideoMediaProvider;
+import com.github.jaykkumar01.vaultspace.media.helper.VideoMediaDriveHelper;
 
-public final class VideoMediaController {
+@UnstableApi
+public final class VideoMediaController1 {
 
     private final PlayerView view;
+    private final VideoMediaDriveHelper driveHelper;
 
     private ExoPlayer player;
     private AlbumMedia media;
     private MediaLoadCallback callback;
-    private VideoMediaProvider provider;
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
 
-    /* progress state (download only) */
-    private int lastProgressPercent = -1;
-    private long lastProgressUpdateMs = 0L;
-
-
-    public VideoMediaController(
+    public VideoMediaController1(
             @NonNull AppCompatActivity activity,
             @NonNull PlayerView playerView) {
         this.view = playerView;
+        this.driveHelper = new VideoMediaDriveHelper(activity);
         view.setVisibility(View.GONE);
     }
 
@@ -47,11 +44,9 @@ public final class VideoMediaController {
 
     public void show(@NonNull AlbumMedia media) {
         if (this.media != null && !this.media.fileId.equals(media.fileId)) {
-            resumePosition = 0L;
+            resumePosition = 0L; // new file → new timeline
         }
         this.media = media;
-        this.provider = new VideoMediaProvider(view.getContext(), media);
-        lastProgressPercent = -1;
         view.setVisibility(View.GONE);
     }
 
@@ -62,11 +57,7 @@ public final class VideoMediaController {
     }
 
     public void onResume() {
-        if (player == null) {
-            if (media != null) prepare();
-            return;
-        }
-        player.setPlayWhenReady(playWhenReady);
+        if (player != null) player.setPlayWhenReady(playWhenReady);
     }
 
     public void onPause() {
@@ -79,7 +70,7 @@ public final class VideoMediaController {
 
     public void release() {
         releasePlayerInternal();
-        if (provider != null) provider.release();
+        driveHelper.release();
         callback = null;
         media = null;
     }
@@ -90,40 +81,16 @@ public final class VideoMediaController {
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading("Loading video…");
 
-        provider.prepare(media, new VideoMediaPrepareCallback() {
-
-            @Override
-            public void onProgress(long downloaded, long total) {
-                if (callback == null || total <= 0) return;
-
-                int percent = (int) ((downloaded * 100) / total);
-                long now = System.currentTimeMillis();
-
-                // 🔕 percent dedupe
-                if (percent == lastProgressPercent) return;
-
-                // ⏱ time throttle (avoid rapid UI churn)
-                if (now - lastProgressUpdateMs < 120) return;
-
-                lastProgressPercent = percent;
-                lastProgressUpdateMs = now;
-
-                callback.onMediaLoading(
-                        "Downloading video • "
-                                + formatBytes(downloaded) + " / "
-                                + formatBytes(total) + " (" + percent + "%)"
-                );
-            }
-
-
+        driveHelper.prepare(media, new VideoMediaDriveHelper.Callback() {
             @Override
             public void onReady(
                     @NonNull DefaultMediaSourceFactory factory,
-                    @NonNull MediaItem item) {
+                    @NonNull String url) {
 
                 player = buildPlayer(factory);
+
                 view.setPlayer(player);
-                player.setMediaItem(item);
+                player.setMediaItem(MediaItem.fromUri(url));
                 player.prepare();
 
                 if (resumePosition > 0) player.seekTo(resumePosition);
@@ -140,6 +107,7 @@ public final class VideoMediaController {
         ExoPlayer p = new ExoPlayer.Builder(view.getContext())
                 .setMediaSourceFactory(factory)
                 .build();
+
         p.setRepeatMode(Player.REPEAT_MODE_ONE);
         p.setPlayWhenReady(playWhenReady);
         p.addListener(playerListener());
@@ -164,14 +132,5 @@ public final class VideoMediaController {
         playWhenReady = player.getPlayWhenReady();
         player.release();
         player = null;
-    }
-
-    /* ---------------- utils ---------------- */
-
-    private static String formatBytes(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        float kb = bytes / 1024f;
-        if (kb < 1024) return String.format("%.1f KB", kb);
-        return String.format("%.1f MB", kb / 1024f);
     }
 }

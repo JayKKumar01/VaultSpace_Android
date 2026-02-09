@@ -9,17 +9,18 @@ public final class AlbumMedia {
     public String name;
     public String mimeType;
 
-    public long originMoment;     // 🟢 when this media was born
-    public long momentMillis;     // 🟢 last meaningful change
+    public long originMoment;
+    public long momentMillis;
     public boolean vsOrigin;
 
     public long sizeBytes;
     public String thumbnailLink;
     public boolean isVideo;
 
-    // 🔑 layout-critical (NEW)
-    public final float aspectRatio;   // width / height (rotation-corrected)
-    public final int rotation;        // 0, 90, 180, 270
+    // 🔑 layout / playback-critical
+    public final float aspectRatio;
+    public final int rotation;
+    public final long durationMillis;   // 🟢 VIDEO ONLY
 
     public AlbumMedia(UploadedItem item) {
         this.fileId = item.fileId;
@@ -36,5 +37,6 @@ public final class AlbumMedia {
 
         this.aspectRatio = item.aspectRatio;
         this.rotation = item.rotation;
+        this.durationMillis = item.durationMillis;
     }
 }

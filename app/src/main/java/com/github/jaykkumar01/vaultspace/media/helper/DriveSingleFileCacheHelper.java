@@ -22,7 +22,6 @@ public final class DriveSingleFileCacheHelper {
     private static final long MAX_CACHE_BYTES = 120L * 1024L * 1024L;
 
     private static SimpleCache cache;
-    private static DatabaseProvider db;
 
     private DriveSingleFileCacheHelper() {}
 
@@ -33,7 +32,7 @@ public final class DriveSingleFileCacheHelper {
 
         if (cache == null) {
             File dir = new File(context.getCacheDir(), "exo_drive_single_file_cache");
-            db = new StandaloneDatabaseProvider(context);
+            DatabaseProvider db = new StandaloneDatabaseProvider(context);
             cache = new SimpleCache(
                     dir,
                     new LeastRecentlyUsedCacheEvictor(MAX_CACHE_BYTES),
@@ -58,32 +57,6 @@ public final class DriveSingleFileCacheHelper {
                 .setCacheKeyFactory(keyFactory)
                 .setUpstreamDataSourceFactory(upstream)
                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
-    }
-
-    public static synchronized void releaseAndDelete(@NonNull Context context) {
-        Log.d("DriveExoCache", "Release + DELETE cache");
-
-        if (cache != null) {
-            cache.release();
-            cache = null;
-            db = null;
-        }
-
-        File dir = new File(context.getCacheDir(), "exo_drive_single_file_cache");
-        deleteDir(dir);
-    }
-
-    @SuppressWarnings("ResultOfMethodCallIgnored")
-    private static void deleteDir(File dir) {
-        if (dir == null || !dir.exists()) return;
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File f : files) {
-                if (f.isDirectory()) deleteDir(f);
-                f.delete();
-            }
-        }
-        dir.delete();
     }
 
 }

@@ -3,7 +3,6 @@ package com.github.jaykkumar01.vaultspace.media.helper;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
@@ -31,92 +30,60 @@ public final class VideoMediaDriveHelper {
 
     private static final String TAG = "VideoMediaDriveHelper";
 
-    /**
-     * Lightweight refresh interval (safe, cheap)
-     */
-    private static final long REFRESH_INTERVAL_MS = 5 * 60 * 1000L; // 5 min
-
     private final GoogleAccountCredential credential;
     private final ExecutorService executor;
     private final Handler mainHandler;
-    private final Handler refreshHandler;
-
-    /**
-     * Shared mutable headers (ExoPlayer reads this on every request)
-     */
-    private final Map<String, String> headers = new HashMap<>();
 
     public VideoMediaDriveHelper(@NonNull Context context) {
         this.credential = GoogleCredentialFactory.forPrimaryDrive(context);
         this.executor = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
-        this.refreshHandler = new Handler(Looper.getMainLooper());
     }
 
     /* ---------------- public API ---------------- */
 
     @OptIn(markerClass = UnstableApi.class)
-    public void prepare(@NonNull AlbumMedia media,
-                        @NonNull Callback cb) {
-
+    public void prepare(
+            @NonNull AlbumMedia media,
+            @NonNull Callback callback
+    ) {
         executor.execute(() -> {
             try {
-                // Initial token (blocking, background thread)
+                // 🔑 Single blocking token fetch (safe on bg thread)
                 String token = credential.getToken();
                 if (token == null || token.isEmpty())
                     throw new IllegalStateException("Drive token missing");
 
+                Map<String, String> headers = new HashMap<>(1);
                 headers.put("Authorization", "Bearer " + token);
 
+                DefaultHttpDataSource.Factory http =
+                        new DefaultHttpDataSource.Factory()
+                                .setAllowCrossProtocolRedirects(true)
+                                .setDefaultRequestProperties(headers);
 
-                DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
-                        .setAllowCrossProtocolRedirects(true)
-                        .setDefaultRequestProperties(headers);
-
-                DefaultMediaSourceFactory factory = new DefaultMediaSourceFactory(DriveSingleFileCacheHelper.wrap(
-                        credential.getContext(), media.fileId, http));
-
+                DefaultMediaSourceFactory factory =
+                        new DefaultMediaSourceFactory(
+                                DriveSingleFileCacheHelper.wrap(
+                                        credential.getContext(),
+                                        media.fileId,
+                                        http
+                                )
+                        );
 
                 String url =
                         "https://www.googleapis.com/drive/v3/files/"
                                 + media.fileId + "?alt=media";
 
-                startPeriodicRefresh();
-
-                mainHandler.post(() -> cb.onReady(factory, url));
+                mainHandler.post(() -> callback.onReady(factory, url));
 
             } catch (Exception e) {
-                mainHandler.post(() -> cb.onError(e));
+                mainHandler.post(() -> callback.onError(e));
             }
         });
     }
 
     public void release() {
-        refreshHandler.removeCallbacksAndMessages(null);
         executor.shutdownNow();
-    }
-
-    /* ---------------- token refresh ---------------- */
-
-    private void startPeriodicRefresh() {
-        refreshHandler.removeCallbacksAndMessages(null);
-        refreshHandler.postDelayed(this::refreshToken, REFRESH_INTERVAL_MS);
-    }
-
-    private void refreshToken() {
-        executor.execute(() -> {
-            try {
-                String token = credential.getToken();
-                if (token != null && !token.isEmpty()) {
-                    headers.put("Authorization", "Bearer " + token);
-                    Log.d(TAG, "Drive token refreshed (periodic)");
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Drive token refresh failed (will retry)", e);
-            } finally {
-                // Always reschedule (fail-soft)
-                startPeriodicRefresh();
-            }
-        });
     }
 }

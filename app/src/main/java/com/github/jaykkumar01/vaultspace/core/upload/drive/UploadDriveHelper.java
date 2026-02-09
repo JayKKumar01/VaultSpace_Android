@@ -104,12 +104,13 @@ public final class UploadDriveHelper {
         // 🔑 layout-critical metadata (NEW)
         appProps.put("vs_aspect_ratio", Float.toString(selection.aspectRatio));
         appProps.put("vs_rotation", Integer.toString(selection.rotation));
+        appProps.put("vs_duration", Long.toString(selection.durationMillis));
 
         Log.d(TAG,
                 "UPLOAD props | ar=" + selection.aspectRatio +
                         " rot=" + selection.rotation +
-                        " mirror=" + (selection.rotation < 0) +
-                        " absRot=" + Math.abs(selection.rotation));
+                        " durMs=" + selection.durationMillis);
+
 
 
 
@@ -136,6 +137,7 @@ public final class UploadDriveHelper {
         String safeMime = selection.mimeType != null ? selection.mimeType : "application/octet-stream";
 
         try {
+
             AbstractInputStreamContent content = buildContent(selection.uri, safeMime, selection.sizeBytes, token);
 
             in = ((InputStreamContent) content).getInputStream();
@@ -218,10 +220,12 @@ public final class UploadDriveHelper {
                     originMoment,
                     momentMillis,
                     vsOrigin,
-                    selection.aspectRatio,   // 🟢 NEW
-                    selection.rotation,      // 🟢 NEW
+                    selection.aspectRatio,
+                    selection.rotation,
+                    selection.durationMillis,   // 🟢 FIX
                     thumbFileId
             );
+
 
 
         } catch (HttpResponseException e) {

@@ -1,27 +1,36 @@
 package com.github.jaykkumar01.vaultspace.core.upload.base;
 
 import android.net.Uri;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 public final class UploadSelection {
 
-    @NonNull public final String id;
-    @NonNull public final Uri uri;
-    @Nullable public final String mimeType;
-    @NonNull public final UploadType type;
-    @NonNull public final String displayName;
+    @NonNull
+    public final String id;
+    @NonNull
+    public final Uri uri;
+    @Nullable
+    public final String mimeType;
+    @NonNull
+    public final UploadType type;
+    @NonNull
+    public final String displayName;
     public final long sizeBytes;
 
-    public final long originMoment;   // when this memory was born
-    public final long momentMillis;   // when this memory became what it is now
+    public final long originMoment;
+    public final long momentMillis;
 
-    // 🔑 layout-critical (NEW)
-    public final float aspectRatio;   // width / height (AFTER rotation)
-    public final int rotation;        // 0, 90, 180, 270
+    public final float aspectRatio;
+    public final int rotation;
 
-    @Nullable public final String thumbnailPath;
-    @NonNull public final UploadContext context;
+    public final long durationMillis; // 🔑 VIDEO ONLY (0 for non-video)
+
+    @Nullable
+    public final String thumbnailPath;
+    @NonNull
+    public final UploadContext context;
 
     public UploadSelection(
             @NonNull String id,
@@ -34,6 +43,7 @@ public final class UploadSelection {
             long momentMillis,
             float aspectRatio,
             int rotation,
+            long durationMillis,
             @Nullable String thumbnailPath
     ) {
         this.id = id;
@@ -46,6 +56,7 @@ public final class UploadSelection {
         this.momentMillis = momentMillis;
         this.aspectRatio = aspectRatio;
         this.rotation = rotation;
+        this.durationMillis = durationMillis;
         this.thumbnailPath = thumbnailPath;
         this.context = new UploadContext(id, groupId);
     }

@@ -25,6 +25,8 @@ public final class UploadRetryEntity {
     // 🔑 layout-critical (NEW)
     public final float aspectRatio;
     public final int rotation;
+    public final long durationMillis; // 🔑 VIDEO ONLY (0 for non-video)
+
 
     @Nullable public final String thumbnailPath;
     @NonNull public final String failureReason;
@@ -40,6 +42,7 @@ public final class UploadRetryEntity {
             long momentMillis,
             float aspectRatio,
             int rotation,
+            long durationMillis,
             @Nullable String thumbnailPath,
             @NonNull String failureReason
     ) {
@@ -53,7 +56,9 @@ public final class UploadRetryEntity {
         this.momentMillis = momentMillis;
         this.aspectRatio = aspectRatio;
         this.rotation = rotation;
+        this.durationMillis = durationMillis;
         this.thumbnailPath = thumbnailPath;
         this.failureReason = failureReason;
     }
+
 }

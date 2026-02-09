@@ -22,17 +22,13 @@ public final class TimeBucketizer {
     public static final String LABEL_YESTERDAY = "Yesterday";
     public static final String LABEL_THIS_WEEK = "This Week";
     public static final String LABEL_THIS_MONTH = "This Month";
+    public static final String TIME = "Time: ";
 
     /* ================= Result ================= */
 
     public static final class Result {
-        public final String key;
-        public final String label;
-
-        Result(String key, String label) {
-            this.key = key;
-            this.label = label;
-        }
+        public final String key, label;
+        Result(String key, String label) { this.key = key; this.label = label; }
     }
 
     /* ================= Month formats ================= */
@@ -49,28 +45,26 @@ public final class TimeBucketizer {
     private final long weekS, weekE;
     private final long monthS, monthE;
 
-    /* ================= Constructor ================= */
-
     private TimeBucketizer(long now) {
         Calendar c = Calendar.getInstance();
         c.setTimeInMillis(now);
 
-        todayS = startOfDay(c);
-        todayE = endOfDay(c);
+        todayS = startOfDay(c); todayE = endOfDay(c);
 
         c.add(Calendar.DAY_OF_YEAR, -1);
-        yestS = startOfDay(c);
-        yestE = endOfDay(c);
+        yestS = startOfDay(c); yestE = endOfDay(c);
 
         c.setTimeInMillis(now);
         c.set(Calendar.DAY_OF_WEEK, c.getFirstDayOfWeek());
         weekS = startOfDay(c);
+
         c.add(Calendar.DAY_OF_WEEK, 6);
         weekE = endOfDay(c);
 
         c.setTimeInMillis(now);
         c.set(Calendar.DAY_OF_MONTH, 1);
         monthS = startOfDay(c);
+
         c.add(Calendar.MONTH, 1);
         c.add(Calendar.MILLISECOND, -1);
         monthE = c.getTimeInMillis();
@@ -80,19 +74,20 @@ public final class TimeBucketizer {
         return new TimeBucketizer(now);
     }
 
-    /* ================= Single entry ================= */
+    /* ================= Stable resolve ================= */
 
     public Result resolve(long ms) {
+
         if (ms >= todayS && ms <= todayE)
             return new Result(KEY_TODAY, LABEL_TODAY);
 
         if (ms >= yestS && ms <= yestE)
             return new Result(KEY_YESTERDAY, LABEL_YESTERDAY);
 
-        if (ms >= weekS && ms <= weekE)
+        if (ms >= weekS && ms <= weekE && ms < yestS)
             return new Result(KEY_THIS_WEEK, LABEL_THIS_WEEK);
 
-        if (ms >= monthS && ms <= monthE)
+        if (ms >= monthS && ms <= monthE && ms < weekS)
             return new Result(KEY_THIS_MONTH, LABEL_THIS_MONTH);
 
         return new Result(
@@ -121,27 +116,17 @@ public final class TimeBucketizer {
 
     /* ================= Formatting helper ================= */
 
-    /**
-     * Uses bucket KEY only (no label / string coupling).
-     * Today / Yesterday -> time only
-     * Others            -> date + time
-     * Respects device 12h / 24h preference.
-     */
     public static String formatTimeForKey(Context ctx, String timeLabel, long millis) {
         boolean is24h = DateFormat.is24HourFormat(ctx);
 
         SimpleDateFormat timeFmt = new SimpleDateFormat(
-                is24h ? "HH:mm" : "hh:mm a",
-                Locale.getDefault()
-        );
+                is24h ? "HH:mm" : "hh:mm a", Locale.getDefault());
 
         SimpleDateFormat dateTimeFmt = new SimpleDateFormat(
-                is24h ? "dd MMM, HH:mm" : "dd MMM, hh:mm a",
-                Locale.getDefault()
-        );
+                is24h ? "dd MMM, HH:mm" : "dd MMM, hh:mm a", Locale.getDefault());
 
         return switch (timeLabel) {
-            case LABEL_TODAY, LABEL_YESTERDAY -> timeFmt.format(millis);
+            case LABEL_TODAY, LABEL_YESTERDAY -> TIME + timeFmt.format(millis);
             default -> dateTimeFmt.format(millis);
         };
     }

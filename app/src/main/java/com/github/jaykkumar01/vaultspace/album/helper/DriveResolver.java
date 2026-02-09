@@ -109,6 +109,21 @@ public final class DriveResolver {
         return new MediaGeometry(aspectRatio, rotation);
     }
 
+    public long resolveDuration(@NonNull File file) {
+        Map<String, String> props = file.getAppProperties();
+        if (props == null) return 0L;
+        return parseLongSafe(props.get("vs_duration"));
+    }
+
+    private static long parseLongSafe(String v) {
+        try {
+            return v != null ? Long.parseLong(v) : 0L;
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+
     private static float parseFloatSafe(String v) {
         try {
             return Float.parseFloat(v);

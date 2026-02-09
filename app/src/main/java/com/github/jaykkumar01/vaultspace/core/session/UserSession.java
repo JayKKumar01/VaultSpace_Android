@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
+import com.github.jaykkumar01.vaultspace.core.session.cache.AppCacheManager;
 import com.github.jaykkumar01.vaultspace.core.session.db.SessionStoreRegistry;
 import com.github.jaykkumar01.vaultspace.core.upload.UploadOrchestrator;
 public class UserSession {
@@ -83,5 +84,6 @@ public class UserSession {
         UploadOrchestrator.getInstance(appContext).onSessionCleared();
         DriveFolderRepository.onSessionCleared();
         TrustedAccountsRepository.destroy();
+        AppCacheManager.clearCache(appContext);
     }
 }

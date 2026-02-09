@@ -27,6 +27,7 @@ import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.album.model.MediaFrame;
 
 import java.util.ArrayList;
+import java.util.Locale;
 
 public final class BandViewHolder extends RecyclerView.ViewHolder {
 
@@ -81,7 +82,7 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         band.removeAllViews();
 
         for (MediaFrame f : layout.frames)
-            renderFrame(f, layout.timeLabel,layout.rotationDeg);
+            renderFrame(f, layout.timeLabel, layout.rotationDeg);
     }
 
     private void bindHeader(BandLayout layout) {
@@ -107,7 +108,13 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         TextView time = createTimeView(c, timeLabel, m.momentMillis);
 
         frame.addView(image, createRatioLayoutParams(f));
-        if (m.isVideo) frame.addView(createVideoOverlay(c));
+        if (m.isVideo) {
+            frame.addView(createVideoOverlay(c));
+
+            TextView dur = createDurationBadge(c, m.durationMillis);
+            if (dur != null) frame.addView(dur);
+        }
+
 
         content.addView(frame);
         content.addView(time);
@@ -184,7 +191,6 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
 
         return card;
     }
-
 
 
     private static LinearLayout createCardContent(Context c) {
@@ -279,6 +285,38 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
         return t;
     }
 
+    private static TextView createDurationBadge(Context c, long durationMs) {
+        String txt = formatDuration(durationMs);
+        if (txt == null) return null;
+
+        TextView t = new TextView(c);
+        t.setText(txt);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        t.setTextColor(0xFFFFFFFF);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setPadding(dp(c, 6), dp(c, 2), dp(c, 6), dp(c, 2));
+
+        t.setBackground(AppCompatResources.getDrawable(c, R.drawable.bg_duration_badge));
+        t.setClickable(false);
+        t.setFocusable(false);
+
+        ConstraintLayout.LayoutParams lp =
+                new ConstraintLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+        lp.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+        lp.rightMargin = dp(c, 6);
+        lp.bottomMargin = dp(c, 6);
+
+        t.setLayoutParams(lp);
+        return t;
+    }
+
+
+
     private void loadImageAsync(Context c, ImageView image, AlbumMedia m) {
         Drawable placeholder = AppCompatResources.getDrawable(c, m.isVideo ? R.drawable.ic_play_badge : R.drawable.ic_photo);
         image.setTag(m.fileId);
@@ -303,6 +341,18 @@ public final class BandViewHolder extends RecyclerView.ViewHolder {
 
 
     /* ================= Utils ================= */
+
+    private static String formatDuration(long ms) {
+        if (ms <= 0) return null;
+        long totalSec = ms / 1000;
+        long s = totalSec % 60;
+        long m = (totalSec / 60) % 60;
+        long h = totalSec / 3600;
+
+        return h > 0
+                ? String.format(Locale.US, "%d:%02d:%02d", h, m, s)
+                : String.format(Locale.US, "%d:%02d", m, s);
+    }
 
 
     private static int dp(Context c, int v) {
