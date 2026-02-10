@@ -106,7 +106,7 @@ public final class VideoMediaController {
                 .build();
 
         view.setPlayer(player);
-        player.setRepeatMode(Player.REPEAT_MODE_ONE);
+//        player.setRepeatMode(Player.REPEAT_MODE_ONE);
         player.setPlayWhenReady(playWhenReady);
         player.addListener(playerListener());
 

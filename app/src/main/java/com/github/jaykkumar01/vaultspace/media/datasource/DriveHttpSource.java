@@ -2,60 +2,112 @@ package com.github.jaykkumar01.vaultspace.media.datasource;
 
 import android.content.Context;
 import android.net.Uri;
-import android.util.Log;
 
+import androidx.annotation.OptIn;
 import androidx.media3.common.C;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.HttpDataSource;
+
+import com.github.jaykkumar01.vaultspace.core.auth.DriveAuthGate;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
+@OptIn(markerClass = UnstableApi.class)
 final class DriveHttpSource implements DriveSource {
 
-    private static final String TAG = "Video:DriveDS";
+    private static final long POS_0 = 0L;
+    private static final long PLAYBACK_POS = 36L;
+    private static final long SNIFF_POS = 80674015L;
 
-    private final String fileId;
+    private static final int PLAYBACK_BYTES = 256 * 1024;
+    private static final int SNIFF_BYTES = 31459;
+
     private final DriveAuthGate authGate;
+    private final Uri mediaUri;
+    private final DefaultHttpDataSource.Factory factory;
 
     private HttpDataSource source;
 
     DriveHttpSource(Context context, String fileId) {
-        this.fileId = fileId;
         this.authGate = DriveAuthGate.get(context);
+        this.mediaUri = Uri.parse("https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media");
+        this.factory = new DefaultHttpDataSource.Factory();
     }
 
     @Override
     public long open(DataSpec spec) throws IOException {
-        Log.d(TAG, "[" + fileId + "] HTTP open @" + spec.position);
-
         try {
-            return openInternal(spec, authGate.requireToken());
-        } catch (IOException first) {
-            Log.w(TAG, "[" + fileId + "] HTTP failed, retrying with fresh token");
-            return openInternal(spec, authGate.refreshTokenAfterFailure());
+            String token = authGate.requireToken();
+//            maybeProbe(spec, token);
+            return openInternal(spec, token);
+        } catch (IOException e) {
+            String token = authGate.refreshTokenAfterFailure();
+//            maybeProbe(spec, token);
+            return openInternal(spec, token);
         }
     }
 
-    private long openInternal(DataSpec spec, String token) throws IOException {
-        DefaultHttpDataSource.Factory factory =
+    private void maybeProbe(DataSpec spec, String token) throws IOException {
+        if (spec.position == POS_0)
+            runProbe(spec, PLAYBACK_BYTES, token);
+        else if (spec.position == PLAYBACK_POS)
+            runProbe(spec, PLAYBACK_BYTES, token);
+        else if (spec.position == SNIFF_POS)
+            runProbe(spec, SNIFF_BYTES, token);
+    }
+
+    private void runProbe(DataSpec spec, int limit, String token) throws IOException {
+        long start = android.os.SystemClock.elapsedRealtime();
+        long firstByteAt = -1;
+        int total = 0;
+
+        DefaultHttpDataSource.Factory probeFactory =
                 new DefaultHttpDataSource.Factory()
                         .setDefaultRequestProperties(Map.of(
                                 "Authorization", "Bearer " + token,
                                 "Range", "bytes=" + spec.position + "-"
                         ));
 
-        source = factory.createDataSource();
+        HttpDataSource probe = probeFactory.createDataSource();
+        probe.open(new DataSpec(mediaUri, spec.position, limit));
 
-        Uri uri = Uri.parse(
-                "https://www.googleapis.com/drive/v3/files/"
-                        + fileId + "?alt=media"
+        try {
+            byte[] buf = new byte[16 * 1024];
+            while (total < limit) {
+                int r = probe.read(buf, 0, Math.min(buf.length, limit - total));
+                if (r == -1) break;
+
+                if (firstByteAt == -1) {
+                    firstByteAt = android.os.SystemClock.elapsedRealtime();
+                    android.util.Log.d(
+                            "HttpProbe",
+                            "[" + spec.position + "] first byte +" + (firstByteAt - start) + "ms"
+                    );
+                }
+                total += r;
+            }
+        } finally {
+            probe.close();
+        }
+
+        long end = android.os.SystemClock.elapsedRealtime();
+        android.util.Log.d(
+                "HttpProbe",
+                "[" + spec.position + "] " + total + " bytes +" + (end - start) + "ms"
         );
+    }
 
-        source.open(new DataSpec(uri, spec.position, C.LENGTH_UNSET));
+    private long openInternal(DataSpec spec, String token) throws IOException {
+        factory.setDefaultRequestProperties(Map.of(
+                "Authorization", "Bearer " + token,
+                "Range", "bytes=" + spec.position + "-"
+        ));
+        source = factory.createDataSource();
+        source.open(new DataSpec(mediaUri, spec.position, C.LENGTH_UNSET));
         return C.LENGTH_UNSET;
     }
 
@@ -73,7 +125,6 @@ final class DriveHttpSource implements DriveSource {
 
     @Override
     public void close() {
-        Log.d(TAG, "[" + fileId + "] HTTP close");
         if (source != null) {
             try { source.close(); } catch (Exception ignored) {}
             source = null;

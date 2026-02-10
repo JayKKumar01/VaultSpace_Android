@@ -1,9 +1,8 @@
-package com.github.jaykkumar01.vaultspace.media.datasource;
+package com.github.jaykkumar01.vaultspace.core.auth;
 
 import android.content.Context;
 import android.util.Log;
 
-import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.google.android.gms.auth.GoogleAuthException;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
@@ -13,7 +12,7 @@ import java.io.IOException;
  * Process-wide auth gate.
  * The ONLY place allowed to call credential.getToken().
  */
-final class DriveAuthGate {
+public final class DriveAuthGate {
 
     private static final String TAG = "Video:DriveAuth";
 
@@ -26,7 +25,7 @@ final class DriveAuthGate {
         this.credential = GoogleCredentialFactory.forPrimaryDrive(context);
     }
 
-    static DriveAuthGate get(Context context) {
+    public static DriveAuthGate get(Context context) {
         if (INSTANCE == null) {
             synchronized (DriveAuthGate.class) {
                 if (INSTANCE == null) {
@@ -41,7 +40,7 @@ final class DriveAuthGate {
      * Returns cached token.
      * Fetches ONLY once if token is null.
      */
-    synchronized String requireToken() throws IOException {
+    public synchronized String requireToken() throws IOException {
         if (token != null) return token;
 
         try {
@@ -56,7 +55,7 @@ final class DriveAuthGate {
     /**
      * Fetches a new token ONLY after a real HTTP failure.
      */
-    synchronized String refreshTokenAfterFailure() throws IOException {
+    public synchronized String refreshTokenAfterFailure() throws IOException {
         try {
             Log.w(TAG, "[auth] token refresh after failure");
             token = credential.getToken();

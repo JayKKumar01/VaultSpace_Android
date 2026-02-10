@@ -584,6 +584,24 @@ public class Notes {
     // how we can store that while upload
 
 
+    //just cache it as we wait for the drive sdk for the bad codecs, and also show the progress while doing the drive sdk
+
+    // make it fast 2026-02-11 01:55:18.049 12399-14069 Video:DriveDS           com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] open → SDK @0
+    //2026-02-11 01:55:23.539 12399-14069 Video:DriveDS           com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] close @36
+    //2026-02-11 01:55:23.642 12399-14069 Video:DriveDS           com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] open → HTTP @40127682
+    //2026-02-11 01:55:25.725 12399-14069 Video:DriveDS           com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] close @40140848
+    //2026-02-11 01:55:25.726 12399-14069 Video:DriveDS           com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] open → HTTP @36
+    //2026-02-11 01:55:40.291 12399-14069 Video:DriveDS           com.github.jaykkumar01.vaultspace    D  [1BuPZdULn_IyDTDVOnHhPR-0rKIbEWGJj] close @40122690
+
+    // use the sdk for low ranges like 36 and all, or actually if it less then 1 mb or decide the threshold
+
+    //while uploading observe this behaviour for each video and save the range to app properties
+    // so that we can cache these ranges before actually calling the exoplayer
+
+    //then find out what is there in that file for that range then using short stream reverse enginner it
+    // so that wihtout exo plyayer we can save the data
+
+
 
 
 
