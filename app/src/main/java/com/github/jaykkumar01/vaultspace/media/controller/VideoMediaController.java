@@ -7,17 +7,17 @@ import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
-import com.github.jaykkumar01.vaultspace.media.datasource.DriveSdkDataSource;
-import com.google.api.services.drive.Drive;
+import com.github.jaykkumar01.vaultspace.media.datasource.HybridDriveDataSource;
 
 public final class VideoMediaController {
 
@@ -26,7 +26,6 @@ public final class VideoMediaController {
     private final Context context;
     private final PlayerView view;
     private final Handler mainHandler;
-    private final Drive drive;
 
     private ExoPlayer player;
     private AlbumMedia media;
@@ -40,7 +39,6 @@ public final class VideoMediaController {
         this.view = playerView;
         this.view.setVisibility(View.GONE);
         this.mainHandler = new Handler(Looper.getMainLooper());
-        this.drive = DriveClientProvider.getPrimaryDrive(this.context);
         Log.d(TAG, "Controller created");
     }
 
@@ -89,6 +87,7 @@ public final class VideoMediaController {
 
     /* ---------------- prepare ---------------- */
 
+    @OptIn(markerClass = UnstableApi.class)
     private void prepare() {
         Log.d(TAG, "prepare() start");
         view.setVisibility(View.GONE);
@@ -97,7 +96,7 @@ public final class VideoMediaController {
         DefaultMediaSourceFactory factory =
                 new DefaultMediaSourceFactory(() -> {
                     Log.d(TAG, "DataSource created");
-                    return new DriveSdkDataSource(drive, media.fileId);
+                    return new HybridDriveDataSource(context, media.fileId);
                 });
 
         MediaItem item = MediaItem.fromUri("drive://" + media.fileId);

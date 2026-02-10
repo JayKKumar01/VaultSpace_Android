@@ -29,6 +29,7 @@
         android:layout_height="0dp"
         android:visibility="gone"
         app:use_controller="true"
+        app:show_buffering="when_playing"
         app:controller_layout_id="@layout/vs_player_controls_minimal"
         android:background="@color/black"
         app:layout_constraintTop_toTopOf="parent"
