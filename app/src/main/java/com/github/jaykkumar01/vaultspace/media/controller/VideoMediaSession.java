@@ -150,7 +150,9 @@ final class VideoMediaSession {
                 // 🚨 ALWAYS marshal to main thread
                 main.post(() -> {
                     if (state.get() == State.ABORTED) return;
-                    controller.attach(payload.factory, payload.item);
+                    if (payload.mediaSourceFactory != null && payload.mediaItem != null) {
+//                        controller.attach(payload.mediaSourceFactory, payload.mediaItem);
+                    }
                 });
             }
 

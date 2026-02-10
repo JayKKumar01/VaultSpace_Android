@@ -10,73 +10,111 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.github.jaykkumar01.vaultspace.media.helper.DriveSingleFileCacheHelper;
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
-
-import java.util.HashMap;
-import java.util.Map;
+import com.github.jaykkumar01.vaultspace.media.proxy.DriveProxyServer;
 
 @OptIn(markerClass = UnstableApi.class)
 public final class UrlSourceBuilder {
 
-    private final Context context;
-    private final GoogleAccountCredential credential;
+    private final Context appContext;
+    private final DriveProxyServer proxy;
 
     UrlSourceBuilder(@NonNull Context context) {
-        this.context = context.getApplicationContext();
-        this.credential = GoogleCredentialFactory.forPrimaryDrive(this.context);
+        this.appContext = context.getApplicationContext();
+        this.proxy = new DriveProxyServer(appContext);
     }
 
-    public AttachPayload build(@NonNull AlbumMedia media, @NonNull UrlPlaybackObserver observer) throws Exception {
+    public AttachPayload build(
+            @NonNull AlbumMedia media,
+            @NonNull UrlPlaybackObserver observer
+    ) throws Exception {
 
-        String token = credential.getToken();
-        if (token == null || token.isEmpty())
-            throw new IllegalStateException("Drive token missing");
+        /* ---------------- proxy lifecycle ---------------- */
 
-        Map<String, String> headers = new HashMap<>(1);
-        headers.put("Authorization", "Bearer " + token);
+        proxy.start();
+        proxy.registerFile(media.fileId, media.sizeBytes);
 
-        DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
-                .setAllowCrossProtocolRedirects(true)
-                .setDefaultRequestProperties(headers)
-                .setTransferListener(new TransferListener() {
-                    long lastPosition = -1;
+        /* ---------------- HTTP (proxy → no auth headers) ---------------- */
 
-                    @Override
-                    public void onTransferInitializing(@NonNull DataSource source, @NonNull DataSpec spec, boolean isNetwork) {
-                        observer.onInit();
-                    }
+        DefaultHttpDataSource.Factory http =
+                new DefaultHttpDataSource.Factory()
+                        .setAllowCrossProtocolRedirects(true)
+                        .setTransferListener(new TransferListener() {
 
-                    @Override
-                    public void onTransferStart(@NonNull DataSource source, @NonNull DataSpec spec, boolean isNetwork) {
+                            long lastPosition = -1;
 
-                        if (lastPosition != -1 && spec.position < lastPosition) {
-                            observer.onPositionRewind();
-                            return;
-                        }
+                            @Override
+                            public void onTransferInitializing(
+                                    @NonNull DataSource source,
+                                    @NonNull DataSpec spec,
+                                    boolean isNetwork
+                            ) {
+                                observer.onInit();
+                            }
 
-                        lastPosition = spec.position;
-                        observer.onStart();
-                    }
+                            @Override
+                            public void onTransferStart(
+                                    @NonNull DataSource source,
+                                    @NonNull DataSpec spec,
+                                    boolean isNetwork
+                            ) {
+                                if (lastPosition != -1 && spec.position < lastPosition) {
+                                    observer.onPositionRewind();
+                                    return;
+                                }
+                                lastPosition = spec.position;
+                                observer.onStart();
+                            }
 
-                    @Override
-                    public void onBytesTransferred(@NonNull DataSource source, @NonNull DataSpec spec, boolean isNetwork, int bytesTransferred) {
-                        observer.onData(bytesTransferred);
-                    }
+                            @Override
+                            public void onBytesTransferred(
+                                    @NonNull DataSource source,
+                                    @NonNull DataSpec spec,
+                                    boolean isNetwork,
+                                    int bytesTransferred
+                            ) {
+                                observer.onData(bytesTransferred);
+                            }
 
-                    @Override
-                    public void onTransferEnd(@NonNull DataSource source, @NonNull DataSpec spec, boolean isNetwork) {
-                    }
-                });
+                            @Override
+                            public void onTransferEnd(
+                                    @NonNull DataSource source,
+                                    @NonNull DataSpec spec,
+                                    boolean isNetwork
+                            ) {}
+                        });
 
-        DefaultMediaSourceFactory factory = new DefaultMediaSourceFactory(DriveSingleFileCacheHelper.wrap(context, media.fileId, http));
+        /* ---------------- cache ---------------- */
 
-        MediaItem item = MediaItem.fromUri("https://www.googleapis.com/drive/v3/files/" + media.fileId + "?alt=media");
+        CacheDataSource.Factory cachedFactory =
+                DriveSingleFileCacheHelper.wrap(
+                        appContext,
+                        media.fileId,
+                        http
+                );
 
-        return new AttachPayload(factory, item);
+        DefaultMediaSourceFactory mediaSourceFactory =
+                new DefaultMediaSourceFactory(cachedFactory);
+
+        /* ---------------- proxy URL ---------------- */
+
+        String proxyUrl = proxy.getProxyUrl(media.fileId);
+        MediaItem item = MediaItem.fromUri(proxyUrl);
+
+        return new AttachPayload(
+                mediaSourceFactory,
+                cachedFactory,
+                item
+        );
+    }
+
+    /* ---------------- lifecycle hook (IMPORTANT) ---------------- */
+
+    public void release() {
+        proxy.stop();
     }
 }

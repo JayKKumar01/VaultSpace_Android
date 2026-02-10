@@ -46,7 +46,7 @@ final class DownloadTask implements VideoMediaTask {
 
                 // 2️⃣ SINGLE ATTACH (final)
                 callback.onAttachReady(
-                        new AttachPayload(factory, item)
+                        new AttachPayload(factory,null, item)
                 );
 
                 callback.onHealthy();

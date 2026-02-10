@@ -36,12 +36,14 @@ final class CacheTask implements VideoMediaTask {
             return;
         }
 
+        FileDataSource.Factory dataSourceFactory = new FileDataSource.Factory();
+
         DefaultMediaSourceFactory factory =
-                new DefaultMediaSourceFactory(new FileDataSource.Factory());
+                new DefaultMediaSourceFactory(dataSourceFactory);
 
         MediaItem item = MediaItem.fromUri(file.toURI().toString());
 
-        callback.onAttachReady(new AttachPayload(factory, item));
+        callback.onAttachReady(new AttachPayload(factory, null, item));
     }
 
     @Override

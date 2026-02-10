@@ -1,10 +1,12 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -12,42 +14,37 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
-
-import java.util.concurrent.atomic.AtomicBoolean;
+import com.github.jaykkumar01.vaultspace.media.datasource.DriveSdkDataSource;
+import com.google.api.services.drive.Drive;
 
 public final class VideoMediaController {
 
-    private final Context context;
-    /* ---------------- ui ---------------- */
-    private final PlayerView view;
+    private static final String TAG = "Video:MediaController";
 
-    /* ---------------- playback ---------------- */
+    private final Context context;
+    private final PlayerView view;
+    private final Handler mainHandler;
+    private final Drive drive;
 
     private ExoPlayer player;
     private AlbumMedia media;
-
-    /* ---------------- callbacks ---------------- */
-
     private MediaLoadCallback callback;
-
-    /* ---------------- orchestration ---------------- */
-
-    private VideoMediaSession session;
-
-
-    /* ---------------- state ---------------- */
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
-    private final AtomicBoolean preparing = new AtomicBoolean(false);
 
-    /* ---------------- constructor ---------------- */
-
-    public VideoMediaController(@NonNull Context context, @NonNull PlayerView playerView) {
-        this.context = context;
+    public VideoMediaController(
+            @NonNull Context context,
+            @NonNull PlayerView playerView
+    ) {
+        this.context = context.getApplicationContext();
         this.view = playerView;
         this.view.setVisibility(View.GONE);
+        this.mainHandler = new Handler(Looper.getMainLooper());
+        this.drive = DriveClientProvider.getPrimaryDrive(this.context);
+        Log.d(TAG, "Controller created");
     }
 
     /* ---------------- public api ---------------- */
@@ -57,9 +54,9 @@ public final class VideoMediaController {
     }
 
     public void show(@NonNull AlbumMedia media) {
-        if (this.media != null && !this.media.fileId.equals(media.fileId)) {
+        Log.d(TAG, "show(file=" + media.fileId + ")");
+        if (this.media == null || !this.media.fileId.equals(media.fileId))
             resumePosition = 0L;
-        }
         this.media = media;
         view.setVisibility(View.GONE);
     }
@@ -67,93 +64,86 @@ public final class VideoMediaController {
     /* ---------------- lifecycle ---------------- */
 
     public void onStart() {
+        Log.d(TAG, "onStart()");
         if (player == null && media != null) prepare();
     }
 
     public void onResume() {
-        if (player != null) {
+        Log.d(TAG, "onResume()");
+        if (player != null)
             player.setPlayWhenReady(playWhenReady);
-        } else if (media != null) {
-            prepare();
-        }
     }
 
     public void onPause() {
-        releasePlayerInternal();
+        Log.d(TAG, "onPause()");
+        releasePlayer();
     }
 
     public void onStop() {
-        releasePlayerInternal();
+        Log.d(TAG, "onStop()");
+        releasePlayer();
     }
 
     public void release() {
-        releasePlayerInternal();
+        Log.d(TAG, "release()");
+        releasePlayer();
         callback = null;
         media = null;
     }
 
-    /* ---------------- prepare (lifecycle gate) ---------------- */
+    /* ---------------- prepare ---------------- */
 
     private void prepare() {
-        if (!preparing.compareAndSet(false, true)) return;
+        Log.d(TAG, "prepare() start");
 
-        view.setVisibility(View.GONE);
-        if (callback != null) callback.onMediaLoading("Loading video…");
+        DefaultMediaSourceFactory factory =
+                new DefaultMediaSourceFactory(() -> {
+                    Log.d(TAG, "DataSource created");
+                    return new DriveSdkDataSource(drive, media.fileId);
+                });
 
-        /*
-         * PREPARE SESSION STARTS HERE
-         */
-        session = new VideoMediaSession(context, this);
-        session.start(media);
+        MediaItem item = MediaItem.fromUri("drive://" + media.fileId);
 
-    }
+        player = new ExoPlayer.Builder(view.getContext())
+                .setMediaSourceFactory(factory)
+                .build();
 
-    /* ---------------- attach (commit point) ---------------- */
-
-    public void attach(@NonNull DefaultMediaSourceFactory factory,
-                       @NonNull MediaItem item) {
-
-        // ❌ DO NOT kill session here
-        // releasePlayerInternal();
-
-        // Only release existing player instance
-        if (player != null) {
-            resumePosition = player.getCurrentPosition();
-            playWhenReady = player.getPlayWhenReady();
-            player.release();
-            player = null;
-        }
-
-        if (!preparing.compareAndSet(true, false)) return;
-
-        player = buildPlayer(factory);
         view.setPlayer(player);
+        player.setRepeatMode(Player.REPEAT_MODE_ONE);
+        player.setPlayWhenReady(playWhenReady);
+        player.addListener(playerListener());
+
         player.setMediaItem(item);
         player.prepare();
 
-        if (resumePosition > 0) player.seekTo(resumePosition);
+        if (resumePosition > 0)
+            player.seekTo(resumePosition);
     }
 
+    /* ---------------- release ---------------- */
 
+    private void releasePlayer() {
+        mainHandler.post(() -> {
+            if (player == null) return;
 
-    /* ---------------- player ---------------- */
+            Log.d(TAG, "releasePlayer @" + player.getCurrentPosition());
 
-    private ExoPlayer buildPlayer(@NonNull DefaultMediaSourceFactory factory) {
-        ExoPlayer p = new ExoPlayer.Builder(view.getContext())
-                .setMediaSourceFactory(factory)
-                .build();
-        p.setRepeatMode(Player.REPEAT_MODE_ONE);
-        p.setPlayWhenReady(playWhenReady);
-        p.addListener(playerListener());
-        return p;
+            resumePosition = player.getCurrentPosition();
+            playWhenReady = player.getPlayWhenReady();
+
+            player.release();
+            player = null;
+        });
     }
+
+    /* ---------------- listener ---------------- */
 
     private Player.Listener playerListener() {
         return new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int state) {
+                Log.d(TAG, "player state = " + stateToString(state));
                 if (state == Player.STATE_READY && player != null) {
-                    session.onPlayerReady();
                     view.setVisibility(View.VISIBLE);
                     if (callback != null) callback.onMediaReady();
                 }
@@ -161,23 +151,13 @@ public final class VideoMediaController {
         };
     }
 
-    /* ---------------- release ---------------- */
-
-    private void releasePlayerInternal() {
-        preparing.set(false);
-
-        // 🔥 kill session first
-        if (session != null) {
-            session.release();
-            session = null;
-        }
-
-        if (player == null) return;
-
-        resumePosition = player.getCurrentPosition();
-        playWhenReady = player.getPlayWhenReady();
-
-        player.release();
-        player = null;
+    private static String stateToString(int state) {
+        return switch (state) {
+            case Player.STATE_IDLE -> "IDLE";
+            case Player.STATE_BUFFERING -> "BUFFERING";
+            case Player.STATE_READY -> "READY";
+            case Player.STATE_ENDED -> "ENDED";
+            default -> "UNKNOWN(" + state + ")";
+        };
     }
 }

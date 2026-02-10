@@ -577,6 +577,11 @@ public class Notes {
 
 
 
+    // optimize the url, range request
+    // build proxy
+    // feed exoplayer the ranges
+    // figure out how many bytes it needs for the first time
+    // how we can store that while upload
 
 
 

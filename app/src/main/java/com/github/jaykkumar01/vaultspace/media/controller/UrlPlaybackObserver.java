@@ -6,6 +6,7 @@ import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.media3.common.C;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 
@@ -18,17 +19,17 @@ public final class UrlPlaybackObserver {
 
     public interface DecisionCallback {
         void onHealthy();
+
         void onUnhealthy();
     }
 
     /* ---------------- tuning ---------------- */
 
-    private static final long START_TIMEOUT_MS = 5_000;
-
+    private static final long START_TIMEOUT_MS = 20_000;
     private static final long BASE_OVERALL_MS = 3_000;
-    private static final long PER_BUCKET_MS   = 1_000;
-    private static final long SIZE_BUCKET     = 10L * 1024 * 1024; // 10 MB
-    private static final long MAX_OVERALL_MS  = 20_000;
+    private static final long PER_BUCKET_MS = 1_000;
+    private static final long SIZE_BUCKET = 10L * 1024 * 1024; // 10 MB
+    private static final long MAX_OVERALL_MS = 20_000;
 
     private static final int MIN_TOTAL_BYTES = 128 * 1024; // 128 KB
 
@@ -53,13 +54,19 @@ public final class UrlPlaybackObserver {
     private int initCount;
     private final AtomicInteger totalBytes = new AtomicInteger(0);
 
+    /**
+     * Guards START timeout scheduling
+     */
+    private final AtomicBoolean startTimeoutArmed = new AtomicBoolean(false);
+
     public UrlPlaybackObserver(
             @NonNull AlbumMedia media,
             @NonNull DecisionCallback callback
     ) {
         this.fileId = media.fileId;
         this.callback = callback;
-        this.overallTimeoutMs = computeOverallTimeout(media.sizeBytes);
+//        this.overallTimeoutMs = computeOverallTimeout(media.sizeBytes);
+        this.overallTimeoutMs = START_TIMEOUT_MS;
     }
 
     /* ---------------- lifecycle ---------------- */
@@ -73,7 +80,7 @@ public final class UrlPlaybackObserver {
                         + " (overallTimeout=" + overallTimeoutMs + " ms)"
         );
 
-        main.postDelayed(this::checkStartTimeout, START_TIMEOUT_MS);
+        // Overall timeout starts immediately (unchanged)
         main.postDelayed(this::checkOverallTimeout, overallTimeoutMs);
     }
 
@@ -95,12 +102,21 @@ public final class UrlPlaybackObserver {
 
     public void onInit() {
         if (decided.get()) return;
+
         initCount++;
-        Log.d(TAG, "[" + fileId + "] INIT #" + initCount);
+        long elapsed = SystemClock.uptimeMillis() - healthStartMs;
+
+        Log.d(TAG, "[" + fileId + "] INIT #" + initCount + " (+" + elapsed + " ms)");
+
+        // 🔑 START timeout must be armed ONCE, on first INIT only
+        if (startTimeoutArmed.compareAndSet(false, true)) {
+            main.postDelayed(this::checkStartTimeout, START_TIMEOUT_MS);
+        }
     }
 
     public void onStart() {
         if (decided.get()) return;
+
         started = true;
         Log.d(TAG, "[" + fileId + "] START received");
     }
@@ -117,6 +133,21 @@ public final class UrlPlaybackObserver {
         if (decided.get()) return;
         Log.d(TAG, "[" + fileId + "] POSITION REWIND detected (normal)");
     }
+
+    public void onRangeRequest(long position, long length) {
+        if (decided.get()) return;
+
+        String range;
+        if (length == C.LENGTH_UNSET) {
+            range = "bytes=" + position + "-";
+        } else {
+            range = "bytes=" + position + "-" + (position + length - 1);
+        }
+
+        Log.d(TAG, "[" + fileId + "] HTTP " + range);
+    }
+
+
 
     /* ---------------- rules ---------------- */
 
@@ -169,9 +200,10 @@ public final class UrlPlaybackObserver {
         long elapsed = SystemClock.uptimeMillis() - healthStartMs;
         Log.i(
                 TAG,
-                "[" + fileId + "] DECISION = HEALTHY (" +
-                        reason + ", " + elapsed + " ms, " +
-                        totalBytes.get() + " bytes)"
+                "[" + fileId + "] DECISION = HEALTHY ("
+                        + reason + ", "
+                        + elapsed + " ms, "
+                        + totalBytes.get() + " bytes)"
         );
     }
 }

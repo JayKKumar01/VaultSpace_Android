@@ -5,6 +5,7 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.media.helper.DriveCacheWarmUpHelper;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,6 +17,7 @@ final class UrlTask implements VideoMediaTask {
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
     private final UrlSourceBuilder builder;
     private UrlPlaybackObserver observer;
+    private DriveCacheWarmUpHelper cacheWarmUpHelper;
 
     UrlTask(@NonNull Context context) {
         this.builder = new UrlSourceBuilder(context);
@@ -42,14 +44,13 @@ final class UrlTask implements VideoMediaTask {
             try {
                 AttachPayload payload = builder.build(media, observer);
 
-                // 🔥 optimistic attach (session will marshal to main)
                 callback.onAttachReady(payload);
-
                 observer.start();
 
             } catch (Exception e) {
                 callback.onUnhealthy();
             }
+
         });
     }
 
@@ -62,5 +63,6 @@ final class UrlTask implements VideoMediaTask {
     public void cancel() {
         cancelled.set(true);
         executor.shutdownNow();
+        builder.release();
     }
 }
