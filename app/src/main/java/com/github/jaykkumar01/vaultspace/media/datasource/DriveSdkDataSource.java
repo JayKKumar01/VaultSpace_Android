@@ -29,10 +29,7 @@ public final class DriveSdkDataSource implements DataSource {
     private @Nullable Uri uri;
     private long currentPosition;
 
-    public DriveSdkDataSource(
-            @NonNull Drive drive,
-            @NonNull String fileId
-    ) {
+    public DriveSdkDataSource(@NonNull Drive drive, @NonNull String fileId) {
         this.drive = drive;
         this.fileId = fileId;
     }
@@ -42,7 +39,6 @@ public final class DriveSdkDataSource implements DataSource {
 
     @Override
     public long open(@NonNull DataSpec spec) throws IOException {
-
         uri = spec.uri;
         long targetPos = spec.position;
 
@@ -62,18 +58,11 @@ public final class DriveSdkDataSource implements DataSource {
     }
 
     @Override
-    public int read(
-            @NonNull byte[] buffer,
-            int offset,
-            int length
-    ) throws IOException {
-
-        if (stream == null)
-            return C.RESULT_END_OF_INPUT;
+    public int read(@NonNull byte[] buffer, int offset, int length) throws IOException {
+        if (stream == null) return C.RESULT_END_OF_INPUT;
 
         int read = stream.read(buffer, offset, length);
-        if (read == -1)
-            return C.RESULT_END_OF_INPUT;
+        if (read == -1) return C.RESULT_END_OF_INPUT;
 
         currentPosition += read;
         return read;
@@ -101,17 +90,14 @@ public final class DriveSdkDataSource implements DataSource {
 
     private InputStream openFreshStream() throws IOException {
         Log.d(TAG, "[" + fileId + "] open fresh stream");
-        return drive.files()
-                .get(fileId)
-                .executeMediaAsInputStream();
+        return drive.files().get(fileId).executeMediaAsInputStream();
     }
 
     private static void skipFully(InputStream in, long bytes) throws IOException {
         long remaining = bytes;
         while (remaining > 0) {
             long skipped = in.skip(remaining);
-            if (skipped <= 0)
-                throw new EOFException("Failed skip " + bytes);
+            if (skipped <= 0) throw new EOFException("Failed skip " + bytes);
             remaining -= skipped;
         }
     }

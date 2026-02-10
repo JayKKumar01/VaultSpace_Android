@@ -35,10 +35,7 @@ public final class VideoMediaController {
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
 
-    public VideoMediaController(
-            @NonNull Context context,
-            @NonNull PlayerView playerView
-    ) {
+    public VideoMediaController(@NonNull Context context, @NonNull PlayerView playerView) {
         this.context = context.getApplicationContext();
         this.view = playerView;
         this.view.setVisibility(View.GONE);
@@ -70,8 +67,7 @@ public final class VideoMediaController {
 
     public void onResume() {
         Log.d(TAG, "onResume()");
-        if (player != null)
-            player.setPlayWhenReady(playWhenReady);
+        if (player != null) player.setPlayWhenReady(playWhenReady);
     }
 
     public void onPause() {
@@ -95,6 +91,8 @@ public final class VideoMediaController {
 
     private void prepare() {
         Log.d(TAG, "prepare() start");
+        view.setVisibility(View.GONE);
+        if (callback != null) callback.onMediaLoading("Loading video…");
 
         DefaultMediaSourceFactory factory =
                 new DefaultMediaSourceFactory(() -> {
@@ -116,8 +114,7 @@ public final class VideoMediaController {
         player.setMediaItem(item);
         player.prepare();
 
-        if (resumePosition > 0)
-            player.seekTo(resumePosition);
+        if (resumePosition > 0) player.seekTo(resumePosition);
     }
 
     /* ---------------- release ---------------- */
@@ -144,8 +141,10 @@ public final class VideoMediaController {
             public void onPlaybackStateChanged(int state) {
                 Log.d(TAG, "player state = " + stateToString(state));
                 if (state == Player.STATE_READY && player != null) {
-                    view.setVisibility(View.VISIBLE);
-                    if (callback != null) callback.onMediaReady();
+                    mainHandler.post(() -> {
+                        view.setVisibility(View.VISIBLE);
+                        if (callback != null) callback.onMediaReady();
+                    });
                 }
             }
         };
