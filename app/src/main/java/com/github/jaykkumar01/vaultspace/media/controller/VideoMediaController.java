@@ -22,6 +22,7 @@ import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
 import com.github.jaykkumar01.vaultspace.media.datasource.DriveDataSource;
 
+@UnstableApi
 public final class VideoMediaController {
 
     private static final String TAG = "Video:MediaController";
@@ -63,8 +64,9 @@ public final class VideoMediaController {
         this.media = media;
         // Initialize datasource early
         if (driveDataSource != null) driveDataSource.release();
-        driveDataSource = new DriveDataSource(context, media.fileId, media.sizeBytes);
+        driveDataSource = new DriveDataSource(context, media);
         view.setVisibility(GONE);
+        //warmup the connection here
     }
 
 

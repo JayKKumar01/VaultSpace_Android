@@ -620,5 +620,19 @@ public class Notes {
     // once the main thread is done... close all temp
 
 
+    // constantly fill the cache using the circular buffer until Player Ready state, after that we only do what exo player requests
+
+    // so it requests 0, I gave it 8 mb, it read only first 36 bytes, then closes, it requests at 80%, connections open, previous gone (what happened to extra buffer)
+    // so the optimization will be that I either keep track of buffer not discard it so on next request I can feed it
+    // or I make the buffer less based on file size or something
+    // what are the factors I need to correctly decide buffer size
+
+
+    // maybe let exo read all remaining bytes before opening the next connection make it wait/ or send to cache somehow fast
+
+    // to minimize the waste, we need to limit the reading speed and the current position of the player
+    // there is one more catch, you are looking at the reader and producer but think aobut the player current posibtion
+    // that is the only thing that is used from user pov( al though caching will fix the waste becasue all reading will be cached)
+
 
 }

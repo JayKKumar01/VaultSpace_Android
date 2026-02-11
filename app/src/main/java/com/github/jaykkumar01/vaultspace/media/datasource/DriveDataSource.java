@@ -12,304 +12,227 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 
+import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 
 @UnstableApi
 public final class DriveDataSource implements DataSource {
 
-    private static final String TAG = "Drive:HybridCache";
-    private static final int READ_CHUNK = 128 * 1024;
-
-    /* ---------------- Core ---------------- */
+    private static final String TAG = "Drive:HybridStream";
+    private static final int BUFFER_SIZE = 8 * 1024 * 1024;
+    private static final int TEMP_READ  = 128 * 1024;
 
     private final DriveStreamSource source;
-    private final long sizeBytes;
+    private final AlbumMedia media;
 
-    /* ---------------- Shared Memory Buffer ---------------- */
+    private final ExecutorService executor =
+            Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r,"Drive-Reader");
+                t.setDaemon(true);
+                return t;
+            });
 
-    private final byte[] buffer;
-    private final TreeSet<Range> ranges = new TreeSet<>();
     private final Object lock = new Object();
+    private final byte[] buffer = new byte[BUFFER_SIZE];
 
-    /* ---------------- Downloaders ---------------- */
+    private int writePos, readPos, available;
+    private boolean eof;
 
-    private final ExecutorService mainExecutor =
-            Executors.newSingleThreadExecutor(r -> {
-                Thread t = new Thread(r,"Drive-Main");
-                t.setDaemon(true);
-                return t;
-            });
+    private final AtomicLong generation = new AtomicLong();
 
-    private final ExecutorService tempExecutor =
-            Executors.newSingleThreadExecutor(r -> {
-                Thread t = new Thread(r,"Drive-Temp");
-                t.setDaemon(true);
-                return t;
-            });
-
-    private Future<?> mainTask;
-    private Future<?> tempTask;
-
-    private DriveStreamSource.StreamSession mainSession;
-    private DriveStreamSource.StreamSession tempSession;
-
-    /* ---------------- State ---------------- */
-
-    private long readPosition = 0;
-    private volatile boolean released = false;
-    private volatile boolean mainFinished = false;
-
+    private volatile DriveStreamSource.StreamSession session;
+    private volatile Future<?> readerTask;
     private @Nullable Uri uri;
 
-    /* ============================================================= */
-    /* ========================= CONSTRUCTOR ======================== */
-    /* ============================================================= */
+    /* -------- instrumentation -------- */
 
-    public DriveDataSource(Context context,String fileId,long sizeBytes) {
-        this.source = new DriveHttpSource(context,fileId);
-        this.sizeBytes = sizeBytes;
-        this.buffer = new byte[(int) sizeBytes];
-        startMainDownloader();
+    private long openPosition;
+    private long producedBytes;
+    private long consumedBytes;
+    private long activeGen;
+
+    public DriveDataSource(Context context, AlbumMedia media) {
+        this.media = media;
+        Log.d(TAG,"INIT fileId="+media.fileId+" sizeBytes="+media.sizeBytes);
+        this.source = new DriveHttpSource(context,media.fileId);
     }
 
-    /* ============================================================= */
-    /* ====================== MAIN DOWNLOADER ======================= */
-    /* ============================================================= */
-
-    private void startMainDownloader() {
-
-        mainTask = mainExecutor.submit(() -> {
-
-            long offset = 0;
-
-            try {
-                mainSession = source.open(0);
-
-                try (InputStream in = mainSession.stream()) {
-
-                    byte[] temp = new byte[READ_CHUNK];
-                    int r;
-
-                    while (!released && (r = in.read(temp)) != -1) {
-
-                        writeToBuffer(offset,temp,r);
-                        offset += r;
-                    }
-
-                    mainFinished = true;
-                    Log.d(TAG,"Main downloader finished");
-
-                    // 🔥 Immediately cancel temp when full file available
-                    cancelTemp();
-
-                }
-
-            } catch (Exception e) {
-                if (!released)
-                    Log.e(TAG,"Main downloader error",e);
-            }
-        });
-    }
-
-    /* ============================================================= */
-    /* ======================= TEMP DOWNLOADER ====================== */
-    /* ============================================================= */
-
-    private void startTempDownloader(long position) {
-
-        if (mainFinished || released)
-            return;
-
-        cancelTemp();
-
-        tempTask = tempExecutor.submit(() -> {
-
-            long offset = position;
-
-            try {
-                tempSession = source.open(position);
-
-                try (InputStream in = tempSession.stream()) {
-
-                    byte[] temp = new byte[READ_CHUNK];
-                    int r;
-
-                    while (!released
-                            && !mainFinished
-                            && (r = in.read(temp)) != -1) {
-
-                        if (isRangeFilled(offset,r))
-                            break;
-
-                        writeToBuffer(offset,temp,r);
-                        offset += r;
-                    }
-
-                }
-
-            } catch (Exception e) {
-                if (!released && !mainFinished)
-                    Log.e(TAG,"Temp downloader error",e);
-            }
-        });
-    }
-
-    private void cancelTemp() {
-
-        if (tempTask != null)
-            tempTask.cancel(true);
-
-        if (tempSession != null)
-            tempSession.cancel();
-
-        tempTask = null;
-        tempSession = null;
-    }
-
-    /* ============================================================= */
-    /* ============================ OPEN ============================ */
-    /* ============================================================= */
+    /* ---------------- OPEN ---------------- */
 
     @Override
-    public long open(DataSpec spec) {
+    public long open(DataSpec spec) throws IOException {
 
-        readPosition = spec.position;
+        invalidate();
+
+        long myGen = generation.incrementAndGet();
+        activeGen = myGen;
+        openPosition = spec.position;
+        producedBytes = 0;
+        consumedBytes = 0;
+
         uri = spec.uri;
 
-        if (!isByteAvailable(readPosition))
-            startTempDownloader(readPosition);
+        Log.d(TAG,"OPEN gen=" + myGen + " @" + spec.position);
+
+        session = source.open(spec.position);
+
+        readerTask = executor.submit(() ->
+                readerLoop(myGen, session));
 
         return C.LENGTH_UNSET;
     }
 
-    /* ============================================================= */
-    /* ============================= READ =========================== */
-    /* ============================================================= */
+    /* ---------------- READER ---------------- */
+
+    private void readerLoop(long myGen, DriveStreamSource.StreamSession s) {
+
+        byte[] temp = new byte[TEMP_READ];
+
+        try (InputStream in = s.stream()) {
+
+            int r;
+
+            while (myGen == generation.get()
+                    && (r = in.read(temp)) != -1) {
+
+                synchronized (lock) {
+
+                    if (myGen != generation.get())
+                        return;
+
+                    while (available + r > BUFFER_SIZE) {
+                        lock.wait();
+                        if (myGen != generation.get())
+                            return;
+                    }
+
+                    int first = Math.min(r,BUFFER_SIZE - writePos);
+                    System.arraycopy(temp,0,buffer,writePos,first);
+
+                    int remain = r - first;
+                    if (remain > 0)
+                        System.arraycopy(temp,first,buffer,0,remain);
+
+                    writePos = (writePos + r) % BUFFER_SIZE;
+                    available += r;
+
+                    producedBytes += r;
+
+                    lock.notify();
+                }
+            }
+
+        } catch (Exception e) {
+
+            if (myGen == generation.get())
+                Log.e(TAG,"reader error gen=" + myGen,e);
+            else
+                Log.d(TAG,"reader obsolete gen=" + myGen);
+
+        } finally {
+
+            s.cancel();
+
+            synchronized (lock) {
+                if (myGen == generation.get()) {
+                    eof = true;
+                    lock.notify();
+                }
+            }
+
+            Log.d(TAG,"READER END gen=" + myGen +
+                    " produced=" + producedBytes);
+        }
+    }
+
+    /* ---------------- READ ---------------- */
 
     @Override
     public int read(@NonNull byte[] target,int offset,int length) {
 
         synchronized (lock) {
 
-            while (!released && !isByteAvailable(readPosition)) {
+            while (available == 0 && !eof) {
                 try { lock.wait(); } catch (InterruptedException ignored) {}
             }
 
-            if (released || readPosition >= sizeBytes)
+            if (available == 0)
                 return C.RESULT_END_OF_INPUT;
 
-            long available = contiguousAvailable(readPosition);
-            int toRead = (int) Math.min(length,available);
+            int toRead = Math.min(length,available);
 
-            System.arraycopy(buffer,(int) readPosition,target,offset,toRead);
+            int first = Math.min(toRead,BUFFER_SIZE - readPos);
+            System.arraycopy(buffer,readPos,target,offset,first);
 
-            readPosition += toRead;
+            int remain = toRead - first;
+            if (remain > 0)
+                System.arraycopy(buffer,0,target,offset + first,remain);
 
+            readPos = (readPos + toRead) % BUFFER_SIZE;
+            available -= toRead;
+
+            consumedBytes += toRead;
+
+            lock.notify();
             return toRead;
         }
     }
 
-    /* ============================================================= */
-    /* ======================== BUFFER LOGIC ======================== */
-    /* ============================================================= */
+    /* ---------------- INVALIDATE ---------------- */
 
-    private void writeToBuffer(long start,byte[] src,int len) {
+    private void invalidate() {
+
+        long closingGen = activeGen;
+        long wasted = producedBytes - consumedBytes;
+        int bufferedAtClose = available;
+
+        if (closingGen != 0) {
+            Log.d(TAG,
+                    "CLOSE gen=" + closingGen +
+                            " open@" + openPosition +
+                            " consumed=" + consumedBytes +
+                            " produced=" + producedBytes +
+                            " wasted=" + wasted +
+                            " buffered=" + bufferedAtClose);
+        }
+
+        generation.incrementAndGet();
 
         synchronized (lock) {
-
-            System.arraycopy(src,0,buffer,(int) start,len);
-            mergeRange(start,start + len);
-
+            writePos = readPos = available = 0;
+            eof = false;
             lock.notifyAll();
         }
+
+        if (readerTask != null)
+            readerTask.cancel(true);
+
+        if (session != null)
+            session.cancel();
+
+        readerTask = null;
+        session = null;
+        activeGen = 0;
     }
 
-    private boolean isByteAvailable(long position) {
-        for (Range r : ranges)
-            if (r.start <= position && r.end > position)
-                return true;
-        return false;
-    }
-
-    private long contiguousAvailable(long position) {
-        for (Range r : ranges)
-            if (r.start <= position && r.end > position)
-                return r.end - position;
-        return 0;
-    }
-
-    private boolean isRangeFilled(long start,int len) {
-        long end = start + len;
-        for (Range r : ranges)
-            if (r.start <= start && r.end >= end)
-                return true;
-        return false;
-    }
-
-    private void mergeRange(long start,long end) {
-
-        Range newRange = new Range(start,end);
-
-        Range lower = ranges.floor(newRange);
-        if (lower != null && lower.end >= start) {
-            newRange.start = Math.min(lower.start,start);
-            newRange.end = Math.max(lower.end,end);
-            ranges.remove(lower);
-        }
-
-        while (true) {
-            Range higher = ranges.ceiling(newRange);
-            if (higher != null && higher.start <= newRange.end) {
-                newRange.end = Math.max(newRange.end,higher.end);
-                ranges.remove(higher);
-            } else break;
-        }
-
-        ranges.add(newRange);
-    }
-
-    /* ============================================================= */
-    /* ============================= CLOSE ========================== */
-    /* ============================================================= */
+    /* ---------------- CLOSE ---------------- */
 
     @Override
     public void close() {
+        invalidate();
         uri = null;
     }
 
-    public void release() {
-
-        released = true;
-
-        cancelTemp();
-
-        if (mainTask != null)
-            mainTask.cancel(true);
-
-        if (mainSession != null)
-            mainSession.cancel();
-
-        mainExecutor.shutdownNow();
-        tempExecutor.shutdownNow();
-
-        synchronized (lock) {
-            ranges.clear();
-            lock.notifyAll();
-        }
-
-        Log.d(TAG,"Released");
-    }
-
-    /* ============================================================= */
-    /* ============================== MISC ========================== */
-    /* ============================================================= */
+    /* ---------------- MISC ---------------- */
 
     @Override public void addTransferListener(@NonNull TransferListener l) {}
     @Override public @Nullable Uri getUri() { return uri; }
@@ -317,16 +240,7 @@ public final class DriveDataSource implements DataSource {
         return Collections.emptyMap();
     }
 
-    /* ============================================================= */
-    /* ============================== RANGE ========================= */
-    /* ============================================================= */
-
-    private static final class Range implements Comparable<Range> {
-        long start;
-        long end;
-        Range(long s,long e){ start = s; end = e; }
-        @Override public int compareTo(@NonNull Range o){
-            return Long.compare(this.start,o.start);
-        }
+    public void release() {
+        close();
     }
 }

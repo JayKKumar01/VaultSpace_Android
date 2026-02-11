@@ -70,7 +70,6 @@ dependencies {
 
     implementation("androidx.media3:media3-exoplayer:1.9.1")
     implementation("androidx.media3:media3-ui:1.9.1")
-    implementation("org.nanohttpd:nanohttpd:2.3.1")
 
 
 
