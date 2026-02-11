@@ -614,6 +614,8 @@ public class Notes {
     // fill the main bytes[] with continious 256 kb bytes.. keep checking what is not filled based on that request the
     // next range, lock it no other system
 
+    // let it read some batch at one not one by one
+
 
 
 

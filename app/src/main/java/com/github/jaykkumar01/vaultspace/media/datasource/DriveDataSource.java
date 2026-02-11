@@ -27,41 +27,61 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class DriveDataSource implements DataSource {
 
     private static final String TAG = "Drive:HybridStream";
-    private static final int BUFFER_SIZE = 2 * 1024 * 1024;   // 2MB ring buffer
-    private static final int TEMP_READ  = 32 * 1024;
 
-    /* ---------------- core ---------------- */
+    private static final int BUFFER_SIZE = 8 * 1024 * 1024;
+    private static final int TEMP_READ  = 128 * 1024;
 
     private final DriveSource driveSource;
+
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor(r -> {
-                Thread t = new Thread(r, "Drive-Reader");
+                Thread t = new Thread(r,"Drive-Reader");
                 t.setDaemon(true);
                 return t;
             });
-
-    /* ---------------- buffer ---------------- */
 
     private final Object lock = new Object();
     private final byte[] buffer = new byte[BUFFER_SIZE];
 
     private int writePos, readPos, available;
 
-    /* ---------------- state ---------------- */
-
-    private final AtomicLong session = new AtomicLong(0);
-    private final AtomicBoolean closed = new AtomicBoolean(true);
+    private final AtomicLong session = new AtomicLong();
+    private final AtomicBoolean cancelled = new AtomicBoolean(true);
 
     private volatile boolean eof;
     private volatile Future<?> readerTask;
     private volatile InputStream stream;
-
     private @Nullable Uri uri;
 
-    /* ---------------- constructor ---------------- */
+    public DriveDataSource(Context context,String fileId,long sizeBytes) {
+        this.driveSource = new DriveHttpSource(context,fileId);
+    }
 
-    public DriveDataSource(Context context, String fileId, long sizeBytes) {
-        this.driveSource = new DriveSdkSource(context,fileId);
+    /* ---------------- HARD RESET ---------------- */
+
+    private void hardReset() {
+
+        cancelled.set(true);
+        session.incrementAndGet();
+
+        synchronized (lock) {
+            writePos = readPos = available = 0;
+            eof = false;
+            lock.notifyAll();
+        }
+
+        try { if (stream != null) stream.close(); }
+        catch (Exception ignored) {}
+
+        driveSource.close();
+
+        if (readerTask != null)
+            readerTask.cancel(true);
+
+        stream = null;
+        readerTask = null;
+
+        Log.d(TAG,"hard reset");
     }
 
     /* ---------------- open ---------------- */
@@ -69,22 +89,18 @@ public final class DriveDataSource implements DataSource {
     @Override
     public long open(DataSpec spec) throws IOException {
 
-        close(); // ensure previous session fully stopped
+        hardReset(); // 💥 instant queue clear on every open
 
         uri = spec.uri;
-        closed.set(false);
-        eof = false;
+        cancelled.set(false);
 
-        long mySession = session.incrementAndGet();
+        long mySession = session.get();
         long position = spec.position;
 
         Log.d(TAG,"open @" + position);
 
         stream = driveSource.openStream(position);
-
-        readerTask = executor.submit(() ->
-                readerLoop(mySession)
-        );
+        readerTask = executor.submit(() -> readerLoop(mySession));
 
         return C.LENGTH_UNSET;
     }
@@ -98,55 +114,49 @@ public final class DriveDataSource implements DataSource {
         try {
             int r;
 
-            while (!closed.get()
+            while (!cancelled.get()
                     && mySession == session.get()
+                    && !Thread.currentThread().isInterrupted()
                     && (r = stream.read(temp)) != -1) {
 
-                writeToBuffer(temp,r,mySession);
+                synchronized (lock) {
+
+                    if (cancelled.get() || mySession != session.get())
+                        return;
+
+                    while (available + r > BUFFER_SIZE) {
+                        lock.wait();
+                        if (cancelled.get() || mySession != session.get())
+                            return;
+                    }
+
+                    int first = Math.min(r,BUFFER_SIZE - writePos);
+                    System.arraycopy(temp,0,buffer,writePos,first);
+
+                    int remain = r - first;
+                    if (remain > 0)
+                        System.arraycopy(temp,first,buffer,0,remain);
+
+                    writePos = (writePos + r) % BUFFER_SIZE;
+                    available += r;
+
+                    lock.notify();
+                }
             }
 
         } catch (Exception e) {
-            if (!closed.get())
+
+            if (!cancelled.get() && mySession == session.get())
                 Log.e(TAG,"reader error",e);
-        }
+            else
+                Log.d(TAG,"reader cancelled");
 
-        signalEof(mySession);
-    }
-
-    private void writeToBuffer(byte[] data,int len,long mySession)
-            throws InterruptedException {
-
-        synchronized (lock) {
-
-            while (!closed.get()
-                    && mySession == session.get()
-                    && available + len > BUFFER_SIZE) {
-
-                lock.wait();
-            }
-
-            if (closed.get() || mySession != session.get())
-                return;
-
-            int first = Math.min(len,BUFFER_SIZE - writePos);
-            System.arraycopy(data,0,buffer,writePos,first);
-
-            int remain = len - first;
-            if (remain > 0)
-                System.arraycopy(data,first,buffer,0,remain);
-
-            writePos = (writePos + len) % BUFFER_SIZE;
-            available += len;
-
-            lock.notifyAll();
-        }
-    }
-
-    private void signalEof(long mySession) {
-        synchronized (lock) {
-            if (mySession == session.get()) {
-                eof = true;
-                lock.notifyAll();
+        } finally {
+            synchronized (lock) {
+                if (mySession == session.get()) {
+                    eof = true;
+                    lock.notify();
+                }
             }
         }
     }
@@ -158,7 +168,7 @@ public final class DriveDataSource implements DataSource {
 
         synchronized (lock) {
 
-            while (!closed.get() && available == 0 && !eof) {
+            while (!cancelled.get() && available == 0 && !eof) {
                 try { lock.wait(); } catch (InterruptedException ignored) {}
             }
 
@@ -177,7 +187,7 @@ public final class DriveDataSource implements DataSource {
             readPos = (readPos + toRead) % BUFFER_SIZE;
             available -= toRead;
 
-            lock.notifyAll();
+            lock.notify();
             return toRead;
         }
     }
@@ -186,38 +196,16 @@ public final class DriveDataSource implements DataSource {
 
     @Override
     public void close() {
-
-        if (closed.get()) return;
-
-        Log.d(TAG,"close");
-
-        closed.set(true);
-        session.incrementAndGet(); // invalidate previous reader
-
-        synchronized (lock) {
-            lock.notifyAll();
-        }
-
-        try { if (stream != null) stream.close(); }
-        catch (Exception ignored) {}
-
-        driveSource.close();
-
-        if (readerTask != null)
-            readerTask.cancel(true);
-
-        resetBuffer();
+        hardReset();
         uri = null;
-    }
-
-    private void resetBuffer() {
-        writePos = readPos = available = 0;
-        eof = false;
     }
 
     /* ---------------- misc ---------------- */
 
     @Override public void addTransferListener(@NonNull TransferListener l) {}
     @Override public @Nullable Uri getUri() { return uri; }
-    @Override public @NonNull Map<String,List<String>> getResponseHeaders() { return Collections.emptyMap(); }
+    @Override public @NonNull Map<String,List<String>> getResponseHeaders() {
+        return Collections.emptyMap();
+    }
 }
+
