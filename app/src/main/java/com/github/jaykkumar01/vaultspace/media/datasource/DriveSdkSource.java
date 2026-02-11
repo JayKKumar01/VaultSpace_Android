@@ -1,23 +1,22 @@
 package com.github.jaykkumar01.vaultspace.media.datasource;
 
 import android.content.Context;
-
-import androidx.annotation.OptIn;
-import androidx.media3.common.util.UnstableApi;
+import android.os.SystemClock;
+import android.util.Log;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
-import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.drive.Drive;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-@OptIn(markerClass = UnstableApi.class)
 final class DriveSdkSource implements DriveSource {
+
+    private static final String TAG = "Drive:SdkSource";
 
     private final Drive drive;
     private final String fileId;
+    private InputStream stream;
 
     DriveSdkSource(Context context,String fileId) {
         this.drive = DriveClientProvider.getPrimaryDrive(context);
@@ -25,26 +24,38 @@ final class DriveSdkSource implements DriveSource {
     }
 
     @Override
-    public byte[] fetchRange(long position,int length) throws IOException {
+    public InputStream openStream(long position) throws IOException {
+
+        long start = SystemClock.elapsedRealtime();
 
         Drive.Files.Get req = drive.files().get(fileId);
-        req.getRequestHeaders().setRange("bytes=" + position + "-");
+        req.getMediaHttpDownloader().setDirectDownloadEnabled(true);
         req.setDisableGZipContent(true);
 
-        try (InputStream in = req.executeMediaAsInputStream();
-             ByteArrayOutputStream out = new ByteArrayOutputStream(length)) {
+        if (position > 0)
+            req.getRequestHeaders().setRange("bytes=" + position + "-");
 
-            byte[] buffer = new byte[16 * 1024];
-            int remaining = length;
+        stream = req.executeMediaAsInputStream();
 
-            while (remaining > 0) {
-                int r = in.read(buffer,0,Math.min(buffer.length,remaining));
-                if (r == -1) break;
-                out.write(buffer,0,r);
-                remaining -= r;
-            }
+        int code = req.getLastStatusCode();
+        String message = req.getLastStatusMessage();
 
-            return out.toByteArray();
+        Log.d(TAG,
+                "open @" + position +
+                        " code=" + code +
+                        " msg=" + message +
+                        " +" + (SystemClock.elapsedRealtime() - start) + "ms"
+        );
+
+        return stream;
+    }
+
+    @Override
+    public void close() {
+        if (stream != null) {
+            Log.d(TAG,"close");
+            try { stream.close(); } catch (Exception ignored) {}
+            stream = null;
         }
     }
 }

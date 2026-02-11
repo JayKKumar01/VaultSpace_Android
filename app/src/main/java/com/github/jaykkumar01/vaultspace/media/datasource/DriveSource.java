@@ -1,7 +1,9 @@
 package com.github.jaykkumar01.vaultspace.media.datasource;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 interface DriveSource {
-    byte[] fetchRange(long position,int length) throws IOException;
+    InputStream openStream(long position) throws IOException;
+    void close();
 }

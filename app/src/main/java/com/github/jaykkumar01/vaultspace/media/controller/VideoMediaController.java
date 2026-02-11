@@ -20,7 +20,7 @@ import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
-import com.github.jaykkumar01.vaultspace.media.datasource.HybridDriveDataSource;
+import com.github.jaykkumar01.vaultspace.media.datasource.DriveDataSource;
 
 public final class VideoMediaController {
 
@@ -90,7 +90,7 @@ public final class VideoMediaController {
         if (callback != null) callback.onMediaLoading("Loading video…");
 
         DataSource.Factory factory = () ->
-                new HybridDriveDataSource(
+                new DriveDataSource(
                         context,
                         media.fileId,
                         media.sizeBytes

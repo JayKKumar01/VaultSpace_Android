@@ -606,6 +606,15 @@ public class Notes {
     // take the request, always fill 256 kb from the position then fail, send it back
 
 
+    // decide which one is better sdk or the http
+    // then do this... one continious steam that will get close only by controller
+    // other streams check the position if availble take from the main stream, if main stream is not reached yet
+    // get it from there
+    // also handle in a way that you don't have to download same bytes again and again
+    // fill the main bytes[] with continious 256 kb bytes.. keep checking what is not filled based on that request the
+    // next range, lock it no other system
+
+
 
 
 
