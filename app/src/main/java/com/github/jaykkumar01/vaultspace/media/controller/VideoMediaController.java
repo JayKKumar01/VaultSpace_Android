@@ -70,7 +70,6 @@ public final class VideoMediaController {
         if (driveDataSource != null) driveDataSource.release();
         driveDataSource = new DriveDataSource(context, media);
         view.setVisibility(GONE);
-        //warmup the connection here
     }
 
 
@@ -91,6 +90,7 @@ public final class VideoMediaController {
     }
 
     public void release() {
+        driveAltMediaCache.release();
         releasePlayer();
 
         if (driveDataSource != null) {
@@ -127,6 +127,7 @@ public final class VideoMediaController {
                 .setLoadControl(loadControl)
                 .build();
 
+        player.setRepeatMode(Player.REPEAT_MODE_ONE);
         player.setPlayWhenReady(playWhenReady);
         player.addListener(playerListener());
         player.setMediaItem(item);
