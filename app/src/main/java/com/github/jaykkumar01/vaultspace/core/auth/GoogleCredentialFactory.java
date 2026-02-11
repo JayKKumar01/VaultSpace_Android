@@ -37,7 +37,7 @@ public final class GoogleCredentialFactory {
 
     /* ---------------- Primary Account (Drive + Profile) ---------------- */
 
-    public static GoogleAccountCredential forPrimaryAccount(Context context,String email) {
+    public static GoogleAccountCredential forPrimaryAccount(Context context, String email) {
         return create(context,email,
                 Arrays.asList(
                         "https://www.googleapis.com/auth/drive",

@@ -12,7 +12,8 @@ public final class DriveClientProvider {
 
     private static final String APP_NAME = "VaultSpace";
 
-    private DriveClientProvider() {}
+    private DriveClientProvider() {
+    }
 
     public static Drive forAccount(Context context, String email) {
         GoogleAccountCredential credential =
@@ -31,8 +32,16 @@ public final class DriveClientProvider {
         GoogleAccountCredential credential =
                 GoogleCredentialFactory.forPrimaryDrive(context);
 
-        return new Drive.Builder(
-                new NetHttpTransport(),
+        return new Drive.Builder(new NetHttpTransport(),
+                GsonFactory.getDefaultInstance(),
+                credential
+        )
+                .setApplicationName(APP_NAME)
+                .build();
+    }
+
+    public static Drive getDriveForCredential(GoogleAccountCredential credential) {
+        return new Drive.Builder(new NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
         )

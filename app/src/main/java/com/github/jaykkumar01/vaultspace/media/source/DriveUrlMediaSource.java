@@ -3,15 +3,11 @@ package com.github.jaykkumar01.vaultspace.media.source;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.datasource.DataSource;
-import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultHttpDataSource;
-import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
@@ -19,7 +15,7 @@ import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.github.jaykkumar01.vaultspace.media.base.RangeDecisionCallback;
 import com.github.jaykkumar01.vaultspace.media.base.VideoMediaPrepareCallback;
 import com.github.jaykkumar01.vaultspace.media.base.VideoMediaSource;
-import com.github.jaykkumar01.vaultspace.media.helper.DriveSingleFileCacheHelper;
+import com.github.jaykkumar01.vaultspace.media.cache.DriveSingleFileCacheHelper;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
 import java.util.HashMap;

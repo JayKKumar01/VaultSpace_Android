@@ -12,6 +12,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
+import com.github.jaykkumar01.vaultspace.media.cache.DriveSingleFileCacheHelper;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
 import java.util.HashMap;

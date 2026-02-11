@@ -601,6 +601,10 @@ public class Notes {
     //then find out what is there in that file for that range then using short stream reverse enginner it
     // so that wihtout exo plyayer we can save the data
 
+    // first take the request range.. then save to cache then fail or do something so that exo player will try catch
+    // or do this... first take request fill the cache
+    // take the request, always fill 256 kb from the position then fail, send it back
+
 
 
 

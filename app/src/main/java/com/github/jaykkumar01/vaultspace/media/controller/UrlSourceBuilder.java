@@ -14,7 +14,7 @@ import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
-import com.github.jaykkumar01.vaultspace.media.helper.DriveSingleFileCacheHelper;
+import com.github.jaykkumar01.vaultspace.media.cache.DriveSingleFileCacheHelper;
 import com.github.jaykkumar01.vaultspace.media.proxy.DriveProxyServer;
 
 @OptIn(markerClass = UnstableApi.class)

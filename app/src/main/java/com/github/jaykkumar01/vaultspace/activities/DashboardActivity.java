@@ -33,12 +33,9 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelpe
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper.*;
 import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
-
-import com.github.jaykkumar01.vaultspace.media.helper.DriveSingleFileCacheHelper;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
-import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.HashSet;

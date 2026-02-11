@@ -1,7 +1,5 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
 
-import static android.view.View.GONE;
-
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,15 +12,20 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.core.auth.DriveAuthGate;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
-import com.github.jaykkumar01.vaultspace.media.datasource.HybridDriveDataSource;
+import com.github.jaykkumar01.vaultspace.media.cache.DriveAltMediaCache;
+import com.github.jaykkumar01.vaultspace.media.listener.MediaTransferTraceListener;
 
-public final class VideoMediaController {
+import java.util.Map;
+
+public final class VideoMediaController2 {
 
     private static final String TAG = "Video:MediaController";
 
@@ -31,6 +34,7 @@ public final class VideoMediaController {
     private final Context context;
     private final PlayerView view;
     private final Handler main;
+    private final DriveAltMediaCache cache;
 
     private ExoPlayer player;
     private AlbumMedia media;
@@ -41,13 +45,16 @@ public final class VideoMediaController {
 
     /* ---------------- lifecycle ---------------- */
 
-    public VideoMediaController(@NonNull Context context,@NonNull PlayerView view) {
+    public VideoMediaController2(@NonNull Context context, @NonNull PlayerView view) {
         this.context = context.getApplicationContext();
         this.view = view;
+        this.cache = new DriveAltMediaCache(this.context);
         this.main = new Handler(Looper.getMainLooper());
-        view.setVisibility(GONE);
+        view.setVisibility(View.GONE);
+
         Log.d(TAG,"created");
     }
+
 
     /* ---------------- public api ---------------- */
 
@@ -60,22 +67,27 @@ public final class VideoMediaController {
         if (this.media == null || !this.media.fileId.equals(media.fileId))
             resumePosition = 0L;
         this.media = media;
-        view.setVisibility(GONE);
+        view.setVisibility(View.GONE);
     }
 
     public void onStart() {
-        if (player == null && media != null) preparePlayer();
+        if (player == null && media != null) prepareAsync();
     }
 
     public void onResume() {
         if (player != null) player.setPlayWhenReady(playWhenReady);
     }
 
-    public void onPause() { releasePlayer(); }
+    public void onPause() {
+        releasePlayer();
+    }
 
-    public void onStop() { releasePlayer(); }
+    public void onStop() {
+        releasePlayer();
+    }
 
     public void release() {
+        cache.release();
         releasePlayer();
         callback = null;
         media = null;
@@ -83,22 +95,26 @@ public final class VideoMediaController {
 
     /* ---------------- prepare ---------------- */
 
+    private void prepareAsync() {
+        Log.d(TAG,"prepareAsync()");
+        view.setVisibility(View.GONE);
+        if (callback != null) callback.onMediaLoading("Loading video…");
+        cache.warmUpRanges(media);   // fire-and-forget
+        preparePlayer();
+    }
+
     @OptIn(markerClass = UnstableApi.class)
     private void preparePlayer() {
         Log.d(TAG,"preparePlayer()");
-        view.setVisibility(View.GONE);
-        if (callback != null) callback.onMediaLoading("Loading video…");
 
-        DataSource.Factory factory = () ->
-                new HybridDriveDataSource(
-                        context,
-                        media.fileId,
-                        media.sizeBytes
-                );
+        DataSource.Factory upstream = httpFactory();
+        DefaultMediaSourceFactory msf =
+                new DefaultMediaSourceFactory(
+                        cache.wrap(media.fileId,upstream));
 
-        DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(factory);
-
-        MediaItem item = MediaItem.fromUri("vaultspace://" + media.fileId);
+        MediaItem item = MediaItem.fromUri(
+                "https://www.googleapis.com/drive/v3/files/"
+                        + media.fileId + "?alt=media");
 
         player = new ExoPlayer.Builder(view.getContext())
                 .setMediaSourceFactory(msf)
@@ -110,6 +126,22 @@ public final class VideoMediaController {
         player.prepare();
 
         if (resumePosition > 0) player.seekTo(resumePosition);
+    }
+
+    /* ---------------- datasource ---------------- */
+
+    private DataSource.Factory httpFactory() {
+        MediaTransferTraceListener listener =
+                new MediaTransferTraceListener(media);
+        return () -> {
+            String token = DriveAuthGate.get(context).getToken();
+            DefaultHttpDataSource.Factory f =
+                    new DefaultHttpDataSource.Factory()
+                            .setDefaultRequestProperties(
+                                    Map.of("Authorization","Bearer "+token));
+            f.setTransferListener(listener);
+            return f.createDataSource();
+        };
     }
 
     /* ---------------- release ---------------- */
