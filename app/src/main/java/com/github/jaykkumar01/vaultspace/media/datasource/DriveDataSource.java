@@ -20,18 +20,16 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 @UnstableApi
 public final class DriveDataSource implements DataSource {
 
     private static final String TAG = "Drive:HybridStream";
-
     private static final int BUFFER_SIZE = 8 * 1024 * 1024;
     private static final int TEMP_READ  = 128 * 1024;
 
-    private final DriveSource driveSource;
+    private final DriveStreamSource source;
 
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor(r -> {
@@ -44,89 +42,59 @@ public final class DriveDataSource implements DataSource {
     private final byte[] buffer = new byte[BUFFER_SIZE];
 
     private int writePos, readPos, available;
+    private boolean eof;
 
-    private final AtomicLong session = new AtomicLong();
-    private final AtomicBoolean cancelled = new AtomicBoolean(true);
+    private final AtomicLong generation = new AtomicLong();
 
-    private volatile boolean eof;
+    private volatile DriveStreamSource.StreamSession session;
     private volatile Future<?> readerTask;
-    private volatile InputStream stream;
     private @Nullable Uri uri;
 
     public DriveDataSource(Context context,String fileId,long sizeBytes) {
-        this.driveSource = new DriveHttpSource(context,fileId);
+        this.source = new DriveHttpSource(context,fileId);
     }
 
-    /* ---------------- HARD RESET ---------------- */
-
-    private void hardReset() {
-
-        cancelled.set(true);
-        session.incrementAndGet();
-
-        synchronized (lock) {
-            writePos = readPos = available = 0;
-            eof = false;
-            lock.notifyAll();
-        }
-
-        try { if (stream != null) stream.close(); }
-        catch (Exception ignored) {}
-
-        driveSource.close();
-
-        if (readerTask != null)
-            readerTask.cancel(true);
-
-        stream = null;
-        readerTask = null;
-
-        Log.d(TAG,"hard reset");
-    }
-
-    /* ---------------- open ---------------- */
+    /* ---------------- OPEN ---------------- */
 
     @Override
     public long open(DataSpec spec) throws IOException {
 
-        hardReset(); // 💥 instant queue clear on every open
+        invalidate();
 
+        long myGen = generation.incrementAndGet();
         uri = spec.uri;
-        cancelled.set(false);
 
-        long mySession = session.get();
-        long position = spec.position;
+        Log.d(TAG,"open @" + spec.position + " gen=" + myGen);
 
-        Log.d(TAG,"open @" + position);
+        session = source.open(spec.position);
 
-        stream = driveSource.openStream(position);
-        readerTask = executor.submit(() -> readerLoop(mySession));
+        readerTask = executor.submit(() ->
+                readerLoop(myGen, session));
 
         return C.LENGTH_UNSET;
     }
 
-    /* ---------------- reader ---------------- */
+    /* ---------------- READER ---------------- */
 
-    private void readerLoop(long mySession) {
+    private void readerLoop(long myGen, DriveStreamSource.StreamSession s) {
 
         byte[] temp = new byte[TEMP_READ];
 
-        try {
+        try (InputStream in = s.stream()) {
+
             int r;
 
-            while (!cancelled.get()
-                    && mySession == session.get()
-                    && !Thread.currentThread().isInterrupted()
-                    && (r = stream.read(temp)) != -1) {
+            while (myGen == generation.get()
+                    && (r = in.read(temp)) != -1) {
 
                 synchronized (lock) {
 
-                    if (cancelled.get() || mySession != session.get())
+                    if (myGen != generation.get())
                         return;
 
                     while (available + r > BUFFER_SIZE) {
                         lock.wait();
-                        if (cancelled.get() || mySession != session.get())
+                        if (myGen != generation.get())
                             return;
                     }
 
@@ -146,14 +114,17 @@ public final class DriveDataSource implements DataSource {
 
         } catch (Exception e) {
 
-            if (!cancelled.get() && mySession == session.get())
+            if (myGen == generation.get())
                 Log.e(TAG,"reader error",e);
             else
-                Log.d(TAG,"reader cancelled");
+                Log.d(TAG,"reader obsolete");
 
         } finally {
+
+            s.cancel(); // ensure underlying transport is aborted
+
             synchronized (lock) {
-                if (mySession == session.get()) {
+                if (myGen == generation.get()) {
                     eof = true;
                     lock.notify();
                 }
@@ -161,18 +132,18 @@ public final class DriveDataSource implements DataSource {
         }
     }
 
-    /* ---------------- read ---------------- */
+    /* ---------------- READ ---------------- */
 
     @Override
     public int read(@NonNull byte[] target,int offset,int length) {
 
         synchronized (lock) {
 
-            while (!cancelled.get() && available == 0 && !eof) {
+            while (available == 0 && !eof) {
                 try { lock.wait(); } catch (InterruptedException ignored) {}
             }
 
-            if (available == 0 && eof)
+            if (available == 0)
                 return C.RESULT_END_OF_INPUT;
 
             int toRead = Math.min(length,available);
@@ -192,20 +163,45 @@ public final class DriveDataSource implements DataSource {
         }
     }
 
-    /* ---------------- close ---------------- */
+    /* ---------------- INVALIDATE ---------------- */
+
+    private void invalidate() {
+
+        generation.incrementAndGet();
+
+        synchronized (lock) {
+            writePos = readPos = available = 0;
+            eof = false;
+            lock.notifyAll();
+        }
+
+        if (readerTask != null)
+            readerTask.cancel(true);
+
+        if (session != null)
+            session.cancel();
+
+        readerTask = null;
+        session = null;
+    }
+
+    /* ---------------- CLOSE ---------------- */
 
     @Override
     public void close() {
-        hardReset();
+        invalidate();
         uri = null;
     }
 
-    /* ---------------- misc ---------------- */
+    /* ---------------- MISC ---------------- */
 
     @Override public void addTransferListener(@NonNull TransferListener l) {}
     @Override public @Nullable Uri getUri() { return uri; }
     @Override public @NonNull Map<String,List<String>> getResponseHeaders() {
         return Collections.emptyMap();
     }
-}
 
+    public void release() {
+        close();
+    }
+}

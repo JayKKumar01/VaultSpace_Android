@@ -35,6 +35,7 @@ public final class VideoMediaController {
     private ExoPlayer player;
     private AlbumMedia media;
     private MediaLoadCallback callback;
+    private DriveDataSource driveDataSource;
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
@@ -57,11 +58,15 @@ public final class VideoMediaController {
 
     public void show(@NonNull AlbumMedia media) {
         Log.d(TAG,"show("+media.fileId+")");
-        if (this.media == null || !this.media.fileId.equals(media.fileId))
-            resumePosition = 0L;
+
+        if (this.media == null || !this.media.fileId.equals(media.fileId)) resumePosition = 0L;
         this.media = media;
+        // Initialize datasource early
+        if (driveDataSource != null) driveDataSource.release();
+        driveDataSource = new DriveDataSource(context, media.fileId, media.sizeBytes);
         view.setVisibility(GONE);
     }
+
 
     public void onStart() {
         if (player == null && media != null) preparePlayer();
@@ -77,9 +82,16 @@ public final class VideoMediaController {
 
     public void release() {
         releasePlayer();
+
+        if (driveDataSource != null) {
+            driveDataSource.release();
+            driveDataSource = null;
+        }
+
         callback = null;
         media = null;
     }
+
 
     /* ---------------- prepare ---------------- */
 
@@ -89,12 +101,7 @@ public final class VideoMediaController {
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading("Loading video…");
 
-        DataSource.Factory factory = () ->
-                new DriveDataSource(
-                        context,
-                        media.fileId,
-                        media.sizeBytes
-                );
+        DataSource.Factory factory = () -> driveDataSource;
 
         DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(factory);
 
@@ -122,8 +129,10 @@ public final class VideoMediaController {
             if (view.getPlayer() != null) view.setPlayer(null);
             player.release();
             player = null;
+            if (driveDataSource != null) driveDataSource.release();
         });
     }
+
 
     /* ---------------- listener ---------------- */
 
