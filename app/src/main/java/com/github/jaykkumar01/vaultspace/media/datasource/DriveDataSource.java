@@ -90,7 +90,7 @@ public final class DriveDataSource implements DataSource {
         session = source.open(spec.position);
         readerTask = executor.submit(() -> readerLoop(myGen, session));
 
-        return C.LENGTH_UNSET;
+        return media.sizeBytes;
     }
 
     /* ---------------- READER ---------------- */

@@ -99,7 +99,7 @@ public final class VideoMediaController2 {
         Log.d(TAG,"prepareAsync()");
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading("Loading video…");
-        cache.warmUpRanges(media);   // fire-and-forget
+//        cache.warmUpRanges(media);   // fire-and-forget
         preparePlayer();
     }
 

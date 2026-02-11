@@ -14,6 +14,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -21,6 +22,7 @@ import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
+import com.github.jaykkumar01.vaultspace.media.cache.DriveAltMediaCache;
 import com.github.jaykkumar01.vaultspace.media.datasource.DriveDataSource;
 
 @UnstableApi
@@ -33,8 +35,8 @@ public final class VideoMediaController {
     private final Context context;
     private final PlayerView view;
     private final Handler main;
-
     private ExoPlayer player;
+    private DriveAltMediaCache driveAltMediaCache;
     private AlbumMedia media;
     private MediaLoadCallback callback;
     private DriveDataSource driveDataSource;
@@ -47,6 +49,7 @@ public final class VideoMediaController {
     public VideoMediaController(@NonNull Context context, @NonNull PlayerView view) {
         this.context = context.getApplicationContext();
         this.view = view;
+        this.driveAltMediaCache = new DriveAltMediaCache(context);
         this.main = new Handler(Looper.getMainLooper());
         view.setVisibility(GONE);
         Log.d(TAG, "created");
@@ -107,19 +110,15 @@ public final class VideoMediaController {
         Log.d(TAG, "preparePlayer()");
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading("Loading video…");
-
-        DataSource.Factory factory = () -> driveDataSource;
-
-        DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(factory);
-
+        DataSource.Factory upstreamFactory = () -> driveDataSource;
+        CacheDataSource.Factory cacheFactory = driveAltMediaCache.wrap(media.fileId, upstreamFactory);
+        DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(cacheFactory);
         MediaItem item = MediaItem.fromUri("vaultspace://" + media.fileId);
-
-        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                        5_000,   // minBufferMs
-                        10_000,  // maxBufferMs
-                        1_000,   // bufferForPlaybackMs
-                        2_000    // bufferForPlaybackAfterRebufferMs
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
+                        5_000,
+                        10_000,
+                        1_000,
+                        2_000
                 )
                 .build();
 
@@ -135,6 +134,7 @@ public final class VideoMediaController {
 
         if (resumePosition > 0) player.seekTo(resumePosition);
     }
+
 
     /* ---------------- release ---------------- */
 
