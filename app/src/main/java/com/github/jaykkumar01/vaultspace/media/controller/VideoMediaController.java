@@ -43,12 +43,12 @@ public final class VideoMediaController {
 
     /* ---------------- lifecycle ---------------- */
 
-    public VideoMediaController(@NonNull Context context,@NonNull PlayerView view) {
+    public VideoMediaController(@NonNull Context context, @NonNull PlayerView view) {
         this.context = context.getApplicationContext();
         this.view = view;
         this.main = new Handler(Looper.getMainLooper());
         view.setVisibility(GONE);
-        Log.d(TAG,"created");
+        Log.d(TAG, "created");
     }
 
     /* ---------------- public api ---------------- */
@@ -58,7 +58,7 @@ public final class VideoMediaController {
     }
 
     public void show(@NonNull AlbumMedia media) {
-        Log.d(TAG,"show("+media.fileId+")");
+        Log.d(TAG, "show(" + media.fileId + ")");
 
         if (this.media == null || !this.media.fileId.equals(media.fileId)) resumePosition = 0L;
         this.media = media;
@@ -78,9 +78,13 @@ public final class VideoMediaController {
         if (player != null) player.setPlayWhenReady(playWhenReady);
     }
 
-    public void onPause() { releasePlayer(); }
+    public void onPause() {
+        releasePlayer();
+    }
 
-    public void onStop() { releasePlayer(); }
+    public void onStop() {
+        releasePlayer();
+    }
 
     public void release() {
         releasePlayer();
@@ -99,7 +103,7 @@ public final class VideoMediaController {
 
     @OptIn(markerClass = UnstableApi.class)
     private void preparePlayer() {
-        Log.d(TAG,"preparePlayer()");
+        Log.d(TAG, "preparePlayer()");
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading("Loading video…");
 
@@ -112,6 +116,8 @@ public final class VideoMediaController {
         player = new ExoPlayer.Builder(view.getContext())
                 .setMediaSourceFactory(msf)
                 .build();
+
+//        driveDataSource.setPlaybackPositionSupplier(() -> player != null ? player.getCurrentPosition() : 0L);
 
         player.setPlayWhenReady(playWhenReady);
         player.addListener(playerListener());
@@ -142,7 +148,7 @@ public final class VideoMediaController {
         return new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int state) {
-                Log.d(TAG,"state="+stateToString(state));
+                Log.d(TAG, "state=" + stateToString(state));
                 if (state == Player.STATE_READY && player != null) {
                     main.post(() -> {
                         if (view.getPlayer() == null)
@@ -161,7 +167,7 @@ public final class VideoMediaController {
             case Player.STATE_BUFFERING -> "BUFFERING";
             case Player.STATE_READY -> "READY";
             case Player.STATE_ENDED -> "ENDED";
-            default -> "UNKNOWN("+s+")";
+            default -> "UNKNOWN(" + s + ")";
         };
     }
 }
