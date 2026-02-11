@@ -617,6 +617,7 @@ public class Notes {
     // let it read some batch at one not one by one
 
 
+    // once the main thread is done... close all temp
 
 
 
