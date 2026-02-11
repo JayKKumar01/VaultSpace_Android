@@ -40,6 +40,7 @@ public final class VideoMediaController {
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
+    private long playbackPositionMs;
 
     /* ---------------- lifecycle ---------------- */
 
@@ -117,7 +118,7 @@ public final class VideoMediaController {
                 .setMediaSourceFactory(msf)
                 .build();
 
-//        driveDataSource.setPlaybackPositionSupplier(() -> player != null ? player.getCurrentPosition() : 0L);
+        driveDataSource.setPlaybackPositionSupplier(() -> playbackPositionMs);
 
         player.setPlayWhenReady(playWhenReady);
         player.addListener(playerListener());
@@ -146,6 +147,10 @@ public final class VideoMediaController {
 
     private Player.Listener playerListener() {
         return new Player.Listener() {
+            @Override
+            public void onEvents(@NonNull Player player, @NonNull Player.Events events) {
+                playbackPositionMs = player.getCurrentPosition();
+            }
             @Override
             public void onPlaybackStateChanged(int state) {
                 Log.d(TAG, "state=" + stateToString(state));

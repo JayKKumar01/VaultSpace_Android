@@ -635,4 +635,7 @@ public class Notes {
     // that is the only thing that is used from user pov( al though caching will fix the waste becasue all reading will be cached)
 
 
+    // if you want... track the bytes already fetched for tail
+
+
 }
