@@ -23,7 +23,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongSupplier;
 
 @UnstableApi
 public final class DriveDataSource implements DataSource {
@@ -33,7 +32,6 @@ public final class DriveDataSource implements DataSource {
     private static final String TAG = "Drive:HybridStream";
     private static final int BUFFER_SIZE = 512 * 1024;
     private static final int TEMP_READ = 128 * 1024;
-    private static final long MAX_AHEAD_MS = 30_000; // 30s ahead window
 
     /* ---------------- CORE ---------------- */
 
@@ -58,17 +56,6 @@ public final class DriveDataSource implements DataSource {
     private volatile Future<?> readerTask;
     private @Nullable Uri uri;
 
-    /* ---------------- PLAYBACK CONTROL ---------------- */
-
-    private volatile LongSupplier playbackPositionSupplier;
-    private final boolean throttleEnabled;
-    private final long bytesPerMs;
-    private final long maxAheadBytes;
-
-    public void setPlaybackPositionSupplier(@Nullable LongSupplier supplier) {
-        this.playbackPositionSupplier = supplier;
-    }
-
     /* ---------------- INSTRUMENTATION ---------------- */
 
     private long openPosition;
@@ -82,16 +69,6 @@ public final class DriveDataSource implements DataSource {
         this.media = media;
         Log.d(TAG, "INIT fileId=" + media.fileId + " sizeBytes=" + media.sizeBytes + " duration=" + media.durationMillis);
         this.source = new DriveHttpSource(context, media.fileId);
-
-        if (media.isVideo && media.durationMillis > 0) {
-            this.throttleEnabled = true;
-            this.bytesPerMs = media.sizeBytes / media.durationMillis;
-            this.maxAheadBytes = bytesPerMs * MAX_AHEAD_MS;
-        } else {
-            this.throttleEnabled = false;
-            this.bytesPerMs = 0;
-            this.maxAheadBytes = 0;
-        }
     }
 
     /* ---------------- OPEN ---------------- */
@@ -134,27 +111,12 @@ public final class DriveDataSource implements DataSource {
                         if (myGen != generation.get()) return;
                     }
 
-                    /* ---- Playback-aware throttle ---- */
-
-                    if (throttleEnabled && playbackPositionSupplier != null) {
-
-                        long playbackMs = playbackPositionSupplier.getAsLong();
-                        long playbackByte = openPosition + (playbackMs * bytesPerMs);
-                        long producedAbsolute = openPosition + producedBytes;
-
-                        while (producedAbsolute > playbackByte + maxAheadBytes) {
-                            lock.wait(50);
-                            if (myGen != generation.get()) return;
-                            playbackMs = playbackPositionSupplier.getAsLong();
-                            playbackByte = openPosition + (playbackMs * bytesPerMs);
-                            producedAbsolute = openPosition + producedBytes;
-                        }
-                    }
-
                     int first = Math.min(r, BUFFER_SIZE - writePos);
                     System.arraycopy(temp, 0, buffer, writePos, first);
+
                     int remain = r - first;
-                    if (remain > 0) System.arraycopy(temp, first, buffer, 0, remain);
+                    if (remain > 0)
+                        System.arraycopy(temp, first, buffer, 0, remain);
 
                     writePos = (writePos + r) % BUFFER_SIZE;
                     available += r;
@@ -197,8 +159,10 @@ public final class DriveDataSource implements DataSource {
 
             int first = Math.min(toRead, BUFFER_SIZE - readPos);
             System.arraycopy(buffer, readPos, target, offset, first);
+
             int remain = toRead - first;
-            if (remain > 0) System.arraycopy(buffer, 0, target, offset + first, remain);
+            if (remain > 0)
+                System.arraycopy(buffer, 0, target, offset + first, remain);
 
             readPos = (readPos + toRead) % BUFFER_SIZE;
             available -= toRead;

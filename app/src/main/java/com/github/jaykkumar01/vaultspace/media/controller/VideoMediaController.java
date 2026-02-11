@@ -14,6 +14,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.ui.PlayerView;
@@ -40,7 +41,6 @@ public final class VideoMediaController {
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
-    private long playbackPositionMs;
 
     /* ---------------- lifecycle ---------------- */
 
@@ -114,11 +114,19 @@ public final class VideoMediaController {
 
         MediaItem item = MediaItem.fromUri("vaultspace://" + media.fileId);
 
-        player = new ExoPlayer.Builder(view.getContext())
-                .setMediaSourceFactory(msf)
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                        5_000,   // minBufferMs
+                        10_000,  // maxBufferMs
+                        1_000,   // bufferForPlaybackMs
+                        2_000    // bufferForPlaybackAfterRebufferMs
+                )
                 .build();
 
-        driveDataSource.setPlaybackPositionSupplier(() -> playbackPositionMs);
+        player = new ExoPlayer.Builder(view.getContext())
+                .setMediaSourceFactory(msf)
+                .setLoadControl(loadControl)
+                .build();
 
         player.setPlayWhenReady(playWhenReady);
         player.addListener(playerListener());
@@ -147,10 +155,6 @@ public final class VideoMediaController {
 
     private Player.Listener playerListener() {
         return new Player.Listener() {
-            @Override
-            public void onEvents(@NonNull Player player, @NonNull Player.Events events) {
-                playbackPositionMs = player.getCurrentPosition();
-            }
             @Override
             public void onPlaybackStateChanged(int state) {
                 Log.d(TAG, "state=" + stateToString(state));
