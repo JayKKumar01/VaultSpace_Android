@@ -638,4 +638,7 @@ public class Notes {
     // if you want... track the bytes already fetched for tail
 
 
+    // fix the cache and also... add cache for the images also
+
+
 }

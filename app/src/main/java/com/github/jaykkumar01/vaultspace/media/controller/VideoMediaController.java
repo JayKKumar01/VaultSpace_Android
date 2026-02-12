@@ -39,7 +39,6 @@ public final class VideoMediaController {
     private DriveAltMediaCache driveAltMediaCache;
     private AlbumMedia media;
     private MediaLoadCallback callback;
-    private DriveDataSource driveDataSource;
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
@@ -66,9 +65,6 @@ public final class VideoMediaController {
 
         if (this.media == null || !this.media.fileId.equals(media.fileId)) resumePosition = 0L;
         this.media = media;
-        // Initialize datasource early
-        if (driveDataSource != null) driveDataSource.release();
-        driveDataSource = new DriveDataSource(context, media);
         view.setVisibility(GONE);
     }
 
@@ -92,12 +88,6 @@ public final class VideoMediaController {
     public void release() {
         driveAltMediaCache.release();
         releasePlayer();
-
-        if (driveDataSource != null) {
-            driveDataSource.release();
-            driveDataSource = null;
-        }
-
         callback = null;
         media = null;
     }
@@ -110,13 +100,13 @@ public final class VideoMediaController {
         Log.d(TAG, "preparePlayer()");
         view.setVisibility(View.GONE);
         if (callback != null) callback.onMediaLoading("Loading video…");
-        DataSource.Factory upstreamFactory = () -> driveDataSource;
+        DataSource.Factory upstreamFactory = () -> new DriveDataSource(context, media);;
         CacheDataSource.Factory cacheFactory = driveAltMediaCache.wrap(media.fileId, upstreamFactory);
         DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(cacheFactory);
         MediaItem item = MediaItem.fromUri("vaultspace://" + media.fileId);
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
-                        5_000,
-                        10_000,
+                        20_000,
+                        30_000,
                         1_000,
                         2_000
                 )
@@ -147,7 +137,6 @@ public final class VideoMediaController {
             if (view.getPlayer() != null) view.setPlayer(null);
             player.release();
             player = null;
-            if (driveDataSource != null) driveDataSource.release();
         });
     }
 

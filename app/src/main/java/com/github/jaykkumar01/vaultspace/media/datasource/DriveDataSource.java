@@ -90,7 +90,9 @@ public final class DriveDataSource implements DataSource {
         session = source.open(spec.position);
         readerTask = executor.submit(() -> readerLoop(myGen, session));
 
-        return media.sizeBytes;
+        long remaining = media.sizeBytes - spec.position;
+        return remaining >= 0 ? remaining : C.LENGTH_UNSET;
+
     }
 
     /* ---------------- READER ---------------- */
@@ -107,9 +109,11 @@ public final class DriveDataSource implements DataSource {
                     if (myGen != generation.get()) return;
 
                     while (available + r > BUFFER_SIZE) {
+                        if (Thread.currentThread().isInterrupted()) return;
                         lock.wait();
                         if (myGen != generation.get()) return;
                     }
+
 
                     int first = Math.min(r, BUFFER_SIZE - writePos);
                     System.arraycopy(temp, 0, buffer, writePos, first);
@@ -149,8 +153,11 @@ public final class DriveDataSource implements DataSource {
             while (available == 0 && !eof) {
                 try {
                     lock.wait();
-                } catch (InterruptedException ignored) {
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return C.RESULT_END_OF_INPUT;
                 }
+
             }
 
             if (available == 0) return C.RESULT_END_OF_INPUT;
@@ -208,9 +215,11 @@ public final class DriveDataSource implements DataSource {
 
     @Override
     public void close() {
-        invalidate();
+        invalidate();          // cancel reader + cancel network + wake locks
+        executor.shutdownNow(); // interrupt thread + prevent reuse
         uri = null;
     }
+
 
     /* ---------------- MISC ---------------- */
 
@@ -226,9 +235,5 @@ public final class DriveDataSource implements DataSource {
     @Override
     public @NonNull Map<String, List<String>> getResponseHeaders() {
         return Collections.emptyMap();
-    }
-
-    public void release() {
-        close();
     }
 }
