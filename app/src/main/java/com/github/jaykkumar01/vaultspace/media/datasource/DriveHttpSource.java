@@ -32,17 +32,19 @@ final class DriveHttpSource implements DriveStreamSource {
         HttpURLConnection conn = getUrlConnection(position);
         int code = conn.getResponseCode();
 
-        if ((position > 0 && code != HttpURLConnection.HTTP_PARTIAL) ||
-                (position == 0 && code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL)) {
-            conn.disconnect();
-            throw new IOException();
-        }
-
+        long length = conn.getContentLengthLong();   // THIS IS KEY
         InputStream stream = conn.getInputStream();
 
+        if (code != 200 && code != 206)
+            throw new IOException("HTTP " + code);
+
         return new StreamSession() {
-            @Override public InputStream stream() { return stream; }
-            @Override public void cancel() { try { stream.close(); } catch (Exception ignored) {} conn.disconnect(); }
+            public InputStream stream() { return stream; }
+            public long length() { return length; }
+            public void cancel() {
+                try { stream.close(); } catch (Exception ignored) {}
+                conn.disconnect();
+            }
         };
     }
 

@@ -9,6 +9,8 @@ public interface DriveStreamSource {
 
     interface StreamSession {
         InputStream stream();
+        long length();     // exact bytes available from this open
         void cancel();
     }
+
 }

@@ -18,6 +18,7 @@ import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.ui.PlayerView;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
@@ -28,33 +29,37 @@ import com.github.jaykkumar01.vaultspace.media.datasource.DriveDataSource;
 @UnstableApi
 public final class VideoMediaController {
 
+    /* ---------------- CONSTANTS ---------------- */
+
     private static final String TAG = "Video:MediaController";
 
-    /* ---------------- core ---------------- */
+    /* ---------------- CORE ---------------- */
 
     private final Context context;
     private final PlayerView view;
     private final Handler main;
+    private final DriveAltMediaCache cache;
+
     private ExoPlayer player;
-    private DriveAltMediaCache driveAltMediaCache;
     private AlbumMedia media;
     private MediaLoadCallback callback;
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
+    private DriveDataSource driveSource;
 
-    /* ---------------- lifecycle ---------------- */
+    /* ---------------- CONSTRUCTOR ---------------- */
 
     public VideoMediaController(@NonNull Context context, @NonNull PlayerView view) {
         this.context = context.getApplicationContext();
         this.view = view;
-        this.driveAltMediaCache = new DriveAltMediaCache(context);
+        this.cache = new DriveAltMediaCache(context);
         this.main = new Handler(Looper.getMainLooper());
         view.setVisibility(GONE);
         Log.d(TAG, "created");
     }
 
-    /* ---------------- public api ---------------- */
+    /* ---------------- PUBLIC API ---------------- */
 
     public void setCallback(MediaLoadCallback callback) {
         this.callback = callback;
@@ -62,12 +67,12 @@ public final class VideoMediaController {
 
     public void show(@NonNull AlbumMedia media) {
         Log.d(TAG, "show(" + media.fileId + ")");
-
         if (this.media == null || !this.media.fileId.equals(media.fileId)) resumePosition = 0L;
         this.media = media;
+        driveSource = new DriveDataSource(context, media);
+        
         view.setVisibility(GONE);
     }
-
 
     public void onStart() {
         if (player == null && media != null) preparePlayer();
@@ -86,24 +91,37 @@ public final class VideoMediaController {
     }
 
     public void release() {
-        driveAltMediaCache.release();
+        cache.release();
         releasePlayer();
         callback = null;
         media = null;
     }
 
-
-    /* ---------------- prepare ---------------- */
+    /* ---------------- PREPARE PLAYER ---------------- */
 
     @OptIn(markerClass = UnstableApi.class)
     private void preparePlayer() {
+
         Log.d(TAG, "preparePlayer()");
-        view.setVisibility(View.GONE);
-        if (callback != null) callback.onMediaLoading("Loading video…");
-        DataSource.Factory upstreamFactory = () -> new DriveDataSource(context, media);;
-        CacheDataSource.Factory cacheFactory = driveAltMediaCache.wrap(media.fileId, upstreamFactory);
-        DefaultMediaSourceFactory msf = new DefaultMediaSourceFactory(cacheFactory);
-        MediaItem item = MediaItem.fromUri("vaultspace://" + media.fileId);
+        view.setVisibility(GONE);
+
+        if (callback != null)
+            callback.onMediaLoading("Loading video…");
+
+        /* ---------- datasource ---------- */
+
+        DataSource.Factory upstream = () -> driveSource;
+        CacheDataSource.Factory cacheFactory = cache.wrap(media.fileId, upstream);
+
+        /* ---------- media source (EXPLICIT) ---------- */
+
+        MediaItem mediaItem = MediaItem.fromUri("vaultspace://drive/" + media.fileId);
+
+
+        ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(cacheFactory).createMediaSource(mediaItem);
+
+        /* ---------- buffering ---------- */
+
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
                         20_000,
                         30_000,
@@ -112,22 +130,27 @@ public final class VideoMediaController {
                 )
                 .build();
 
+        /* ---------- player ---------- */
+
         player = new ExoPlayer.Builder(view.getContext())
-                .setMediaSourceFactory(msf)
                 .setLoadControl(loadControl)
                 .build();
 
         player.setRepeatMode(Player.REPEAT_MODE_ONE);
         player.setPlayWhenReady(playWhenReady);
         player.addListener(playerListener());
-        player.setMediaItem(item);
+
+        /* ---------- attach ---------- */
+
+        player.setMediaSource(mediaSource);
         player.prepare();
 
-        if (resumePosition > 0) player.seekTo(resumePosition);
+        if (resumePosition > 0)
+            player.seekTo(resumePosition);
     }
 
 
-    /* ---------------- release ---------------- */
+    /* ---------------- RELEASE PLAYER ---------------- */
 
     private void releasePlayer() {
         main.post(() -> {
@@ -140,8 +163,7 @@ public final class VideoMediaController {
         });
     }
 
-
-    /* ---------------- listener ---------------- */
+    /* ---------------- PLAYER LISTENER ---------------- */
 
     private Player.Listener playerListener() {
         return new Player.Listener() {
@@ -150,8 +172,7 @@ public final class VideoMediaController {
                 Log.d(TAG, "state=" + stateToString(state));
                 if (state == Player.STATE_READY && player != null) {
                     main.post(() -> {
-                        if (view.getPlayer() == null)
-                            view.setPlayer(player);
+                        if (view.getPlayer() == null) view.setPlayer(player);
                         view.setVisibility(View.VISIBLE);
                         if (callback != null) callback.onMediaReady();
                     });
@@ -159,6 +180,8 @@ public final class VideoMediaController {
             }
         };
     }
+
+    /* ---------------- STATE STRING ---------------- */
 
     private static String stateToString(int s) {
         return switch (s) {
