@@ -8,36 +8,43 @@ import com.github.jaykkumar01.vaultspace.core.auth.DriveAuthGate;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Call;
+import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
 
 final class DriveOkHttpSource implements DriveStreamSource {
 
     private static final String BASE_URL = "https://www.googleapis.com/drive/v3/files/";
-    private static final int CONNECT_TIMEOUT_MS = 8000;
-    private static final int READ_TIMEOUT_MS = 20000;
+    private static final int CONNECT_TIMEOUT_MS = 6000;
+    private static final int READ_TIMEOUT_MS = 15000;
 
-    /* ========================= SHARED CLIENT ========================= */
+    /* ---------------- SHARED HTTP/2 CLIENT ---------------- */
 
-    private static final OkHttpClient CLIENT =
-            new OkHttpClient.Builder()
-                    .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    .readTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    .retryOnConnectionFailure(true)
-                    .build();
+    private static final ConnectionPool CONNECTION_POOL =
+            new ConnectionPool(8, 5, TimeUnit.MINUTES);
 
-    /* ========================= CORE ========================= */
+    private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .readTimeout(READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .connectionPool(CONNECTION_POOL)
+            .protocols(java.util.Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
+            .retryOnConnectionFailure(true)
+            .build();
 
-    private final String fileId;
+
+    /* ---------------- CORE ---------------- */
+
     private final Context appContext;
-
+    private final String fileId;
     private String token;
 
-    DriveOkHttpSource(Context context, String fileId) {
+    DriveOkHttpSource(@NonNull Context context, @NonNull String fileId) {
         this.appContext = context.getApplicationContext();
         this.fileId = fileId;
     }
@@ -47,26 +54,23 @@ final class DriveOkHttpSource implements DriveStreamSource {
     @Override
     public StreamSession open(long position) throws IOException {
 
-        Call call = buildCall(position, false);
+        Call call = newCall(position, false);
         Response response = call.execute();
 
-        // Retry once if unauthorized
         if (response.code() == 401) {
             response.close();
             token = null;
-            call = buildCall(position, true);
+            call = newCall(position, true);
             response = call.execute();
         }
 
         if (!response.isSuccessful())
             throw new IOException("HTTP " + response.code());
 
-        long length = response.body().contentLength();
-
-        InputStream stream = response.body().byteStream();
-
-        Call finalCall = call;
-        Response finalResponse = response;
+        final InputStream stream = response.body().byteStream();
+        final long length = response.body().contentLength();
+        final Call finalCall = call;
+        final Response finalResponse = response;
 
         return new StreamSession() {
 
@@ -82,7 +86,10 @@ final class DriveOkHttpSource implements DriveStreamSource {
 
             @Override
             public void cancel() {
-                try { stream.close(); } catch (Exception ignored) {}
+                try {
+                    stream.close();
+                } catch (Exception ignored) {
+                }
                 finalCall.cancel();
                 finalResponse.close();
             }
@@ -91,12 +98,10 @@ final class DriveOkHttpSource implements DriveStreamSource {
 
     /* ========================= REQUEST ========================= */
 
-    @NonNull
-    private Call buildCall(long position, boolean forceRefreshToken) throws IOException {
+    private Call newCall(long position, boolean forceRefresh) {
 
-        if (token == null || forceRefreshToken) {
+        if (token == null || forceRefresh)
             token = DriveAuthGate.get(appContext).getToken();
-        }
 
         String url = BASE_URL + fileId + "?alt=media";
 
@@ -106,11 +111,9 @@ final class DriveOkHttpSource implements DriveStreamSource {
                 .header("Authorization", "Bearer " + token)
                 .header("Accept-Encoding", "identity");
 
-        if (position > 0) {
+        if (position > 0)
             builder.header("Range", "bytes=" + position + "-");
-        }
 
-        Request request = builder.build();
-        return CLIENT.newCall(request);
+        return CLIENT.newCall(builder.build());
     }
 }

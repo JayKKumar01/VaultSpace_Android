@@ -81,20 +81,20 @@ public final class VideoMediaController {
         Log.d(TAG, "show(" + media.fileId + ")");
         this.media = media;
 
-        /* ---- Build single upstream & cache factory ---- */
+        /* ---- Playback DataSource ---- */
 
         driveSource = new DriveDataSource(context, media);
-        DataSource.Factory upstream = () -> driveSource;
-        cacheFactory = cache.wrap(media.fileId, upstream);
+        DataSource.Factory playbackUpstream = () -> driveSource;
+        cacheFactory = cache.wrap(media.fileId, playbackUpstream);
 
-        /* ---- Prefetch coordinator uses SAME cache factory ---- */
+        /* ---- Prefetch (self-contained) ---- */
 
-        prefetch = new DrivePrefetchCoordinator(media, cacheFactory);
+        prefetch = new DrivePrefetchCoordinator(context, media, cache);
 
         activeSession = sessionCounter.incrementAndGet();
-
         view.setVisibility(GONE);
     }
+
 
     public void onStart() {
         if (player != null || media == null) return;
@@ -103,12 +103,9 @@ public final class VideoMediaController {
 
         long session = activeSession;
 
-//        preparePlayer();
-
         prefetch.start(() ->
                 main.post(() -> {
                     if (session == activeSession) {
-                        driveSource.onPrefetchReady();
                         preparePlayer();
                     }
                 })
@@ -153,7 +150,7 @@ public final class VideoMediaController {
                 .createMediaSource(mediaItem);
 
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
-                        20_000,   // min buffer
+                        5_000,   // min buffer
                         30_000,   // max buffer
                         1_000,    // playback start
                         2_000     // rebuffer

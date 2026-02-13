@@ -1,14 +1,19 @@
 package com.github.jaykkumar01.vaultspace.media.controller;
 
+import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.cache.CacheDataSource;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.media.cache.DriveAltMediaCache;
+import com.github.jaykkumar01.vaultspace.media.datasource.DrivePrefetchDataSource;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,19 +23,33 @@ public final class DrivePrefetchCoordinator {
     private static final String TAG = "DrivePrefetch";
     private static final String SCHEME = "vaultspace://drive/";
 
+    /* ---------------- CORE ---------------- */
+
+    private final Context context;
     private final AlbumMedia media;
-    private final CacheDataSource.Factory cacheFactory;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final DriveAltMediaCache cache;
+
+    /* ---------------- EXECUTION ---------------- */
+
+    private final ExecutorService executor = Executors.newFixedThreadPool(2);
+
+    /* ---------------- STATE ---------------- */
 
     private volatile boolean cancelled;
 
     public interface Callback { void onPrefetchComplete(); }
 
-    public DrivePrefetchCoordinator(@NonNull AlbumMedia media,
-                                    @NonNull CacheDataSource.Factory cacheFactory) {
+    public DrivePrefetchCoordinator(@NonNull Context context,
+                                    @NonNull AlbumMedia media,
+                                    @NonNull DriveAltMediaCache cache) {
+        this.context = context.getApplicationContext();
         this.media = media;
-        this.cacheFactory = cacheFactory;
+        this.cache = cache;
     }
+
+    /* ============================================================= */
+    /* =========================== START ============================ */
+    /* ============================================================= */
 
     public void start(@NonNull Callback callback) {
 
@@ -39,32 +58,41 @@ public final class DrivePrefetchCoordinator {
             return;
         }
 
-        executor.execute(() -> {
+        CountDownLatch latch = new CountDownLatch(2);
 
-            if (cancelled) return;
+        executor.execute(() -> { try { prefetchRange(0L, media.headRequiredBytes); }
+        finally { latch.countDown(); } });
 
-            prefetch(0, media.headRequiredBytes);
+        executor.execute(() -> { try { prefetchRange(media.getTailStartPosition(), media.tailRequiredBytes); }
+        finally { latch.countDown(); } });
 
-            if (cancelled) return;
-
-            prefetch(media.getTailStartPosition(), media.tailRequiredBytes);
-
-            if (cancelled) return;
-
-            callback.onPrefetchComplete();
-        });
+        // Wait outside executor threads
+        new Thread(() -> {
+            try { latch.await(); } catch (InterruptedException ignored) {}
+            if (!cancelled) callback.onPrefetchComplete();
+        }).start();
     }
 
-    private void prefetch(long position, long length) {
+    /* ============================================================= */
+    /* ========================= PREFETCH =========================== */
+    /* ============================================================= */
 
-        if (position < 0 || length <= 0) return;
+    private void prefetchRange(long position, long length) {
+
+        if (position < 0 || length <= 0 || cancelled) return;
 
         Log.d(TAG, "Prefetch " + position + " → " + (position + length));
+
+        DrivePrefetchDataSource upstream =
+                new DrivePrefetchDataSource(context, media.fileId);
+
+        DataSource.Factory upstreamFactory = () -> upstream;
+        CacheDataSource.Factory factory = cache.wrap(media.fileId, upstreamFactory);
 
         CacheDataSource ds = null;
 
         try {
-            ds = cacheFactory.createDataSource();
+            ds = factory.createDataSource();
 
             DataSpec spec = new DataSpec.Builder()
                     .setUri(SCHEME + media.fileId)
@@ -78,18 +106,21 @@ public final class DrivePrefetchCoordinator {
             long remaining = length;
 
             while (!cancelled && remaining > 0) {
-                int read = ds.read(buffer, 0,
-                        (int) Math.min(buffer.length, remaining));
+                int read = ds.read(buffer, 0, (int) Math.min(buffer.length, remaining));
                 if (read == -1) break;
                 remaining -= read;
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "Prefetch error", e);
+            Log.e(TAG, "Prefetch error @" + position, e);
         } finally {
             try { if (ds != null) ds.close(); } catch (Exception ignored) {}
         }
     }
+
+    /* ============================================================= */
+    /* =========================== CANCEL =========================== */
+    /* ============================================================= */
 
     public void cancel() {
         cancelled = true;

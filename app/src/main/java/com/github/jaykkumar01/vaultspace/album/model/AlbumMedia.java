@@ -58,12 +58,8 @@ public final class AlbumMedia {
         this.durationMillis = item.durationMillis;
 
         // default 0 (means no prefetch optimization)
-        this.headRequiredBytes = 0;
-        this.tailRequiredBytes = 0;
-
-        // TEMP values for fileId=1h43Ki9tkJySoXi18kgs9WMX2LBkMI7WD
-        this.headRequiredBytes = 65536L;
-        this.tailRequiredBytes = 31459L;
+        this.headRequiredBytes = 64 * 1024;
+        this.tailRequiredBytes = 64 * 1024;
     }
 
     /* ---------------- Convenience ---------------- */
