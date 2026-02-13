@@ -122,9 +122,7 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
 
     private void setupControllers() {
         imageController = new ImageMediaController(this, imageView);
-        videoController = new VideoMediaController(this, playerView);
-        imageController.setCallback(this);
-        videoController.setCallback(this);
+        videoController = new VideoMediaController(this, playerView,this);
     }
 
     private void setupOrientationHandling() {

@@ -14,60 +14,92 @@ import java.net.URL;
 final class DriveHttpSource implements DriveStreamSource {
 
     private static final String BASE_URL = "https://www.googleapis.com/drive/v3/files/";
+    private static final int CONNECT_TIMEOUT_MS = 8000;
+    private static final int READ_TIMEOUT_MS = 20000;
 
     private final String fileId;
     private final Context appContext;
+
+    // Token cached per instance
     private String token;
 
-    DriveHttpSource(Context context,String fileId) {
-        appContext = context.getApplicationContext();
+    DriveHttpSource(Context context, String fileId) {
+        this.appContext = context.getApplicationContext();
         this.fileId = fileId;
     }
 
-
+    /* ========================= OPEN ========================= */
 
     @Override
     public StreamSession open(long position) throws IOException {
 
-        HttpURLConnection conn = getUrlConnection(position);
+        HttpURLConnection conn = buildConnection(position, false);
+
         int code = conn.getResponseCode();
 
-        long length = conn.getContentLengthLong();   // THIS IS KEY
-        InputStream stream = conn.getInputStream();
+        // If token expired, retry once with fresh token
+        if (code == HttpURLConnection.HTTP_UNAUTHORIZED) {
+            conn.disconnect();
+            token = null;
+            conn = buildConnection(position, true);
+            code = conn.getResponseCode();
+        }
 
-        if (code != 200 && code != 206)
+        if (code != HttpURLConnection.HTTP_OK &&
+                code != HttpURLConnection.HTTP_PARTIAL)
             throw new IOException("HTTP " + code);
 
+        long length = conn.getContentLengthLong();
+        InputStream stream = conn.getInputStream();
+
+        HttpURLConnection finalConn = conn;
         return new StreamSession() {
-            public InputStream stream() { return stream; }
-            public long length() { return length; }
+
+            @Override
+            public InputStream stream() {
+                return stream;
+            }
+
+            @Override
+            public long length() {
+                return length;
+            }
+
+            @Override
             public void cancel() {
                 try { stream.close(); } catch (Exception ignored) {}
-                conn.disconnect();
+                // Do NOT aggressively disconnect if fully read
+                finalConn.disconnect();
             }
         };
     }
 
+    /* ========================= CONNECTION ========================= */
 
     @NonNull
-    private HttpURLConnection getUrlConnection(long position) throws IOException {
-        if (token == null){
-            this.token = DriveAuthGate.get(appContext).getToken();
+    private HttpURLConnection buildConnection(long position, boolean forceRefreshToken) throws IOException {
+
+        if (token == null || forceRefreshToken) {
+            token = DriveAuthGate.get(appContext).getToken();
         }
+
         URL url = new URL(BASE_URL + fileId + "?alt=media");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 
         conn.setRequestMethod("GET");
-        conn.setRequestProperty("Authorization","Bearer " + token);
-        conn.setRequestProperty("Accept-Encoding","identity");
+        conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        conn.setReadTimeout(READ_TIMEOUT_MS);
 
-        if (position > 0)
-            conn.setRequestProperty("Range","bytes=" + position + "-");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        conn.setRequestProperty("Accept-Encoding", "identity");
+        conn.setRequestProperty("Connection", "keep-alive");
 
-        conn.setConnectTimeout(8000);
-        conn.setReadTimeout(20000);
+        if (position > 0) {
+            conn.setRequestProperty("Range", "bytes=" + position + "-");
+        }
+
         conn.setUseCaches(false);
-        conn.connect();
+
         return conn;
     }
 }

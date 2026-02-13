@@ -3,6 +3,8 @@ package com.github.jaykkumar01.vaultspace.core.session;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.github.jaykkumar01.vaultspace.core.drive.AlbumMediaRepository;
+import com.github.jaykkumar01.vaultspace.core.drive.AlbumsRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.DriveFolderRepository;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.cache.AppCacheManager;
@@ -84,6 +86,8 @@ public class UserSession {
         UploadOrchestrator.getInstance(appContext).onSessionCleared();
         DriveFolderRepository.onSessionCleared();
         TrustedAccountsRepository.destroy();
+        AlbumsRepository.destroy();
+        AlbumMediaRepository.destroy();
         AppCacheManager.clearCache(appContext);
     }
 }

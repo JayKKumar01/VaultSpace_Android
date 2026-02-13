@@ -318,4 +318,17 @@ public final class AlbumMediaRepository {
 
         mainHandler.post(() -> l.onCountsChanged(photos,videos));
     }
+
+    public static void destroy() {
+        synchronized (AlbumsRepository.class) {
+            if (INSTANCE != null) {
+                INSTANCE.releaseInternal();
+                INSTANCE = null;
+            }
+        }
+    }
+
+    private void releaseInternal() {
+        executor.shutdown();
+    }
 }

@@ -17,7 +17,6 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.ui.PlayerView;
 
@@ -26,60 +25,97 @@ import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
 import com.github.jaykkumar01.vaultspace.media.cache.DriveAltMediaCache;
 import com.github.jaykkumar01.vaultspace.media.datasource.DriveDataSource;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 @UnstableApi
 public final class VideoMediaController {
 
-    /* ---------------- CONSTANTS ---------------- */
-
     private static final String TAG = "Video:MediaController";
+    private static final String SCHEME = "vaultspace://drive/";
 
     /* ---------------- CORE ---------------- */
 
     private final Context context;
     private final PlayerView view;
-    private final Handler main;
+    private final MediaLoadCallback callback;
     private final DriveAltMediaCache cache;
+
+    private final Handler main = new Handler(Looper.getMainLooper());
 
     private ExoPlayer player;
     private AlbumMedia media;
-    private MediaLoadCallback callback;
 
     private boolean playWhenReady = true;
     private long resumePosition = 0L;
+
+    /* ---------------- DATA PIPELINE ---------------- */
+
     private DriveDataSource driveSource;
+    private CacheDataSource.Factory cacheFactory;
+    private DrivePrefetchCoordinator prefetch;
+
+    /* ---------------- SESSION CONTROL ---------------- */
+
+    private final AtomicLong sessionCounter = new AtomicLong(0);
+    private long activeSession = -1;
 
     /* ---------------- CONSTRUCTOR ---------------- */
 
-    public VideoMediaController(@NonNull Context context, @NonNull PlayerView view) {
+    public VideoMediaController(@NonNull Context context,
+                                @NonNull PlayerView view,
+                                @NonNull MediaLoadCallback callback) {
         this.context = context.getApplicationContext();
         this.view = view;
-        this.cache = new DriveAltMediaCache(context);
-        this.main = new Handler(Looper.getMainLooper());
+        this.callback = callback;
+        this.cache = new DriveAltMediaCache(this.context);
         view.setVisibility(GONE);
         Log.d(TAG, "created");
     }
 
-    /* ---------------- PUBLIC API ---------------- */
-
-    public void setCallback(MediaLoadCallback callback) {
-        this.callback = callback;
-    }
+    /* ============================================================= */
+    /* ======================== PUBLIC API ========================== */
+    /* ============================================================= */
 
     public void show(@NonNull AlbumMedia media) {
+
         Log.d(TAG, "show(" + media.fileId + ")");
-        if (this.media == null || !this.media.fileId.equals(media.fileId)) resumePosition = 0L;
         this.media = media;
+
+        /* ---- Build single upstream & cache factory ---- */
+
         driveSource = new DriveDataSource(context, media);
-        
+        DataSource.Factory upstream = () -> driveSource;
+        cacheFactory = cache.wrap(media.fileId, upstream);
+
+        /* ---- Prefetch coordinator uses SAME cache factory ---- */
+
+        prefetch = new DrivePrefetchCoordinator(media, cacheFactory);
+
+        activeSession = sessionCounter.incrementAndGet();
+
         view.setVisibility(GONE);
     }
 
     public void onStart() {
-        if (player == null && media != null) preparePlayer();
+        if (player != null || media == null) return;
+
+        callback.onMediaLoading("Loading video…");
+
+        long session = activeSession;
+        preparePlayer();
+
+//        prefetch.start(() ->
+//                main.post(() -> {
+//                    if (session == activeSession) {
+//                        preparePlayer();
+//                    }
+//                })
+//        );
     }
 
     public void onResume() {
-        if (player != null) player.setPlayWhenReady(playWhenReady);
+        if (player != null)
+            player.setPlayWhenReady(playWhenReady);
     }
 
     public void onPause() {
@@ -87,17 +123,21 @@ public final class VideoMediaController {
     }
 
     public void onStop() {
+        if (prefetch != null) prefetch.cancel();
         releasePlayer();
     }
 
     public void release() {
-        cache.release();
+        activeSession = -1;
+        if (prefetch != null) prefetch.cancel();
         releasePlayer();
-        callback = null;
+        cache.release();
         media = null;
     }
 
-    /* ---------------- PREPARE PLAYER ---------------- */
+    /* ============================================================= */
+    /* ===================== PLAYER CREATION ======================= */
+    /* ============================================================= */
 
     @OptIn(markerClass = UnstableApi.class)
     private void preparePlayer() {
@@ -105,42 +145,24 @@ public final class VideoMediaController {
         Log.d(TAG, "preparePlayer()");
         view.setVisibility(GONE);
 
-        if (callback != null)
-            callback.onMediaLoading("Loading video…");
+        MediaItem mediaItem = MediaItem.fromUri(SCHEME + media.fileId);
 
-        /* ---------- datasource ---------- */
-
-        DataSource.Factory upstream = () -> driveSource;
-        CacheDataSource.Factory cacheFactory = cache.wrap(media.fileId, upstream);
-
-        /* ---------- media source (EXPLICIT) ---------- */
-
-        MediaItem mediaItem = MediaItem.fromUri("vaultspace://drive/" + media.fileId);
-
-
-        ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(cacheFactory).createMediaSource(mediaItem);
-
-        /* ---------- buffering ---------- */
+        ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(cacheFactory)
+                .createMediaSource(mediaItem);
 
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder().setBufferDurationsMs(
-                        20_000,
-                        30_000,
-                        1_000,
-                        2_000
+                        20_000,   // min buffer
+                        30_000,   // max buffer
+                        1_000,    // playback start
+                        2_000     // rebuffer
                 )
                 .build();
 
-        /* ---------- player ---------- */
-
-        player = new ExoPlayer.Builder(view.getContext())
-                .setLoadControl(loadControl)
-                .build();
+        player = new ExoPlayer.Builder(view.getContext()).setLoadControl(loadControl).build();
 
         player.setRepeatMode(Player.REPEAT_MODE_ONE);
         player.setPlayWhenReady(playWhenReady);
         player.addListener(playerListener());
-
-        /* ---------- attach ---------- */
 
         player.setMediaSource(mediaSource);
         player.prepare();
@@ -149,39 +171,52 @@ public final class VideoMediaController {
             player.seekTo(resumePosition);
     }
 
-
-    /* ---------------- RELEASE PLAYER ---------------- */
+    /* ============================================================= */
+    /* ===================== PLAYER RELEASE ======================== */
+    /* ============================================================= */
 
     private void releasePlayer() {
-        main.post(() -> {
-            if (player == null) return;
-            resumePosition = player.getCurrentPosition();
-            playWhenReady = player.getPlayWhenReady();
-            if (view.getPlayer() != null) view.setPlayer(null);
-            player.release();
-            player = null;
-        });
+
+        if (player == null) return;
+
+        driveSource.onPlayerRelease();
+
+        resumePosition = player.getCurrentPosition();
+        playWhenReady = player.getPlayWhenReady();
+
+        if (view.getPlayer() != null)
+            view.setPlayer(null);
+
+        player.release();
+        player = null;
     }
 
-    /* ---------------- PLAYER LISTENER ---------------- */
+    /* ============================================================= */
+    /* ====================== PLAYER LISTENER ====================== */
+    /* ============================================================= */
 
     private Player.Listener playerListener() {
         return new Player.Listener() {
             @Override
             public void onPlaybackStateChanged(int state) {
+
                 Log.d(TAG, "state=" + stateToString(state));
+
                 if (state == Player.STATE_READY && player != null) {
+
+                    driveSource.onPlayerReady();
+
                     main.post(() -> {
-                        if (view.getPlayer() == null) view.setPlayer(player);
+                        if (view.getPlayer() == null)
+                            view.setPlayer(player);
+
                         view.setVisibility(View.VISIBLE);
-                        if (callback != null) callback.onMediaReady();
+                        callback.onMediaReady();
                     });
                 }
             }
         };
     }
-
-    /* ---------------- STATE STRING ---------------- */
 
     private static String stateToString(int s) {
         return switch (s) {

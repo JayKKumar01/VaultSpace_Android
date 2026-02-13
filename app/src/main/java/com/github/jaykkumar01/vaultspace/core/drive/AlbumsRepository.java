@@ -227,4 +227,18 @@ public final class AlbumsRepository {
             for (AlbumsListener l : listeners) l.onAlbumUpdated(a);
         });
     }
+
+    public static void destroy() {
+        synchronized (AlbumsRepository.class) {
+            if (INSTANCE != null) {
+                INSTANCE.releaseInternal();
+                INSTANCE = null;
+            }
+        }
+    }
+
+    private void releaseInternal() {
+        listeners.clear();
+        executor.shutdown();
+    }
 }

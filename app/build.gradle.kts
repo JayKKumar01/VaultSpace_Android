@@ -70,6 +70,9 @@ dependencies {
 
     implementation("androidx.media3:media3-exoplayer:1.9.1")
     implementation("androidx.media3:media3-ui:1.9.1")
+    // OkHttp (connection pooling + HTTP/2)
+    implementation("com.squareup.okhttp3:okhttp:5.3.2")
+
 
 
 

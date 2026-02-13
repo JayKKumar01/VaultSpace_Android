@@ -17,10 +17,28 @@ public final class AlbumMedia {
     public String thumbnailLink;
     public boolean isVideo;
 
-    // 🔑 layout / playback-critical
+    /* ---------------- Playback Critical ---------------- */
+
     public final float aspectRatio;
     public final int rotation;
-    public final long durationMillis;   // 🟢 VIDEO ONLY
+    public final long durationMillis;
+
+    /* ---------------- Startup Optimization ---------------- */
+
+    /**
+     * Exact number of bytes required from start of file
+     * to reach PLAYER_READY.
+     * <p>
+     * Range: 0 → headRequiredBytes
+     */
+    public long headRequiredBytes;
+
+    /**
+     * Exact tail probe size.
+     * <p>
+     * Range: (fileSize - tailRequiredBytes) → fileSize
+     */
+    public long tailRequiredBytes;
 
     public AlbumMedia(UploadedItem item) {
         this.fileId = item.fileId;
@@ -38,5 +56,24 @@ public final class AlbumMedia {
         this.aspectRatio = item.aspectRatio;
         this.rotation = item.rotation;
         this.durationMillis = item.durationMillis;
+
+        // default 0 (means no prefetch optimization)
+        this.headRequiredBytes = 0;
+        this.tailRequiredBytes = 0;
+
+        // TEMP values for fileId=1h43Ki9tkJySoXi18kgs9WMX2LBkMI7WD
+        this.headRequiredBytes = 3_259_537L; //3 259 537, so it is not fixed, it changes with our setup not uri, wtf we need to fix it
+        this.tailRequiredBytes = 31_459L;
+    }
+
+    /* ---------------- Convenience ---------------- */
+
+    public boolean hasStartupLayoutInfo() {
+        return headRequiredBytes > 0 || tailRequiredBytes > 0;
+    }
+
+    public long getTailStartPosition() {
+        if (tailRequiredBytes <= 0 || sizeBytes <= 0) return -1;
+        return sizeBytes - tailRequiredBytes;
     }
 }
