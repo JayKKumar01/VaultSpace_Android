@@ -137,6 +137,17 @@ public final class UriUtils {
                 }
             } catch (Exception ignored) {
             }
+            Mp4LayoutAnalyzer.Result layout = Mp4LayoutAnalyzer.analyze(cr, uri, base.sizeBytes);
+
+            if (layout != null) {
+                Log.d(TAG,
+                        "MP4 layout | moovStart=" + layout.moovStart +
+                                " moovSize=" + layout.moovSize +
+                                " moovAtTail=" + layout.moovAtTail +
+                                " headRequiredBytes=" + layout.headRequiredBytes +
+                                " tailRequiredBytes=" + layout.tailRequiredBytes);
+            }
+
         }
 
 

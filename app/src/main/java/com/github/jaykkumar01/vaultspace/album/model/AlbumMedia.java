@@ -62,8 +62,8 @@ public final class AlbumMedia {
         this.tailRequiredBytes = 0;
 
         // TEMP values for fileId=1h43Ki9tkJySoXi18kgs9WMX2LBkMI7WD
-        this.headRequiredBytes = 3_259_537L; //3 259 537, so it is not fixed, it changes with our setup not uri, wtf we need to fix it
-        this.tailRequiredBytes = 31_459L;
+        this.headRequiredBytes = 65536L;
+        this.tailRequiredBytes = 31459L;
     }
 
     /* ---------------- Convenience ---------------- */

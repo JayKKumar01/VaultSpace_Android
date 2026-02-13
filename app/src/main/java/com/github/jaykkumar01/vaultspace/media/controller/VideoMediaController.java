@@ -102,15 +102,17 @@ public final class VideoMediaController {
         callback.onMediaLoading("Loading video…");
 
         long session = activeSession;
-        preparePlayer();
 
-//        prefetch.start(() ->
-//                main.post(() -> {
-//                    if (session == activeSession) {
-//                        preparePlayer();
-//                    }
-//                })
-//        );
+//        preparePlayer();
+
+        prefetch.start(() ->
+                main.post(() -> {
+                    if (session == activeSession) {
+                        driveSource.onPrefetchReady();
+                        preparePlayer();
+                    }
+                })
+        );
     }
 
     public void onResume() {

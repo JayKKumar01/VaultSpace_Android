@@ -23,37 +23,28 @@ import java.util.Map;
 @UnstableApi
 public final class DriveDataSource implements DataSource {
 
-    /* ========================= CONSTANTS ========================= */
-
     private static final String TAG = "DriveDataSource";
 
-    /* ========================= CORE ========================= */
+    /* ---------------- CORE ---------------- */
 
     private final DriveStreamSource source;
     private final AlbumMedia media;
 
-    /* ========================= SESSION ========================= */
+    /* ---------------- TIMING ---------------- */
+
+    private long startNs = 0L;
+    private boolean timerStarted = false;
+
+    /* ---------------- SESSION ---------------- */
 
     private DriveStreamSource.StreamSession session;
     private InputStream stream;
 
-    /* ========================= STATE ========================= */
+    /* ---------------- STATE ---------------- */
 
     private @Nullable Uri uri;
     private long openPosition;
-    private boolean opened;
-
-    /* ========================= READY METRICS ========================= */
-
-    private long firstOpenStartNs;
-    private boolean firstOpenLogged;
-
-    private long lastOpenPosition;
-    private long bytesReadInCycle;
-
-    private long tailOpenPosition = -1;
-
-    /* ========================= CONSTRUCTOR ========================= */
+    private long bytesRead;
 
     public DriveDataSource(Context context, AlbumMedia media) {
         this.media = media;
@@ -66,27 +57,19 @@ public final class DriveDataSource implements DataSource {
     @Override
     public long open(DataSpec spec) throws IOException {
 
+        if (!timerStarted) {
+            startNs = System.nanoTime();
+            timerStarted = true;
+        }
+
         uri = spec.uri;
         openPosition = spec.position;
-        lastOpenPosition = openPosition;
-        bytesReadInCycle = 0;
-
-        if (!firstOpenLogged) {
-            firstOpenStartNs = System.nanoTime();
-            firstOpenLogged = true;
-        }
-
-        // Detect tail probe
-        if (media.sizeBytes > 0 && openPosition > 0 &&
-                openPosition > media.sizeBytes / 2) {
-            tailOpenPosition = openPosition;
-        }
+        bytesRead = 0;
 
         Log.d(TAG, "OPEN @" + openPosition + " fileId=" + media.fileId);
 
         session = source.open(openPosition);
         stream = session.stream();
-        opened = true;
 
         long length = session.length();
         return length >= 0 ? length : C.LENGTH_UNSET;
@@ -97,16 +80,16 @@ public final class DriveDataSource implements DataSource {
     @Override
     public int read(@NonNull byte[] target, int offset, int length) throws IOException {
 
-        if (!opened || stream == null)
+        if (stream == null)
             return C.RESULT_END_OF_INPUT;
 
-        int bytesRead = stream.read(target, offset, length);
+        int read = stream.read(target, offset, length);
 
-        if (bytesRead == -1)
+        if (read == -1)
             return C.RESULT_END_OF_INPUT;
 
-        bytesReadInCycle += bytesRead;
-        return bytesRead;
+        bytesRead += read;
+        return read;
     }
 
     /* ========================= CLOSE ========================= */
@@ -114,58 +97,45 @@ public final class DriveDataSource implements DataSource {
     @Override
     public void close() {
 
-        if (!opened)
-            return;
+        try { if (stream != null) stream.close(); } catch (Exception ignored) {}
+        try { if (session != null) session.cancel(); } catch (Exception ignored) {}
 
-        try {
-            if (stream != null)
-                stream.close();
-        } catch (Exception ignored) {}
-
-        try {
-            if (session != null)
-                session.cancel();
-        } catch (Exception ignored) {}
+        Log.d(TAG,
+                "CLOSE @" + openPosition +
+                        " fileId=" + media.fileId +
+                        " bytesRead=" + bytesRead
+        );
 
         stream = null;
         session = null;
         uri = null;
-        opened = false;
+    }
 
-        Log.d(TAG, "CLOSE @" + openPosition + " fileId=" + media.fileId);
+    /* ========================= PREFETCH READY ========================= */
+
+    /**
+     * Call this right before player.prepare()
+     * if you are using prefetch.
+     */
+    public void onPrefetchReady() {
+        startNs = System.nanoTime();
+        timerStarted = true;
     }
 
     /* ========================= PLAYER READY ========================= */
 
     public void onPlayerReady() {
+        if (!timerStarted) return;
 
-        if (!firstOpenLogged)
-            return;
-
-        long readyMs = (System.nanoTime() - firstOpenStartNs) / 1_000_000;
-
-        long headRequiredBytes = lastOpenPosition + bytesReadInCycle;
-
-        long tailProbeBytes = 0;
-        if (tailOpenPosition > 0 && media.sizeBytes > 0) {
-            tailProbeBytes = media.sizeBytes - tailOpenPosition;
-        }
-
-        Log.d(TAG,
-                "PLAYER READY fileId=" + media.fileId +
-                        " timeToReadyMs=" + readyMs +
-                        " headRequiredBytes=" + headRequiredBytes +
-                        " tailProbeBytes=" + tailProbeBytes +
-                        " fileSize=" + media.sizeBytes
-        );
+        long readyMs = (System.nanoTime() - startNs) / 1_000_000;
+        Log.d(TAG, "PLAYER READY fileId=" + media.fileId + " timeToReadyMs=" + readyMs);
     }
 
+    /* ========================= RELEASE ========================= */
+
     public void onPlayerRelease() {
-        firstOpenLogged = false;
-        firstOpenStartNs = 0L;
-        bytesReadInCycle = 0;
-        lastOpenPosition = 0;
-        tailOpenPosition = -1;
+        startNs = 0L;
+        timerStarted = false;
     }
 
     /* ========================= MISC ========================= */
