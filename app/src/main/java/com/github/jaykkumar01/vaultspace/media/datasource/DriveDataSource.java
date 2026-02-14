@@ -13,6 +13,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 
 import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
+import com.github.jaykkumar01.vaultspace.media.base.DriveStreamSource;
 
 import java.io.IOException;
 import java.io.InputStream;

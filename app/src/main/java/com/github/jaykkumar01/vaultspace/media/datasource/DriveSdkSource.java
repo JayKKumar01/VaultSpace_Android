@@ -5,6 +5,7 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.core.drive.DriveClientProvider;
+import com.github.jaykkumar01.vaultspace.media.base.DriveStreamSource;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.drive.Drive;
 

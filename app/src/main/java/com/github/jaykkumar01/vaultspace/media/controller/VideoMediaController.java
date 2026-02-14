@@ -25,8 +25,6 @@ import com.github.jaykkumar01.vaultspace.media.base.MediaLoadCallback;
 import com.github.jaykkumar01.vaultspace.media.cache.DriveAltMediaCache;
 import com.github.jaykkumar01.vaultspace.media.datasource.DriveDataSource;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 @UnstableApi
 public final class VideoMediaController {
 

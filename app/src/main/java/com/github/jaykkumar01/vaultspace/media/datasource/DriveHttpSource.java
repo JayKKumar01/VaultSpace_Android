@@ -5,6 +5,7 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.core.auth.DriveAuthGate;
+import com.github.jaykkumar01.vaultspace.media.base.DriveStreamSource;
 
 import java.io.IOException;
 import java.io.InputStream;

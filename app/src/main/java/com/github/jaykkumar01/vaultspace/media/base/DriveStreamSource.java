@@ -1,4 +1,4 @@
-package com.github.jaykkumar01.vaultspace.media.datasource;
+package com.github.jaykkumar01.vaultspace.media.base;
 
 import java.io.IOException;
 import java.io.InputStream;

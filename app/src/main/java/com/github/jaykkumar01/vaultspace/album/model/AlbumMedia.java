@@ -23,23 +23,6 @@ public final class AlbumMedia {
     public final int rotation;
     public final long durationMillis;
 
-    /* ---------------- Startup Optimization ---------------- */
-
-    /**
-     * Exact number of bytes required from start of file
-     * to reach PLAYER_READY.
-     * <p>
-     * Range: 0 → headRequiredBytes
-     */
-    public long headRequiredBytes;
-
-    /**
-     * Exact tail probe size.
-     * <p>
-     * Range: (fileSize - tailRequiredBytes) → fileSize
-     */
-    public long tailRequiredBytes;
-
     public AlbumMedia(UploadedItem item) {
         this.fileId = item.fileId;
         this.name = item.name;
@@ -56,20 +39,5 @@ public final class AlbumMedia {
         this.aspectRatio = item.aspectRatio;
         this.rotation = item.rotation;
         this.durationMillis = item.durationMillis;
-
-        // default 0 (means no prefetch optimization)
-        this.headRequiredBytes = 64 * 1024; // not actual value just temp
-        this.tailRequiredBytes = 64 * 1024; // temp
-    }
-
-    /* ---------------- Convenience ---------------- */
-
-    public boolean hasStartupLayoutInfo() {
-        return headRequiredBytes > 0 || tailRequiredBytes > 0;
-    }
-
-    public long getTailStartPosition() {
-        if (tailRequiredBytes <= 0 || sizeBytes <= 0) return -1;
-        return sizeBytes - tailRequiredBytes;
     }
 }
