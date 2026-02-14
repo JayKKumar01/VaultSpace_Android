@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 @UnstableApi
-public final class DrivePrefetchDataSource implements DataSource {
+public final class DriveHttpDataSource implements DataSource {
 
     /* ---------------- CORE ---------------- */
 
@@ -33,9 +33,8 @@ public final class DrivePrefetchDataSource implements DataSource {
 
     private @Nullable Uri uri;
 
-    public DrivePrefetchDataSource(@NonNull Context context,
-                                   @NonNull String fileId) {
-        this.source = new DriveOkHttpSource(context, fileId);
+    public DriveHttpDataSource(@NonNull Context ctx, @NonNull String fileId) {
+        this.source = new DriveOkHttpStreamSource(ctx, fileId);
     }
 
     /* ========================= OPEN ========================= */
@@ -45,9 +44,7 @@ public final class DrivePrefetchDataSource implements DataSource {
 
         uri = spec.uri;
 
-        long position = spec.position;
-
-        session = source.open(position);
+        session = source.open(spec.position);
         stream = session.stream();
 
         long length = session.length();
@@ -57,13 +54,12 @@ public final class DrivePrefetchDataSource implements DataSource {
     /* ========================= READ ========================= */
 
     @Override
-    public int read(@NonNull byte[] target, int offset, int length)
-            throws IOException {
+    public int read(@NonNull byte[] buffer, int offset, int length) throws IOException {
 
         if (stream == null)
             return C.RESULT_END_OF_INPUT;
 
-        int read = stream.read(target, offset, length);
+        int read = stream.read(buffer, offset, length);
 
         if (read == -1)
             return C.RESULT_END_OF_INPUT;
@@ -76,14 +72,11 @@ public final class DrivePrefetchDataSource implements DataSource {
     @Override
     public void close() {
 
-        try { if (stream != null) stream.close(); }
-        catch (Exception ignored) {}
-
         try { if (session != null) session.cancel(); }
         catch (Exception ignored) {}
 
-        stream = null;
         session = null;
+        stream = null;
         uri = null;
     }
 
@@ -94,4 +87,6 @@ public final class DrivePrefetchDataSource implements DataSource {
     @Override public @NonNull Map<String, List<String>> getResponseHeaders() {
         return Collections.emptyMap();
     }
+
+
 }
