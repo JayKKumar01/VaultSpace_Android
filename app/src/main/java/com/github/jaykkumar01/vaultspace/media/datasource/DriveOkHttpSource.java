@@ -68,33 +68,37 @@ final class DriveOkHttpSource implements DriveStreamSource {
             throw new IOException("HTTP " + response.code());
 
         final InputStream stream = response.body().byteStream();
-        final long length = response.body().contentLength();
+
+        long length;
+
+        if (response.code() == 206) {
+            String contentRange = response.header("Content-Range");
+            // Example: "bytes 36-999999/1000000"
+            if (contentRange != null && contentRange.contains("/")) {
+                long total = Long.parseLong(contentRange.substring(contentRange.indexOf("/") + 1));
+                length = total - position;
+            } else {
+                length = response.body().contentLength();
+            }
+        } else {
+            length = response.body().contentLength();
+        }
+
+        final long finalLength = length;
         final Call finalCall = call;
         final Response finalResponse = response;
 
         return new StreamSession() {
-
-            @Override
-            public InputStream stream() {
-                return stream;
-            }
-
-            @Override
-            public long length() {
-                return length;
-            }
-
-            @Override
-            public void cancel() {
-                try {
-                    stream.close();
-                } catch (Exception ignored) {
-                }
+            @Override public InputStream stream() { return stream; }
+            @Override public long length() { return finalLength; }
+            @Override public void cancel() {
+                try { stream.close(); } catch (Exception ignored) {}
                 finalCall.cancel();
                 finalResponse.close();
             }
         };
     }
+
 
     /* ========================= REQUEST ========================= */
 

@@ -58,8 +58,8 @@ public final class AlbumMedia {
         this.durationMillis = item.durationMillis;
 
         // default 0 (means no prefetch optimization)
-        this.headRequiredBytes = 64 * 1024;
-        this.tailRequiredBytes = 64 * 1024;
+        this.headRequiredBytes = 64 * 1024; // not actual value just temp
+        this.tailRequiredBytes = 64 * 1024; // temp
     }
 
     /* ---------------- Convenience ---------------- */
