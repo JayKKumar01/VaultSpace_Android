@@ -1,11 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/vs_content_bg"
-    tools:context=".activities.MainActivity">
+    android:background="@color/vs_content_bg">
+
+    <!-- ================= Splash Surface (Card) ================= -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/splashSurface"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:background="@drawable/splash_surface_bg"
+        android:paddingTop="48dp"
+        android:paddingBottom="40dp"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintVertical_bias="0.5">
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/vaultspace"
+            android:textColor="@color/vs_brand_text"
+            android:textSize="34sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.05"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Accent Underline -->
+        <View
+            android:id="@+id/brandUnderline"
+            android:layout_width="32dp"
+            android:layout_height="2dp"
+            android:layout_marginTop="12dp"
+            android:background="@color/vs_accent_primary"
+            android:alpha="0.85"
+            app:layout_constraintTop_toBottomOf="@id/tvTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/tvSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/secure_private_yours"
+            android:textColor="@color/vs_text_content"
+            android:textSize="13sp"
+            android:alpha="0.85"
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/brandUnderline"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- ================= Animated Border Overlay ================= -->
+    <View
+        android:id="@+id/splashBorderOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clickable="false"
+        android:focusable="false"
+        app:layout_constraintStart_toStartOf="@id/splashSurface"
+        app:layout_constraintEnd_toEndOf="@id/splashSurface"
+        app:layout_constraintTop_toTopOf="@id/splashSurface"
+        app:layout_constraintBottom_toBottomOf="@id/splashSurface"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

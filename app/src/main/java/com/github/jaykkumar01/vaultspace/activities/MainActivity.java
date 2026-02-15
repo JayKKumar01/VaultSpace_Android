@@ -3,6 +3,7 @@ package com.github.jaykkumar01.vaultspace.activities;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
@@ -14,14 +15,19 @@ import androidx.core.view.WindowInsetsCompat;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.views.anim.SplashBorderAnimator;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.DismissResult;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
-import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
 
 public class MainActivity extends AppCompatActivity {
+
     private static final String TAG = "VaultSpace:MainBoot";
+
+    /* ==========================================================
+     * Boot State
+     * ========================================================== */
 
     private enum BootState {
         IDLE,
@@ -33,28 +39,41 @@ public class MainActivity extends AppCompatActivity {
 
     private BootState state = BootState.IDLE;
 
+    /* ==========================================================
+     * Core
+     * ========================================================== */
+
     private UserSession userSession;
     private PrimaryAccountConsentHelper consentHelper;
     private String primaryEmail;
 
-    /* ---------- Modals ---------- */
+    /* ==========================================================
+     * Splash Animation
+     * ========================================================== */
+
+    private SplashBorderAnimator borderAnimator;
+
+    /* ==========================================================
+     * Modal System
+     * ========================================================== */
 
     private ModalHost modalHost;
-    private final LoadingSpec loadingSpec = new LoadingSpec();
     private ConfirmSpec retryConsentSpec;
+
+    /* ==========================================================
+     * Lifecycle
+     * ========================================================== */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         applyWindowInsets();
 
-        modalHost = ModalHost.attach(this);
-
-        userSession = new UserSession(this);
-        consentHelper = new PrimaryAccountConsentHelper(this);
-
+        initCore();
+        initSplashAnimation();
         initRetrySpec();
 
         moveToState(BootState.VALIDATING_SESSION);
@@ -69,8 +88,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /* ==========================================================
-     * Modal Setup
+     * Initialization
      * ========================================================== */
+
+    private void initCore() {
+        modalHost = ModalHost.attach(this);
+        userSession = new UserSession(this);
+        consentHelper = new PrimaryAccountConsentHelper(this);
+    }
+
+    private void initSplashAnimation() {
+        View borderOverlay = findViewById(R.id.splashBorderOverlay);
+        int accent = getColor(R.color.vs_accent_primary);
+        borderAnimator = new SplashBorderAnimator(borderOverlay, accent);
+    }
+
 
     private void initRetrySpec() {
         retryConsentSpec = new ConfirmSpec(
@@ -91,8 +123,11 @@ public class MainActivity extends AppCompatActivity {
      * ========================================================== */
 
     private void moveToState(@NonNull BootState newState) {
+
         if (state == BootState.FINISHED) return;
         if (state == newState) return;
+
+        Log.d(TAG, "State → " + newState);
 
         state = newState;
 
@@ -111,7 +146,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case FINISHED:
-                finish();
                 break;
 
             case IDLE:
@@ -125,6 +159,7 @@ public class MainActivity extends AppCompatActivity {
      * ========================================================== */
 
     private void handleSessionValidation() {
+
         if (!userSession.isLoggedIn()) {
             launchLogin();
             return;
@@ -147,11 +182,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void handleConsentValidation() {
 
-        modalHost.request(loadingSpec);
-
         consentHelper.checkConsentsSilently(primaryEmail, result -> {
-
-            modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
 
             switch (result) {
 
@@ -172,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /* ==========================================================
-     * Retry Handling (ModalHost)
+     * Retry Handling
      * ========================================================== */
 
     private void showRetryModal() {
@@ -192,27 +223,35 @@ public class MainActivity extends AppCompatActivity {
      * Navigation
      * ========================================================== */
 
-
     private void launchDashboard() {
         if (state == BootState.FINISHED) return;
 
-        state = BootState.FINISHED;
+        moveToState(BootState.FINISHED);
 
         Log.d(TAG, "Boot SUCCESS → Consent GRANTED. Dashboard would launch now.");
+        // Replace log with actual navigation when ready:
+        // startActivity(new Intent(this, DashboardActivity.class));
+        // finish();
     }
-
 
     private void launchLogin() {
         if (state == BootState.FINISHED) return;
-        state = BootState.FINISHED;
+
+        moveToState(BootState.FINISHED);
+
         startActivity(new Intent(this, LoginActivity.class));
         finish();
     }
 
+    /* ==========================================================
+     * Cleanup
+     * ========================================================== */
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
+        if (borderAnimator != null) borderAnimator.release();
+
         if (retryConsentSpec != null) {
             modalHost.dismiss(retryConsentSpec, DismissResult.SYSTEM);
         }
