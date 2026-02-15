@@ -7,7 +7,7 @@ public class ConfirmSpec extends ModalSpec {
 
     public final String title;
     public final String message;
-    public final boolean allowNegative;
+    public final boolean showNegative;
     public final int riskLevel;
 
     public Runnable onPositive;
@@ -23,14 +23,14 @@ public class ConfirmSpec extends ModalSpec {
     public ConfirmSpec(
             String title,
             String message,
-            boolean allowNegative,
+            boolean showNegative,
             int riskLevel,
             Runnable onPositive,
             Runnable onNegative
     ) {
         this.title = title;
         this.message = message;
-        this.allowNegative = allowNegative;
+        this.showNegative = showNegative;
         this.riskLevel = riskLevel;
         this.onPositive = onPositive;
         this.onNegative = onNegative;

@@ -3,19 +3,16 @@ package com.github.jaykkumar01.vaultspace.activities;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.views.anim.SplashBorderAnimator;
+import com.github.jaykkumar01.vaultspace.views.anim.SplashBorderView;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.DismissResult;
@@ -26,8 +23,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpace:MainBoot";
 
     /* ==========================================================
-     * Boot State
-     * ========================================================== */
+       Boot State
+       ========================================================== */
 
     private enum BootState {
         IDLE,
@@ -40,56 +37,49 @@ public class MainActivity extends AppCompatActivity {
     private BootState state = BootState.IDLE;
 
     /* ==========================================================
-     * Core
-     * ========================================================== */
+       Core
+       ========================================================== */
 
     private UserSession userSession;
     private PrimaryAccountConsentHelper consentHelper;
     private String primaryEmail;
 
     /* ==========================================================
-     * Splash Animation
-     * ========================================================== */
-
-    private SplashBorderAnimator borderAnimator;
-
-    /* ==========================================================
-     * Modal System
-     * ========================================================== */
+       Modal System
+       ========================================================== */
 
     private ModalHost modalHost;
     private ConfirmSpec retryConsentSpec;
+    private ConfirmSpec cancelBootSpec;
 
     /* ==========================================================
-     * Lifecycle
-     * ========================================================== */
+       Lifecycle
+       ========================================================== */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-        applyWindowInsets();
 
         initCore();
-        initSplashAnimation();
-        initRetrySpec();
+        initSpecs();
+        initBackHandler();
 
         moveToState(BootState.VALIDATING_SESSION);
     }
 
-    private void applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-            return insets;
-        });
+    @Override
+    protected void onDestroy() {
+        modalHost.dismiss(retryConsentSpec, DismissResult.SYSTEM);
+        modalHost.dismiss(cancelBootSpec, DismissResult.SYSTEM);
+        super.onDestroy();
     }
 
+
     /* ==========================================================
-     * Initialization
-     * ========================================================== */
+       Initialization
+       ========================================================== */
 
     private void initCore() {
         modalHost = ModalHost.attach(this);
@@ -97,30 +87,53 @@ public class MainActivity extends AppCompatActivity {
         consentHelper = new PrimaryAccountConsentHelper(this);
     }
 
-    private void initSplashAnimation() {
-        View borderOverlay = findViewById(R.id.splashBorderOverlay);
-        int accent = getColor(R.color.vs_accent_primary);
-        borderAnimator = new SplashBorderAnimator(borderOverlay, accent);
-    }
+    private void initSpecs() {
 
-
-    private void initRetrySpec() {
         retryConsentSpec = new ConfirmSpec(
                 "Connection issue",
                 "Unable to verify permissions right now.",
                 true,
                 ConfirmView.RISK_NEUTRAL,
-                null,
-                null
+                () -> moveToState(BootState.VALIDATING_SESSION),
+                () -> moveToState(BootState.FINISHED)
         );
         retryConsentSpec.setPositiveText("Retry");
         retryConsentSpec.setNegativeText("Exit");
         retryConsentSpec.setCancelable(false);
+
+        cancelBootSpec = new ConfirmSpec(
+                "Cancel startup?",
+                "This will stop validation and return you to login.",
+                true,
+                ConfirmView.RISK_DESTRUCTIVE,
+                () -> moveToState(BootState.FINISHED),
+                null
+        );
+        cancelBootSpec.setNegativeText("Continue");
+    }
+
+    private void initBackHandler() {
+        getOnBackPressedDispatcher().addCallback(
+                this,
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+
+                        if (modalHost.onBackPressed())
+                            return;
+
+                        if (state == BootState.WAITING_RETRY)
+                            return;
+
+                        modalHost.request(cancelBootSpec);
+                    }
+                }
+        );
     }
 
     /* ==========================================================
-     * State Machine
-     * ========================================================== */
+       State Machine
+       ========================================================== */
 
     private void moveToState(@NonNull BootState newState) {
 
@@ -128,24 +141,24 @@ public class MainActivity extends AppCompatActivity {
         if (state == newState) return;
 
         Log.d(TAG, "State → " + newState);
-
         state = newState;
 
         switch (newState) {
 
             case VALIDATING_SESSION:
-                handleSessionValidation();
+                validateSession();
                 break;
 
             case VALIDATING_CONSENT:
-                handleConsentValidation();
+                validateConsent();
                 break;
 
             case WAITING_RETRY:
-                showRetryModal();
+                modalHost.request(retryConsentSpec);
                 break;
 
             case FINISHED:
+                finish();
                 break;
 
             case IDLE:
@@ -155,13 +168,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /* ==========================================================
-     * Session Validation
-     * ========================================================== */
+       Validation Logic
+       ========================================================== */
 
-    private void handleSessionValidation() {
+    private void validateSession() {
 
-        if (!userSession.isLoggedIn()) {
-            launchLogin();
+        if (userSession.isLoggedOut()) {
+            navigateToLogin();
             return;
         }
 
@@ -169,25 +182,24 @@ public class MainActivity extends AppCompatActivity {
 
         if (primaryEmail == null) {
             userSession.clearSession();
-            launchLogin();
+            navigateToLogin();
             return;
         }
 
         moveToState(BootState.VALIDATING_CONSENT);
     }
 
-    /* ==========================================================
-     * Consent Validation
-     * ========================================================== */
-
-    private void handleConsentValidation() {
+    private void validateConsent() {
 
         consentHelper.checkConsentsSilently(primaryEmail, result -> {
+
+            if (state == BootState.FINISHED || isFinishing() || isDestroyed())
+                return;
 
             switch (result) {
 
                 case GRANTED:
-                    launchDashboard();
+                    navigateToDashboard();
                     break;
 
                 case TEMPORARY_UNAVAILABLE:
@@ -196,64 +208,41 @@ public class MainActivity extends AppCompatActivity {
 
                 default:
                     userSession.clearSession();
-                    launchLogin();
+                    navigateToLogin();
                     break;
             }
         });
     }
 
     /* ==========================================================
-     * Retry Handling
-     * ========================================================== */
+       Navigation
+       ========================================================== */
 
-    private void showRetryModal() {
+    private void navigateToDashboard() {
 
-        retryConsentSpec.setPositiveAction(() ->
-                moveToState(BootState.VALIDATING_SESSION)
-        );
+        SplashBorderView border = findViewById(R.id.splashBorderOverlay);
 
-        retryConsentSpec.setNegativeAction(() ->
-                moveToState(BootState.FINISHED)
-        );
+        border.clearAnimationNow(() -> {
 
-        modalHost.request(retryConsentSpec);
+            if (isFinishing() || isDestroyed())
+                return;
+
+            startActivity(new Intent(this, DashboardActivity.class));
+            moveToState(BootState.FINISHED);
+        });
     }
 
-    /* ==========================================================
-     * Navigation
-     * ========================================================== */
+    private void navigateToLogin() {
 
-    private void launchDashboard() {
-        if (state == BootState.FINISHED) return;
+        SplashBorderView border = findViewById(R.id.splashBorderOverlay);
 
-        moveToState(BootState.FINISHED);
+        border.clearAnimationNow(() -> {
 
-        Log.d(TAG, "Boot SUCCESS → Consent GRANTED. Dashboard would launch now.");
-        // Replace log with actual navigation when ready:
-        // startActivity(new Intent(this, DashboardActivity.class));
-        // finish();
-    }
+            if (isFinishing() || isDestroyed())
+                return;
 
-    private void launchLogin() {
-        if (state == BootState.FINISHED) return;
-
-        moveToState(BootState.FINISHED);
-
-        startActivity(new Intent(this, LoginActivity.class));
-        finish();
-    }
-
-    /* ==========================================================
-     * Cleanup
-     * ========================================================== */
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (borderAnimator != null) borderAnimator.release();
-
-        if (retryConsentSpec != null) {
-            modalHost.dismiss(retryConsentSpec, DismissResult.SYSTEM);
-        }
+            startActivity(new Intent(this, LoginActivity.class));
+            moveToState(BootState.FINISHED);
+        });
     }
 }

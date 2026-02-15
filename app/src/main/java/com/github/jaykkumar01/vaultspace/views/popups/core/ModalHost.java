@@ -268,6 +268,9 @@ public final class ModalHost{
        ======================= */
 
     public void dismiss(ModalSpec spec, ModalEnums.DismissResult result) {
+        if (spec == null){
+            return;
+        }
         SpecState state = specStates.get(spec);
 
         Log.d(TAG,

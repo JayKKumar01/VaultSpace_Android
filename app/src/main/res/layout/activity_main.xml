@@ -12,18 +12,14 @@
         android:id="@+id/splashSurface"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-        android:layout_marginEnd="32dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
         android:background="@drawable/splash_surface_bg"
-        android:paddingTop="48dp"
-        android:paddingBottom="40dp"
-        android:paddingStart="32dp"
-        android:paddingEnd="32dp"
+        android:padding="48dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintVertical_bias="0.5">
+        app:layout_constraintBottom_toBottomOf="parent">
 
         <!-- Title -->
         <TextView
@@ -69,15 +65,16 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ================= Animated Border Overlay ================= -->
-    <View
+    <com.github.jaykkumar01.vaultspace.views.anim.SplashBorderView
         android:id="@+id/splashBorderOverlay"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clickable="false"
         android:focusable="false"
-        app:layout_constraintStart_toStartOf="@id/splashSurface"
-        app:layout_constraintEnd_toEndOf="@id/splashSurface"
         app:layout_constraintTop_toTopOf="@id/splashSurface"
-        app:layout_constraintBottom_toBottomOf="@id/splashSurface"/>
+        app:layout_constraintBottom_toBottomOf="@id/splashSurface"
+        app:layout_constraintStart_toStartOf="@id/splashSurface"
+        app:layout_constraintEnd_toEndOf="@id/splashSurface"/>
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

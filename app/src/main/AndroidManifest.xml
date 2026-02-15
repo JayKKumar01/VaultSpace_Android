@@ -45,6 +45,8 @@
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize" /> <!-- ================= Main (Launcher) ================= -->
         <activity
             android:name=".activities.MainActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

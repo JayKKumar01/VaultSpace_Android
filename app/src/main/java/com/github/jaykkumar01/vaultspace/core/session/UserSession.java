@@ -68,12 +68,14 @@ public class UserSession {
 
     /* ---------------- Session ---------------- */
 
-    public boolean isLoggedIn() {
-        return getPrimaryAccountEmail() != null;
+    public boolean isLoggedOut() {
+        return getPrimaryAccountEmail() == null;
     }
 
     public void clearSession() {
-        prefs.edit().clear().apply();
+        if (isLoggedOut()){
+            return;
+        }
 
         storeRegistry.clearAll();
 
@@ -89,5 +91,7 @@ public class UserSession {
         AlbumsRepository.destroy();
         AlbumMediaRepository.destroy();
         AppCacheManager.clearCache(appContext);
+
+        prefs.edit().clear().apply();
     }
 }
