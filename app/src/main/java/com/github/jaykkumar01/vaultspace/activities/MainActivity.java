@@ -1,82 +1,220 @@
 package com.github.jaykkumar01.vaultspace.activities;
 
-import android.Manifest;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
+import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums.DismissResult;
+import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
+import com.github.jaykkumar01.vaultspace.views.popups.loading.LoadingSpec;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "VaultSpace:MainBoot";
 
-    private final ActivityResultLauncher<String> notificationPermissionLauncher =
-            registerForActivityResult(
-                    new ActivityResultContracts.RequestPermission(),
-                    granted -> {
-                        if (granted) {
-                            proceedIntoApp();
-                        }
-                        // else: user denied → app stays here
-                    }
-            );
+    private enum BootState {
+        IDLE,
+        VALIDATING_SESSION,
+        VALIDATING_CONSENT,
+        WAITING_RETRY,
+        FINISHED
+    }
+
+    private BootState state = BootState.IDLE;
+
+    private UserSession userSession;
+    private PrimaryAccountConsentHelper consentHelper;
+    private String primaryEmail;
+
+    /* ---------- Modals ---------- */
+
+    private ModalHost modalHost;
+    private final LoadingSpec loadingSpec = new LoadingSpec();
+    private ConfirmSpec retryConsentSpec;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
+        setContentView(R.layout.activity_main);
+        applyWindowInsets();
 
-        // Gate everything on notification permission
-        if (needsNotificationPermission()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requestNotificationPermission();
-            }
+        modalHost = ModalHost.attach(this);
+
+        userSession = new UserSession(this);
+        consentHelper = new PrimaryAccountConsentHelper(this);
+
+        initRetrySpec();
+
+        moveToState(BootState.VALIDATING_SESSION);
+    }
+
+    private void applyWindowInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return insets;
+        });
+    }
+
+    /* ==========================================================
+     * Modal Setup
+     * ========================================================== */
+
+    private void initRetrySpec() {
+        retryConsentSpec = new ConfirmSpec(
+                "Connection issue",
+                "Unable to verify permissions right now.",
+                true,
+                ConfirmView.RISK_NEUTRAL,
+                null,
+                null
+        );
+        retryConsentSpec.setPositiveText("Retry");
+        retryConsentSpec.setNegativeText("Exit");
+        retryConsentSpec.setCancelable(false);
+    }
+
+    /* ==========================================================
+     * State Machine
+     * ========================================================== */
+
+    private void moveToState(@NonNull BootState newState) {
+        if (state == BootState.FINISHED) return;
+        if (state == newState) return;
+
+        state = newState;
+
+        switch (newState) {
+
+            case VALIDATING_SESSION:
+                handleSessionValidation();
+                break;
+
+            case VALIDATING_CONSENT:
+                handleConsentValidation();
+                break;
+
+            case WAITING_RETRY:
+                showRetryModal();
+                break;
+
+            case FINISHED:
+                finish();
+                break;
+
+            case IDLE:
+            default:
+                break;
+        }
+    }
+
+    /* ==========================================================
+     * Session Validation
+     * ========================================================== */
+
+    private void handleSessionValidation() {
+        if (!userSession.isLoggedIn()) {
+            launchLogin();
             return;
         }
 
-        proceedIntoApp();
-    }
+        primaryEmail = userSession.getPrimaryAccountEmail();
 
-    /* ==========================================================
-     * Permission gating
-     * ========================================================== */
-
-    private boolean needsNotificationPermission() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return false; // API < 33 → no permission needed
+        if (primaryEmail == null) {
+            userSession.clearSession();
+            launchLogin();
+            return;
         }
 
-        return ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-        ) != PackageManager.PERMISSION_GRANTED;
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    private void requestNotificationPermission() {
-        notificationPermissionLauncher.launch(
-                Manifest.permission.POST_NOTIFICATIONS
-        );
+        moveToState(BootState.VALIDATING_CONSENT);
     }
 
     /* ==========================================================
-     * Normal app flow
+     * Consent Validation
      * ========================================================== */
 
-    private void proceedIntoApp() {
-        UserSession session = new UserSession(this);
+    private void handleConsentValidation() {
 
-        Intent intent = session.isLoggedIn()
-                ? new Intent(this, DashboardActivity.class)
-                : new Intent(this, LoginActivity.class);
+        modalHost.request(loadingSpec);
 
-        startActivity(intent);
+        consentHelper.checkConsentsSilently(primaryEmail, result -> {
+
+            modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
+
+            switch (result) {
+
+                case GRANTED:
+                    launchDashboard();
+                    break;
+
+                case TEMPORARY_UNAVAILABLE:
+                    moveToState(BootState.WAITING_RETRY);
+                    break;
+
+                default:
+                    userSession.clearSession();
+                    launchLogin();
+                    break;
+            }
+        });
+    }
+
+    /* ==========================================================
+     * Retry Handling (ModalHost)
+     * ========================================================== */
+
+    private void showRetryModal() {
+
+        retryConsentSpec.setPositiveAction(() ->
+                moveToState(BootState.VALIDATING_SESSION)
+        );
+
+        retryConsentSpec.setNegativeAction(() ->
+                moveToState(BootState.FINISHED)
+        );
+
+        modalHost.request(retryConsentSpec);
+    }
+
+    /* ==========================================================
+     * Navigation
+     * ========================================================== */
+
+
+    private void launchDashboard() {
+        if (state == BootState.FINISHED) return;
+
+        state = BootState.FINISHED;
+
+        Log.d(TAG, "Boot SUCCESS → Consent GRANTED. Dashboard would launch now.");
+    }
+
+
+    private void launchLogin() {
+        if (state == BootState.FINISHED) return;
+        state = BootState.FINISHED;
+        startActivity(new Intent(this, LoginActivity.class));
         finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        modalHost.dismiss(loadingSpec, DismissResult.SYSTEM);
+        if (retryConsentSpec != null) {
+            modalHost.dismiss(retryConsentSpec, DismissResult.SYSTEM);
+        }
     }
 }

@@ -69,12 +69,6 @@ public class FilesUi extends BaseSectionUi {
         Log.d(TAG, "CreateFolderView → onCreate: " + name + " (stub)");
     }
 
-    /* ---------------- Back ---------------- */
-
-    @Override
-    public boolean onBackPressed() {
-        return false;
-    }
 
     @Override
     public void onRelease() {
