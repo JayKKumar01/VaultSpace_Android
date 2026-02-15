@@ -1,21 +1,19 @@
-package com.github.jaykkumar01.vaultspace.dashboard.helpers;
+package com.github.jaykkumar01.vaultspace.dashboard.base;
 
 import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
+import com.github.jaykkumar01.vaultspace.dashboard.interfaces.SectionUi;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
-
-/* ---------------- Contract ---------------- */
 
 
 
 /* ---------------- Base Helper ---------------- */
 
-public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
+public abstract class BaseSectionUi implements SectionUi {
 
     protected final Context context;
     protected final FrameLayout container;
@@ -25,7 +23,7 @@ public abstract class BaseVaultSectionUiHelper implements VaultSectionUi {
     protected View contentView;
     protected ModalHost hostView;
 
-    protected BaseVaultSectionUiHelper(Context context, FrameLayout container, ModalHost hostView) {
+    protected BaseSectionUi(Context context, FrameLayout container, ModalHost hostView) {
         this.context = context;
         this.container = container;
         this.hostView = hostView;

@@ -9,7 +9,7 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
+import com.github.jaykkumar01.vaultspace.dashboard.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 
 import java.util.ArrayList;

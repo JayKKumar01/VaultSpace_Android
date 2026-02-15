@@ -7,7 +7,7 @@ import android.widget.ImageButton;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
+import com.github.jaykkumar01.vaultspace.dashboard.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.utils.VaultFabUtil;
 

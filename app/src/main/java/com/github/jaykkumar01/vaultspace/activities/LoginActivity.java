@@ -12,6 +12,7 @@ import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.selection.AccountSelectionHelper;
 import com.github.jaykkumar01.vaultspace.core.session.PrimaryUserCoordinator;
+import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalEnums;
@@ -35,6 +36,7 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+        new UserSession(this).clearSession();
 
         modalHost = ModalHost.attach(this);
         loadingSpec = new LoadingSpec();

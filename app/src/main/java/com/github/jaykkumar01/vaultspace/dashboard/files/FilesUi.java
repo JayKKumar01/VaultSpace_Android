@@ -6,16 +6,16 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.base.BaseSectionUi;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.form.FormSpec;
 import com.github.jaykkumar01.vaultspace.views.states.FilesContentView;
 
-public class FilesVaultUiHelper extends BaseVaultSectionUiHelper {
+public class FilesUi extends BaseSectionUi {
 
     private static final String TAG = "VaultSpace:FilesUI";
 
-    public FilesVaultUiHelper(Context context, FrameLayout container, ModalHost hostView) {
+    public FilesUi(Context context, FrameLayout container, ModalHost hostView) {
         super(context, container, hostView);
 
         loadingView.setText("Loading files…");

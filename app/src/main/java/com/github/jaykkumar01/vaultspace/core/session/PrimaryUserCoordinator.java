@@ -162,8 +162,7 @@ public final class PrimaryUserCoordinator {
 
         InputStreamReader reader = getStreamReader(token);
 
-        RawProfile raw =
-                GSON.fromJson(reader, RawProfile.class);
+        RawProfile raw = GSON.fromJson(reader, RawProfile.class);
         reader.close();
 
         Bitmap photo = null;

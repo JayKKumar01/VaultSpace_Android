@@ -10,7 +10,7 @@ import android.widget.Toast;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.activities.AlbumActivity;
 import com.github.jaykkumar01.vaultspace.core.drive.AlbumsRepository;
-import com.github.jaykkumar01.vaultspace.dashboard.helpers.BaseVaultSectionUiHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.base.BaseSectionUi;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
@@ -20,7 +20,7 @@ import com.github.jaykkumar01.vaultspace.views.popups.list.ListSpec;
 
 import java.util.Arrays;
 
-public final class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper implements AlbumsRepository.AlbumsListener {
+public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.AlbumsListener {
 
     private static final String TAG = "VaultSpace:AlbumsUI";
 
@@ -34,7 +34,7 @@ public final class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper implemen
 
     private AlbumsContentView content;
 
-    public AlbumsVaultUiHelper(Context context, FrameLayout container, ModalHost hostView) {
+    public AlbumsUi(Context context, FrameLayout container, ModalHost hostView) {
         super(context, container, hostView);
         repo = AlbumsRepository.getInstance(context);
         initStaticUi();
@@ -196,11 +196,6 @@ public final class AlbumsVaultUiHelper extends BaseVaultSectionUiHelper implemen
     }
 
     /* ================= Lifecycle ================= */
-
-    @Override
-    public boolean onBackPressed() {
-        return false;
-    }
 
     @Override
     public void onRelease() {

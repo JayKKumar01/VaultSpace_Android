@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,13 +25,13 @@ import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelpe
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.state.VaultSetupState;
-import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsVaultUiHelper;
-import com.github.jaykkumar01.vaultspace.dashboard.files.FilesVaultUiHelper;
+import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsUi;
+import com.github.jaykkumar01.vaultspace.dashboard.files.FilesUi;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardModalCoordinator;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardProfileHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper.*;
-import com.github.jaykkumar01.vaultspace.interfaces.VaultSectionUi;
+import com.github.jaykkumar01.vaultspace.dashboard.interfaces.SectionUi;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
@@ -80,14 +79,11 @@ public class DashboardActivity extends AppCompatActivity {
     private TextView segmentAlbums, segmentFiles;
     private FrameLayout albumsContainer, filesContainer;
     private View btnExpandVault, btnLogout;
+    private SectionUi albumsUi;
+    private SectionUi filesUi;
+    private ViewMode currentViewMode;
 
-    /* Vault UI */
-    private VaultSectionUi albumsUi;
-    private VaultSectionUi filesUi;
-
-    private VaultViewMode currentViewMode;
-
-    public enum VaultViewMode {
+    public enum ViewMode {
         ALBUMS, FILES
     }
 
@@ -156,8 +152,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initVaultSections() {
-        albumsUi = new AlbumsVaultUiHelper(this, albumsContainer, modalHost);
-        filesUi = new FilesVaultUiHelper(this, filesContainer, modalHost);
+        albumsUi = new AlbumsUi(this, albumsContainer, modalHost);
+        filesUi = new FilesUi(this, filesContainer, modalHost);
     }
 
     private void initListeners() {
@@ -174,12 +170,6 @@ public class DashboardActivity extends AppCompatActivity {
                         if (modalHost.onBackPressed()) {
                             return;
                         }
-
-                        if (currentViewMode == VaultViewMode.ALBUMS && albumsUi.onBackPressed())
-                            return;
-                        if (currentViewMode == VaultViewMode.FILES && filesUi.onBackPressed())
-                            return;
-
 
                         modalCoordinator.handleBackPress(
                                 authState,
@@ -258,9 +248,9 @@ public class DashboardActivity extends AppCompatActivity {
         trustedAccountsRepo.refresh();
         setUpAccounts.setOnClickListener(v -> navigateToSetup());
 
-        applyViewMode(VaultViewMode.ALBUMS);
-        segmentAlbums.setOnClickListener(v -> applyViewMode(VaultViewMode.ALBUMS));
-        segmentFiles.setOnClickListener(v -> applyViewMode(VaultViewMode.FILES));
+        applyViewMode(ViewMode.ALBUMS);
+        segmentAlbums.setOnClickListener(v -> applyViewMode(ViewMode.ALBUMS));
+        segmentFiles.setOnClickListener(v -> applyViewMode(ViewMode.FILES));
 
         btnExpandVault.setOnClickListener(v -> {
             modalCoordinator.showLoading();
@@ -330,11 +320,11 @@ public class DashboardActivity extends AppCompatActivity {
      * UI helpers
      * ========================================================== */
 
-    private void applyViewMode(VaultViewMode mode) {
+    private void applyViewMode(ViewMode mode) {
         if (currentViewMode == mode) return;
 
         currentViewMode = mode;
-        boolean showAlbums = mode == VaultViewMode.ALBUMS;
+        boolean showAlbums = mode == ViewMode.ALBUMS;
 
         segmentAlbums.setSelected(showAlbums);
         segmentFiles.setSelected(!showAlbums);

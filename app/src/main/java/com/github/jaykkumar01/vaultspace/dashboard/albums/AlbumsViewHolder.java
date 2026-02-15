@@ -10,7 +10,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.interfaces.AlbumItemCallbacks;
+import com.github.jaykkumar01.vaultspace.dashboard.interfaces.AlbumItemCallbacks;
 import com.github.jaykkumar01.vaultspace.models.AlbumInfo;
 import com.github.jaykkumar01.vaultspace.utils.AlbumUiUtils;
 
