@@ -92,11 +92,9 @@ public class MainActivity extends AppCompatActivity {
         retryConsentSpec = new ConfirmSpec(
                 "Connection issue",
                 "Unable to verify permissions right now.",
-                true,
-                ConfirmView.RISK_NEUTRAL,
-                () -> moveToState(BootState.VALIDATING_SESSION),
-                () -> moveToState(BootState.FINISHED)
-        );
+                ConfirmView.RISK_NEUTRAL);
+        retryConsentSpec.onPositive(() -> moveToState(BootState.VALIDATING_SESSION));
+        retryConsentSpec.onNegative(() -> moveToState(BootState.FINISHED));
         retryConsentSpec.setPositiveText("Retry");
         retryConsentSpec.setNegativeText("Exit");
         retryConsentSpec.setCancelable(false);
@@ -104,11 +102,9 @@ public class MainActivity extends AppCompatActivity {
         cancelBootSpec = new ConfirmSpec(
                 "Cancel startup?",
                 "This will stop validation and return you to login.",
-                true,
-                ConfirmView.RISK_DESTRUCTIVE,
-                () -> moveToState(BootState.FINISHED),
-                null
+                ConfirmView.RISK_DESTRUCTIVE
         );
+        cancelBootSpec.onPositive(() -> moveToState(BootState.FINISHED));
         cancelBootSpec.setNegativeText("Continue");
     }
 

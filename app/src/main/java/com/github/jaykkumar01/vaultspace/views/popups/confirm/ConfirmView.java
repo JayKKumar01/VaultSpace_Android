@@ -35,19 +35,17 @@ public final class ConfirmView extends FrameLayout {
             @NonNull Context context,
             String title,
             String message,
-            boolean showNegative,
             int riskLevel,
             Runnable onPositive,
             Runnable onNegative,
             String positiveText, String negativeText) {
         super(context);
-        init(title, message, showNegative, riskLevel, onPositive, onNegative, positiveText, negativeText);
+        init(title, message, riskLevel, onPositive, onNegative, positiveText, negativeText);
     }
 
     private void init(
             String title,
             String message,
-            boolean showNegative,
             int riskLevel,
             Runnable onPositive,
             Runnable onNegative,
@@ -107,7 +105,6 @@ public final class ConfirmView extends FrameLayout {
         );
         negativeBtn.setText(resolveButtonText(negativeText, "Cancel"));
         negativeBtn.setTextColor(getContext().getColor(R.color.vs_text_content));
-        negativeBtn.setVisibility(showNegative ? VISIBLE : GONE);
 
         MaterialButton positiveBtn = new MaterialButton(getContext());
         positiveBtn.setText(resolveButtonText(positiveText, "Confirm"));

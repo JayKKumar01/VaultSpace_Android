@@ -170,16 +170,13 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
     /* ================= Delete ================= */
 
     private void showDeleteAlbumConfirm(AlbumInfo album) {
-        hostView.request(new ConfirmSpec(
+        ConfirmSpec deleteSpec = new ConfirmSpec(
                 "Delete album?",
-                "This will permanently delete \"" + album.name + "\" and all its contents.",
-                true,
-                ConfirmView.RISK_CRITICAL,
-                () -> repo.deleteAlbum(album, e ->
-                        Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()
-                ),
-                null
-        ));
+                "This will permanently delete '" + album.name + "' and all its contents.",
+                ConfirmView.RISK_CRITICAL
+        );
+        deleteSpec.onPositive(() -> repo.deleteAlbum(album, e -> Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()));
+        hostView.request(deleteSpec);
     }
 
     /* ================= State ================= */

@@ -42,11 +42,8 @@ public class LoginActivity extends AppCompatActivity {
         exitAppSpec = new ConfirmSpec(
                 "Exit VaultSpace?",
                 "Are you sure you want to exit the app?",
-                true,
-                ConfirmView.RISK_WARNING,
-                this::finish,
-                null
-        );
+                ConfirmView.RISK_WARNING);
+        exitAppSpec.onPositive(this::finish);
 
         initBackHandling();
         initHelpers();

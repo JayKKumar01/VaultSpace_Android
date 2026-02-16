@@ -21,10 +21,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.util.UnstableApi;
 
 import com.github.jaykkumar01.vaultspace.R;
-import com.github.jaykkumar01.vaultspace.core.consent.PrimaryAccountConsentHelper;
 import com.github.jaykkumar01.vaultspace.core.drive.TrustedAccountsRepository;
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
-import com.github.jaykkumar01.vaultspace.core.state.VaultSetupState;
 import com.github.jaykkumar01.vaultspace.dashboard.albums.AlbumsUi;
 import com.github.jaykkumar01.vaultspace.dashboard.files.FilesUi;
 import com.github.jaykkumar01.vaultspace.dashboard.helpers.DashboardModalCoordinator;
@@ -46,21 +44,13 @@ public class DashboardActivity extends AppCompatActivity {
 
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
+    private boolean isFromLogin;
 
     private static final String UNIT_GB = "GB";
     private static final double BYTES_IN_GB = 1024d * 1024d * 1024d;
 
-    public enum AuthState {
-        UNINITIALIZED, INIT, CHECKING, GRANTED, EXIT
-    }
-
-    private AuthState authState = AuthState.UNINITIALIZED;
-
     /* Core */
     private UserSession userSession;
-    private String primaryEmail;
-    private PrimaryAccountConsentHelper consentHelper;
-    private boolean isFromLogin;
 
     /* Modals */
     private ModalHost modalHost;
@@ -82,10 +72,12 @@ public class DashboardActivity extends AppCompatActivity {
     private SectionUi albumsUi;
     private SectionUi filesUi;
     private ViewMode currentViewMode;
+    private SetupState setupState = SetupState.UNKNOWN;
 
-    public enum ViewMode {
-        ALBUMS, FILES
-    }
+    public enum ViewMode {ALBUMS, FILES}
+
+    private enum SetupState {UNKNOWN, REQUIRED, COMPLETE}
+
 
     /* ==========================================================
      * Lifecycle
@@ -106,7 +98,7 @@ public class DashboardActivity extends AppCompatActivity {
         initBackHandling();
 
         Log.d(TAG, "onCreate()");
-        moveToState(AuthState.INIT);
+        activate();
     }
 
     private void applyWindowInsets() {
@@ -127,13 +119,9 @@ public class DashboardActivity extends AppCompatActivity {
 
     private void initCore() {
         modalHost = ModalHost.attach(this);
-        modalCoordinator = new DashboardModalCoordinator(
-                modalHost,
-                () -> exitToLogin("You have been logged out")
-        );
+        modalCoordinator = new DashboardModalCoordinator(modalHost);
         userSession = new UserSession(this);
         profileHelper = new DashboardProfileHelper(this);
-        consentHelper = new PrimaryAccountConsentHelper(this);
         trustedAccountsRepo = TrustedAccountsRepository.getInstance(this);
         trustedAccountsRepo.addListener(this::onVaultStorageState);
         trustedAccountsRepo.addUsageListener(this::onUsageChanged);
@@ -157,7 +145,7 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void initListeners() {
-        btnLogout.setOnClickListener(v -> modalCoordinator.confirmLogout());
+        btnLogout.setOnClickListener(v -> modalCoordinator.confirmLogout(this::exitToLogin));
     }
 
     private void initBackHandling() {
@@ -165,87 +153,20 @@ public class DashboardActivity extends AppCompatActivity {
                 new OnBackPressedCallback(true) {
                     @Override
                     public void handleOnBackPressed() {
-                        if (authState == AuthState.EXIT) return;
 
-                        if (modalHost.onBackPressed()) {
-                            return;
-                        }
+                        if (modalHost.onBackPressed()) return;
 
-                        modalCoordinator.handleBackPress(
-                                authState,
-                                DashboardActivity.this::finish,
-                                () -> moveToState(AuthState.INIT)
-                        );
+                        modalCoordinator.confirmExit(DashboardActivity.this::finish);
+
 
                     }
                 });
     }
 
-    /* ==========================================================
-     * State machine
-     * ========================================================== */
-
-    private void moveToState(AuthState newState) {
-        if (authState == newState) return;
-
-        Log.d(TAG, "AuthState: " + authState + " → " + newState);
-        authState = newState;
-
-        switch (newState) {
-            case INIT:
-                handleInit();
-                break;
-            case CHECKING:
-                handleChecking();
-                break;
-            case GRANTED:
-                activateGrantedState();
-                break;
-        }
-    }
-
-    private void handleInit() {
-        modalCoordinator.showLoading();
-
-        primaryEmail = userSession.getPrimaryAccountEmail();
-        if (primaryEmail == null) {
-            exitToLogin("Session expired. Please login again.");
-            return;
-        }
-
-        moveToState(isFromLogin ? AuthState.GRANTED : AuthState.CHECKING);
-    }
-
-
-    private void handleChecking() {
-        modalCoordinator.showLoading();
-
-        consentHelper.checkConsentsSilently(primaryEmail, result -> {
-            switch (result) {
-                case GRANTED:
-                    moveToState(AuthState.GRANTED);
-                    break;
-                case TEMPORARY_UNAVAILABLE:
-                    modalCoordinator.clearLoading();
-
-                    modalCoordinator.confirmRetryConsent(
-                            // Retry
-                            () -> moveToState(AuthState.INIT),
-
-                            // Exit
-                            this::finish
-                    );
-                    break;
-                default:
-                    exitToLogin("Permissions were revoked. Please login again.");
-            }
-        });
-    }
-
-    private void activateGrantedState() {
-        modalCoordinator.reset();
+    private void activate() {
         profileHelper.attach(isFromLogin);
         trustedAccountsRepo.refresh();
+
         setUpAccounts.setOnClickListener(v -> navigateToSetup());
 
         applyViewMode(ViewMode.ALBUMS);
@@ -268,11 +189,9 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     private void onUsageChanged(long usedBytes, long totalBytes) {
-        VaultSetupState state = VaultSetupState.get();
-
         boolean hasStorage = totalBytes > 0L;
 
-        if (state.isSetupRequired() && !hasStorage) {
+        if (setupState == SetupState.REQUIRED && !hasStorage) {
             storageBar.showGuidance();
             return;
         }
@@ -282,7 +201,7 @@ public class DashboardActivity extends AppCompatActivity {
 
         storageBar.setUsage(used, total, UNIT_GB);
 
-        if (state.isSetupRequired()) {
+        if (setupState == SetupState.REQUIRED) {
             storageBar.showGuidanceWithUsage();
         }
     }
@@ -306,9 +225,8 @@ public class DashboardActivity extends AppCompatActivity {
             }
         }
 
-        VaultSetupState state = VaultSetupState.get();
-        if (setupRequired) state.markSetupRequired();
-        else state.markSetupComplete();
+        setupState = setupRequired ? SetupState.REQUIRED : SetupState.COMPLETE;
+
 
         lastAccountEmails = new ArrayList<>(linkedEmails);
 
@@ -356,12 +274,10 @@ public class DashboardActivity extends AppCompatActivity {
      * Exit
      * ========================================================== */
 
-    private void exitToLogin(String message) {
-        if (authState == AuthState.EXIT) return;
-        authState = AuthState.EXIT;
+    private void exitToLogin() {
 
         modalCoordinator.reset();
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "You have been logged out", Toast.LENGTH_LONG).show();
 
         userSession.clearSession();
         startActivity(new Intent(this, LoginActivity.class));

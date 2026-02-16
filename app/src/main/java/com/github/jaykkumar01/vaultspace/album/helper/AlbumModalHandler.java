@@ -46,7 +46,7 @@ public final class AlbumModalHandler {
 
     /* ---------- Public API ---------- */
 
-    public void showActionList(String name, Runnable onDownload, Runnable onDelete){
+    public void showActionList(String name, Runnable onDownload, Runnable onDelete) {
         runOnMainThread(() -> modalHost.request(new ListSpec(
                 name,
                 Arrays.asList("Download", "Delete"),
@@ -64,22 +64,22 @@ public final class AlbumModalHandler {
 
     public void showRetryLoad(Runnable onRetry, Runnable onExit) {
         runOnMainThread(() -> {
-            retryLoadSpec.setPositiveAction(onRetry);
-            retryLoadSpec.setNegativeAction(onExit);
+            retryLoadSpec.onPositive(onRetry);
+            retryLoadSpec.onNegative(onExit);
             modalHost.request(retryLoadSpec);
         });
     }
 
     public void showCancelConfirm(Runnable onPositive) {
         runOnMainThread(() -> {
-            cancelUploadSpec.setPositiveAction(onPositive);
+            cancelUploadSpec.onPositive(onPositive);
             modalHost.request(cancelUploadSpec);
         });
     }
 
     public void showDeleteConfirm(Runnable onPositive) {
         runOnMainThread(() -> {
-            deleteMediaSpec.setPositiveAction(onPositive);
+            deleteMediaSpec.onPositive(onPositive);
             modalHost.request(deleteMediaSpec);
         });
     }
@@ -134,11 +134,7 @@ public final class AlbumModalHandler {
         ConfirmSpec spec = new ConfirmSpec(
                 "Unable to load album",
                 "Please check your connection and try again.",
-                true,
-                ConfirmView.RISK_NEUTRAL,
-                null,
-                null
-        );
+                ConfirmView.RISK_NEUTRAL);
         spec.setPositiveText("Retry");
         spec.setNegativeText("Back");
         spec.setCancelable(false);
@@ -149,10 +145,7 @@ public final class AlbumModalHandler {
         ConfirmSpec spec = new ConfirmSpec(
                 "Cancel upload?",
                 "Your uploaded moments are safe. The rest won't upload.",
-                true,
-                ConfirmView.RISK_WARNING,
-                null,
-                null // negative handled via dismiss
+                ConfirmView.RISK_WARNING
         );
         spec.setPositiveText("Cancel");
         spec.setNegativeText("Continue");
@@ -163,10 +156,7 @@ public final class AlbumModalHandler {
         ConfirmSpec spec = new ConfirmSpec(
                 "Delete media?",
                 "This action cannot be undone.",
-                true,
-                ConfirmView.RISK_DESTRUCTIVE,
-                null,
-                null
+                ConfirmView.RISK_DESTRUCTIVE
         );
         spec.setPositiveText("Delete");
         spec.setNegativeText("Cancel");

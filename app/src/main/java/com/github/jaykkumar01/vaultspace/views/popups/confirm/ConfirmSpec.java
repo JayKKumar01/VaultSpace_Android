@@ -2,38 +2,21 @@ package com.github.jaykkumar01.vaultspace.views.popups.confirm;
 
 import com.github.jaykkumar01.vaultspace.views.popups.core.Modal;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalSpec;
-
-public class ConfirmSpec extends ModalSpec {
+public final class ConfirmSpec extends ModalSpec {
 
     public final String title;
     public final String message;
-    public final boolean showNegative;
     public final int riskLevel;
-
+    public boolean cancelable = true;
+    public String positiveText;
+    public String negativeText;
     public Runnable onPositive;
     public Runnable onNegative;
 
-    // Optional button labels
-    public String positiveText;
-    public String negativeText;
-
-    // NEW: modal cancelability (back / outside)
-    public boolean cancelable = true;
-
-    public ConfirmSpec(
-            String title,
-            String message,
-            boolean showNegative,
-            int riskLevel,
-            Runnable onPositive,
-            Runnable onNegative
-    ) {
+    public ConfirmSpec(String title, String message, int riskLevel) {
         this.title = title;
         this.message = message;
-        this.showNegative = showNegative;
         this.riskLevel = riskLevel;
-        this.onPositive = onPositive;
-        this.onNegative = onNegative;
     }
 
     @Override
@@ -41,21 +24,17 @@ public class ConfirmSpec extends ModalSpec {
         return new ConfirmModal(this);
     }
 
-    /* =======================
-       Action setters
-       ======================= */
+    /* Actions */
 
-    public void setPositiveAction(Runnable onPositive) {
-        this.onPositive = onPositive;
+    public void onPositive(Runnable action) {
+        this.onPositive = action;
     }
 
-    public void setNegativeAction(Runnable onNegative) {
-        this.onNegative = onNegative;
+    public void onNegative(Runnable action) {
+        this.onNegative = action;
     }
 
-    /* =======================
-       Label setters
-       ======================= */
+    /* Labels */
 
     public void setPositiveText(String text) {
         this.positiveText = text;
@@ -65,11 +44,7 @@ public class ConfirmSpec extends ModalSpec {
         this.negativeText = text;
     }
 
-    /* =======================
-       Cancelability
-       ======================= */
-
-    public void setCancelable(boolean cancelable) {
-        this.cancelable = cancelable;
+    public void setCancelable(boolean value) {
+        this.cancelable = value;
     }
 }

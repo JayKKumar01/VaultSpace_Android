@@ -21,7 +21,6 @@ public class ConfirmModal extends EventModal {
                 context,
                 spec.title,
                 spec.message,
-                spec.showNegative,
                 spec.riskLevel,
                 () -> {
                     requestDismiss(ModalEnums.DismissResult.CONFIRMED, null);
@@ -38,6 +37,6 @@ public class ConfirmModal extends EventModal {
 
     @Override
     public boolean canDismiss(ModalEnums.DismissRequest request) {
-        return spec.showNegative && spec.riskLevel != ConfirmView.RISK_CRITICAL && spec.cancelable;
+        return spec.riskLevel != ConfirmView.RISK_CRITICAL && spec.cancelable;
     }
 }
