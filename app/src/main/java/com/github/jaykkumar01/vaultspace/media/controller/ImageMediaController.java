@@ -21,20 +21,15 @@ public final class ImageMediaController {
     private Bitmap fullBitmap;
     private boolean released;
 
-    public ImageMediaController(@NonNull Context context,
-                                @NonNull VaultImageView imageView) {
+    public ImageMediaController(@NonNull Context context, @NonNull VaultImageView imageView, MediaLoadCallback callback) {
         this.imageView = imageView;
+        this.callback = callback;
         this.driveHelper = new ImageMediaDriveHelper(context);
         imageView.setVisibility(View.GONE);
     }
 
-    public void setCallback(MediaLoadCallback callback) {
-        this.callback = callback;
-    }
-
     public void show(@NonNull AlbumMedia media) {
         released = false;
-        imageView.setVisibility(View.VISIBLE);
         if (callback != null) callback.onMediaLoading("Loading image…");
 
         driveHelper.loadOriginalBitmap(
@@ -78,6 +73,7 @@ public final class ImageMediaController {
 
         fullBitmap = bmp;
         imageView.setImageBitmapSafe(bmp);
+        imageView.setVisibility(View.VISIBLE);
     }
 
     private static Bitmap rotateIfNeeded(@NonNull Bitmap src, int rotation) {

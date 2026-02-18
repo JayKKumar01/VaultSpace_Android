@@ -121,7 +121,7 @@ public final class MediaActivity extends AppCompatActivity implements MediaLoadC
     }
 
     private void setupControllers() {
-        imageController = new ImageMediaController(this, imageView);
+        imageController = new ImageMediaController(this, imageView, this);
         videoController = new VideoMediaController(this, playerView,this);
     }
 
