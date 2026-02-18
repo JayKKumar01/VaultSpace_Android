@@ -76,7 +76,6 @@ public class UserSession {
         if (isLoggedOut()){
             return;
         }
-
         storeRegistry.clearAll();
 
         if (vaultCache != null) {

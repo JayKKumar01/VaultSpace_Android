@@ -56,7 +56,6 @@ public final class UploadForegroundService extends Service {
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "onCreate()");
-
         uploadCache = new UserSession(getApplicationContext())
                 .getVaultCache()
                 .uploadCache;
@@ -188,8 +187,9 @@ public final class UploadForegroundService extends Service {
             UploadCache.StopReason stopReason
     ) {
 
-        if (stopReason == UploadCache.StopReason.USER || snapshots.isEmpty())
+        if (stopReason == UploadCache.StopReason.USER || snapshots.isEmpty()) {
             return NotificationState.STOPPED_USER;
+        }
 
         if (stopReason == UploadCache.StopReason.SYSTEM)
             return NotificationState.STOPPED_SYSTEM;

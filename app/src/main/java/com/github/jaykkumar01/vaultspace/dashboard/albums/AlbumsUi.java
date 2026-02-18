@@ -81,6 +81,11 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
         });
     }
 
+    @Override
+    public boolean handleBack() {
+        return false;
+    }
+
     /* ================= Repo callbacks ================= */
 
     @Override

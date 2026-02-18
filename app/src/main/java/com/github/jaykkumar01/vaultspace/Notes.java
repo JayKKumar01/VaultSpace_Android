@@ -641,4 +641,31 @@ public class Notes {
     // fix the cache and also... add cache for the images also
 
 
+
+
+    // properly handle the on session clear
+
+
+    // fix the notification manager before sharing the app
+    // for upload
+    // also add notification permission on fly
+
+
+    // make the albums fetch faster with thumbnails
+
+
+    // don't load all the files tree at once from drive
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

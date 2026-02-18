@@ -45,7 +45,6 @@ public class DashboardActivity extends AppCompatActivity {
     private static final String TAG = "VaultSpace:Dashboard";
     private static final String EXTRA_FROM_LOGIN = "FROM_LOGIN";
     private boolean isFromLogin;
-
     private static final String UNIT_GB = "GB";
     private static final double BYTES_IN_GB = 1024d * 1024d * 1024d;
 
@@ -155,6 +154,7 @@ public class DashboardActivity extends AppCompatActivity {
                     public void handleOnBackPressed() {
 
                         if (modalHost.onBackPressed()) return;
+                        if (currentViewMode == ViewMode.FILES && filesUi.handleBack()) return;
 
                         modalCoordinator.confirmExit(DashboardActivity.this::finish);
 

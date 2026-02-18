@@ -1,5 +1,7 @@
 package com.github.jaykkumar01.vaultspace.core.session.cache;
 
+import android.util.Log;
+
 import androidx.annotation.Nullable;
 
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
@@ -103,7 +105,6 @@ public final class UploadCache extends VaultCache {
         if (!isInitialized()) {
             markInitialized();
         }
-
         snapshotsByGroupId.put(snapshot.groupId, snapshot);
     }
 
