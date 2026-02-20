@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- Header -->
+    <include
+        android:id="@+id/header"
+        layout="@layout/view_files_header" />
+
+    <!-- Body -->
+    <FrameLayout
+        android:id="@+id/body_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- Recycler -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Empty View -->
+        <LinearLayout
+            android:id="@+id/empty_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="24dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/empty_icon"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:alpha="0.85"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_files_empty" />
+
+            <TextView
+                android:id="@+id/empty_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="No files found"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/vs_text_header" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</LinearLayout>

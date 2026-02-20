@@ -44,11 +44,11 @@
             android:layout_height="wrap_content"
             android:background="@null"
             android:src="@drawable/baseline_create_new_folder_24"
-            android:tint="@color/vs_brand_text"
             android:padding="8dp"
             android:clickable="true"
             android:focusable="true"
-            android:foreground="?attr/selectableItemBackground"/>
+            android:foreground="?attr/selectableItemBackground"
+            app:tint="@color/vs_brand_text" />
 
         <ImageButton
             android:id="@+id/btn_upload"
@@ -56,11 +56,11 @@
             android:layout_height="wrap_content"
             android:background="@null"
             android:src="@drawable/ic_upload_24"
-            android:tint="@color/vs_brand_text"
             android:padding="8dp"
             android:clickable="true"
             android:focusable="true"
-            android:foreground="?attr/selectableItemBackground"/>
+            android:foreground="?attr/selectableItemBackground"
+            app:tint="@color/vs_brand_text" />
 
     </LinearLayout>
 

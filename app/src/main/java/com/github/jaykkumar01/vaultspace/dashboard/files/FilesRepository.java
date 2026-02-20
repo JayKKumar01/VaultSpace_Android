@@ -6,18 +6,19 @@ import android.os.Looper;
 
 import com.github.jaykkumar01.vaultspace.core.session.UserSession;
 import com.github.jaykkumar01.vaultspace.core.session.cache.FilesCache;
-import com.github.jaykkumar01.vaultspace.dashboard.files.drive.FilesDriveHelper;
 import com.github.jaykkumar01.vaultspace.models.FileNode;
 
 import java.util.*;
 
 public final class FilesRepository {
 
+    /* ================= Singleton ================= */
+
     private static volatile FilesRepository INSTANCE;
 
     public static FilesRepository getInstance(Context c) {
         if (INSTANCE == null) synchronized (FilesRepository.class) {
-            if (INSTANCE == null) INSTANCE = new FilesRepository(c);
+            if (INSTANCE == null) INSTANCE = new FilesRepository(c.getApplicationContext());
         }
         return INSTANCE;
     }
@@ -29,38 +30,42 @@ public final class FilesRepository {
 
         void onFolderChanged(String folderId, List<FileNode> children);
 
+        void onFileAdded(String parentId, FileNode node);
+
+        void onFileRemoved(String parentId, String nodeId);
+
+        void onFileUpdated(String parentId, FileNode node);
+
         void onError(Exception e);
     }
 
     /* ================= Core ================= */
 
     private static final String FOLDER_MIME = "application/vnd.google-apps.folder";
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Set<Listener> listeners = new HashSet<>();
     private final FilesCache cache;
-    // private final FilesDriveHelper driveHelper;
+
     private String rootId;
 
     private FilesRepository(Context c) {
         cache = new UserSession(c).getVaultCache().files;
-        // driveHelper=new FilesDriveHelper(c);
     }
 
     /* ================= Initialize ================= */
 
     public void initialize() {
         try {
-            // ===== REAL DRIVE (Commented) =====
-            // rootId=driveHelper.resolveFilesRoot();
-            // if(!cache.isInitialized()) cache.initialize(rootId);
-            // driveHelper.fetchFolderChildren(...);
-
-            // ===== FAKE MODE =====
             rootId = "root_fake";
+
             if (!cache.isInitialized()) cache.initialize(rootId);
-            if (cache.getChildren(rootId).isEmpty()) buildDeepFakeTree();
+            if (cache.getChildren(rootId).isEmpty()) {
+                buildDeepFakeTree();
+            }
+
             notifyReady();
-            notifyFolder(rootId, cache.getChildren(rootId));
+            notifyFolder(rootId);
 
         } catch (Exception e) {
             notifyError(e);
@@ -74,20 +79,54 @@ public final class FilesRepository {
     /* ================= Navigation ================= */
 
     public void openFolder(String folderId) {
-        notifyFolder(folderId, cache.getChildren(folderId));
+        notifyFolder(folderId);
+    }
+
+    /* ================= Fake Mutations ================= */
+
+    public void createFolder(String parentId, String name) {
+        FileNode node = new FileNode(UUID.randomUUID().toString(), name, FOLDER_MIME, 0, System.currentTimeMillis());
+        cache.addNode(parentId, node);
+        notifyAdded(parentId, node);
+    }
+
+    public void createFile(String parentId, String name, String mime, long size) {
+        FileNode node = new FileNode(UUID.randomUUID().toString(), name, mime, size, System.currentTimeMillis());
+        cache.addNode(parentId, node);
+        notifyAdded(parentId, node);
+    }
+
+    public void renameNode(String nodeId, String newName) {
+        String parent = cache.getParent(nodeId);
+        if (parent == null) return;
+
+        List<FileNode> siblings = cache.getChildren(parent);
+        for (FileNode n : siblings) {
+            if (n.id.equals(nodeId)) {
+                FileNode updated = new FileNode(n.id, newName, n.mimeType, n.sizeBytes, System.currentTimeMillis());
+                cache.replaceNode(nodeId, updated);
+                notifyUpdated(parent, updated);
+                break;
+            }
+        }
+    }
+
+    public void deleteNode(String nodeId) {
+        String parent = cache.getParent(nodeId);
+        if (parent == null) return;
+
+        cache.deleteNode(nodeId);
+        notifyRemoved(parent, nodeId);
     }
 
     /* ================= Deep Fake Tree ================= */
 
     private void buildDeepFakeTree() {
-
-        // Root level
         String documents = addFolder(rootId, "Documents");
         String media = addFolder(rootId, "Media");
         String work = addFolder(rootId, "Work");
         addFile(rootId, "readme.txt", "text/plain", 12_000);
 
-        /* ---------- Documents ---------- */
         String personal = addFolder(documents, "Personal");
         String finance = addFolder(documents, "Finance");
         addFile(documents, "resume.pdf", "application/pdf", 240_000);
@@ -100,7 +139,6 @@ public final class FilesRepository {
         addFile(taxes, "tax_2023.pdf", "application/pdf", 410_000);
         addFile(taxes, "tax_2024.pdf", "application/pdf", 430_000);
 
-        /* ---------- Media ---------- */
         String photos = addFolder(media, "Photos");
         String videos = addFolder(media, "Videos");
         addFile(media, "cover.png", "image/png", 2_000_000);
@@ -119,7 +157,6 @@ public final class FilesRepository {
         addFile(raw, "clip2.mp4", "video/mp4", 38_000_000);
         addFile(edited, "vlog_final.mp4", "video/mp4", 62_000_000);
 
-        /* ---------- Work ---------- */
         String projects = addFolder(work, "Projects");
         String reports = addFolder(work, "Reports");
 
@@ -135,8 +172,6 @@ public final class FilesRepository {
         addFile(reports, "Q2_Report.pdf", "application/pdf", 760_000);
     }
 
-    /* ================= Fake Helpers ================= */
-
     private String addFolder(String parent, String name) {
         FileNode node = new FileNode(UUID.randomUUID().toString(), name, FOLDER_MIME, 0, System.currentTimeMillis());
         cache.addNode(parent, node);
@@ -148,23 +183,42 @@ public final class FilesRepository {
         cache.addNode(parent, node);
     }
 
-    /* ================= Notifications ================= */
+    /* ================= Notify ================= */
 
     private void notifyReady() {
-        for (Listener l : listeners) l.onReady(rootId);
+        main.post(() -> {
+            for (Listener l : listeners) l.onReady(rootId);
+        });
     }
 
-    private void notifyFolder(String id, List<FileNode> children) {
+    private void notifyFolder(String id) {
+        List<FileNode> children = cache.getChildren(id);
         main.post(() -> {
-            for (Listener l : listeners)
-                l.onFolderChanged(id, children);
+            for (Listener l : listeners) l.onFolderChanged(id, children);
+        });
+    }
+
+    private void notifyAdded(String parentId, FileNode node) {
+        main.post(() -> {
+            for (Listener l : listeners) l.onFileAdded(parentId, node);
+        });
+    }
+
+    private void notifyRemoved(String parentId, String nodeId) {
+        main.post(() -> {
+            for (Listener l : listeners) l.onFileRemoved(parentId, nodeId);
+        });
+    }
+
+    private void notifyUpdated(String parentId, FileNode node) {
+        main.post(() -> {
+            for (Listener l : listeners) l.onFileUpdated(parentId, node);
         });
     }
 
     private void notifyError(Exception e) {
         main.post(() -> {
-            for (Listener l : listeners)
-                l.onError(e);
+            for (Listener l : listeners) l.onError(e);
         });
     }
 

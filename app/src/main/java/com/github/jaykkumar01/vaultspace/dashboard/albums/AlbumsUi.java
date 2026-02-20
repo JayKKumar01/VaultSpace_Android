@@ -20,29 +20,35 @@ import com.github.jaykkumar01.vaultspace.views.popups.list.ListSpec;
 
 import java.util.Arrays;
 
-public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.AlbumsListener {
+public final class AlbumsUi extends BaseSectionUi implements
+        AlbumsRepository.AlbumsListener {
 
     private static final String TAG = "VaultSpace:AlbumsUI";
 
-    private enum UiState {UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR}
+    /* ================= State ================= */
+
+    private enum UiState { UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR }
 
     /* ================= Core ================= */
 
     private final AlbumsRepository repo;
+    private final ModalHost hostView;
+
     private UiState state = UiState.UNINITIALIZED;
     private boolean released;
 
     private AlbumsContentView content;
 
+    /* ================= Constructor ================= */
+
     public AlbumsUi(Context context, FrameLayout container, ModalHost hostView) {
-        super(context, container, hostView);
+        super(context, container);
+        this.hostView = hostView;
         repo = AlbumsRepository.getInstance(context);
-        initStaticUi();
+        setupStaticUi();
     }
 
-    /* ================= Static UI ================= */
-
-    private void initStaticUi() {
+    private void setupStaticUi() {
         loadingView.setText("Loading albums…");
 
         emptyView.setIcon(R.drawable.ic_album_empty);
@@ -65,7 +71,7 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
         return content;
     }
 
-    /* ================= Entry ================= */
+    /* ================= Lifecycle ================= */
 
     @Override
     public void show() {
@@ -82,11 +88,17 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
     }
 
     @Override
+    public void onRelease() {
+        released = true;
+        repo.removeListener(this);
+    }
+
+    @Override
     public boolean handleBack() {
         return false;
     }
 
-    /* ================= Repo callbacks ================= */
+    /* ================= Repository Callbacks ================= */
 
     @Override
     public void onAlbumsLoaded(Iterable<AlbumInfo> albums) {
@@ -111,7 +123,7 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
         if (content.isEmpty()) moveToState(UiState.EMPTY);
     }
 
-    /* ================= Album interactions ================= */
+    /* ================= Album Interactions ================= */
 
     private void onAlbumClick(AlbumInfo album) {
         try {
@@ -151,9 +163,8 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
                 "Create Album",
                 "Album name",
                 "Create",
-                name -> repo.createAlbum(name, e ->
-                        Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()
-                ),
+                name -> repo.createAlbum(name,
+                        e -> Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()),
                 null
         ));
     }
@@ -165,9 +176,8 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
                 "Rename Album",
                 album.name,
                 "Rename",
-                name -> repo.renameAlbum(album, name, e ->
-                        Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()
-                ),
+                name -> repo.renameAlbum(album, name,
+                        e -> Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()),
                 null
         ));
     }
@@ -180,11 +190,13 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
                 "This will permanently delete '" + album.name + "' and all its contents.",
                 ConfirmView.RISK_CRITICAL
         );
-        deleteSpec.onPositive(() -> repo.deleteAlbum(album, e -> Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()));
+        deleteSpec.onPositive(() ->
+                repo.deleteAlbum(album,
+                        e -> Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show()));
         hostView.request(deleteSpec);
     }
 
-    /* ================= State ================= */
+    /* ================= State Handling ================= */
 
     private void moveToState(UiState newState) {
         if (state == newState) return;
@@ -195,13 +207,5 @@ public final class AlbumsUi extends BaseSectionUi implements AlbumsRepository.Al
             case CONTENT -> showContent();
             case EMPTY, ERROR -> showEmpty();
         }
-    }
-
-    /* ================= Lifecycle ================= */
-
-    @Override
-    public void onRelease() {
-        released = true;
-        repo.removeListener(this);
     }
 }

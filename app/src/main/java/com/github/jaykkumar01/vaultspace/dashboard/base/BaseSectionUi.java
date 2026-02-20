@@ -5,7 +5,6 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 import com.github.jaykkumar01.vaultspace.dashboard.interfaces.SectionUi;
-import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.states.EmptyStateView;
 import com.github.jaykkumar01.vaultspace.views.states.LoadingStateView;
 
@@ -21,12 +20,10 @@ public abstract class BaseSectionUi implements SectionUi {
     protected LoadingStateView loadingView;
     protected EmptyStateView emptyView;
     protected View contentView;
-    protected ModalHost hostView;
 
-    protected BaseSectionUi(Context context, FrameLayout container, ModalHost hostView) {
+    protected BaseSectionUi(Context context, FrameLayout container) {
         this.context = context;
         this.container = container;
-        this.hostView = hostView;
         initBaseUi();
     }
 
