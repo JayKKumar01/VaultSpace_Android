@@ -9,6 +9,8 @@ import android.widget.Toast;
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.dashboard.base.BaseSectionUi;
 import com.github.jaykkumar01.vaultspace.models.FileNode;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.form.FormSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.list.ListSpec;
@@ -28,7 +30,7 @@ public final class FilesUi extends BaseSectionUi implements
 
     /* ================= State ================= */
 
-    private enum UiState { UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR }
+    private enum UiState {UNINITIALIZED, LOADING, EMPTY, CONTENT, ERROR}
 
     /* ================= Core ================= */
 
@@ -168,13 +170,71 @@ public final class FilesUi extends BaseSectionUi implements
     @Override
     public void onFileClick(FileNode node) {
         Log.d(TAG, "File click: " + node.name);
-        modalHost.request(new ListSpec("File Options", List.of("Download"),
-                i -> performDownload(node), null));
+        showFileOptions(node);
     }
+
+    private void handleFileOption(int index, FileNode node) {
+        switch (index) {
+            case 0 -> performDownload(node);
+            case 1 -> showRenameDialog(node);
+            case 2 -> showDeleteDialog(node);
+        }
+    }
+
     private void performDownload(FileNode node) {
-        Log.d(TAG,"Download: "+node.name);
-        Toast.makeText(context,"Downloading "+node.name,Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "Download: " + node.name);
+        Toast.makeText(context, "Downloading " + node.name, Toast.LENGTH_SHORT).show();
         // repo.download(node.id);
+    }
+
+    private void showRenameDialog(FileNode node) {
+        final String originalName = node.name;
+
+        final boolean isFile = !node.isFolder;
+        final int dotIndex = isFile ? originalName.lastIndexOf('.') : -1;
+
+        final String baseName = (isFile && dotIndex > 0)
+                ? originalName.substring(0, dotIndex)
+                : originalName;
+
+        final String extension = (isFile && dotIndex > 0 && dotIndex < originalName.length() - 1)
+                ? originalName.substring(dotIndex)
+                : "";
+
+        modalHost.request(new FormSpec(
+                "Rename " + (node.isFolder ? "Folder" : "File"),
+                baseName,
+                "Rename",
+                input -> {
+                    if (input == null) return;
+                    String newName = input.trim();
+                    if (newName.isEmpty() || newName.equals(baseName)) return;
+
+                    String finalName = isFile ? newName + extension : newName;
+                    repo.renameNode(node.id, finalName);
+                },
+                null
+        ));
+    }
+
+    private void showDeleteDialog(FileNode node) {
+        ConfirmSpec spec = new ConfirmSpec(
+                "Delete " + (node.isFolder ? "Folder" : "File"),
+                "Are you sure you want to delete \"" + node.name + "\"?",
+                ConfirmView.RISK_CRITICAL
+        );
+
+        spec.setPositiveText("Delete");
+        spec.setNegativeText("Cancel");
+
+        spec.onPositive(() -> {
+            Log.d(TAG, "Deleting: " + node.name);
+            repo.deleteNode(node.id);
+        });
+
+        spec.onNegative(() -> Log.d(TAG, "Delete cancelled"));
+
+        modalHost.request(spec);
     }
 
     @Override
@@ -185,11 +245,39 @@ public final class FilesUi extends BaseSectionUi implements
     @Override
     public void onFileLongClick(FileNode node) {
         Log.d(TAG, "File long click: " + node.name);
+        showFileOptions(node);
+    }
+
+    private void showFileOptions(FileNode node) {
+        String title = "File • " + node.name;
+
+        modalHost.request(new ListSpec(
+                title,
+                List.of("Download", "Rename", "Delete"),
+                index -> handleFileOption(index, node),
+                null
+        ));
     }
 
     @Override
     public void onFolderLongClick(FileNode node) {
         Log.d(TAG, "Folder long click: " + node.name);
+
+        String title = "Folder • " + node.name;
+
+        modalHost.request(new ListSpec(
+                title,
+                List.of("Rename", "Delete"),
+                index -> handleFolderOption(index, node),
+                null
+        ));
+    }
+
+    private void handleFolderOption(int index, FileNode node) {
+        switch (index) {
+            case 0 -> showRenameDialog(node);
+            case 1 -> showDeleteDialog(node);
+        }
     }
 
     /* ================= Header Actions ================= */
@@ -209,7 +297,7 @@ public final class FilesUi extends BaseSectionUi implements
                 "Create",
                 name -> {
                     String parentId = getCurrentFolderId();
-                    repo.createFolder(parentId,name);
+                    repo.createFolder(parentId, name);
                 },
                 null
         ));
@@ -222,7 +310,7 @@ public final class FilesUi extends BaseSectionUi implements
 
     /* ================= Helpers ================= */
 
-    private String getCurrentFolderId(){
+    private String getCurrentFolderId() {
         return navStack.peek();
     }
 
