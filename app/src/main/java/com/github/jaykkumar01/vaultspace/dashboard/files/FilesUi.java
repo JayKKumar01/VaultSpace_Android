@@ -11,6 +11,7 @@ import com.github.jaykkumar01.vaultspace.dashboard.base.BaseSectionUi;
 import com.github.jaykkumar01.vaultspace.models.FileNode;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 import com.github.jaykkumar01.vaultspace.views.popups.form.FormSpec;
+import com.github.jaykkumar01.vaultspace.views.popups.list.ListSpec;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -23,6 +24,7 @@ public final class FilesUi extends BaseSectionUi implements
 
     private static final String TAG = "VaultSpace:FilesUI";
     private final ModalHost modalHost;
+    private ListSpec downloadSpec;
 
     /* ================= State ================= */
 
@@ -166,6 +168,13 @@ public final class FilesUi extends BaseSectionUi implements
     @Override
     public void onFileClick(FileNode node) {
         Log.d(TAG, "File click: " + node.name);
+        modalHost.request(new ListSpec("File Options", List.of("Download"),
+                i -> performDownload(node), null));
+    }
+    private void performDownload(FileNode node) {
+        Log.d(TAG,"Download: "+node.name);
+        Toast.makeText(context,"Downloading "+node.name,Toast.LENGTH_SHORT).show();
+        // repo.download(node.id);
     }
 
     @Override
