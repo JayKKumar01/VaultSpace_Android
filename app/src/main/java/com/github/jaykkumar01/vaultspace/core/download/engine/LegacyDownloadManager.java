@@ -7,9 +7,9 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.auth.GoogleCredentialFactory;
 import com.github.jaykkumar01.vaultspace.core.download.base.DownloadDelegate;
+import com.github.jaykkumar01.vaultspace.core.download.base.DownloadRequest;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 
 import java.util.concurrent.ExecutorService;
@@ -32,28 +32,27 @@ public final class LegacyDownloadManager implements DownloadDelegate {
     }
 
     @Override
-    public void enqueue(AlbumMedia media) {
+    public void enqueue(DownloadRequest request) {
         executor.execute(() -> {
             try {
                 GoogleAccountCredential c =
                         GoogleCredentialFactory.forPrimaryDrive(appContext);
 
                 String token = c.getToken();
-                String url = String.format(DRIVE_URL, media.fileId);
+                String url = String.format(DRIVE_URL, request.fileId);
 
-                DownloadManager.Request r =
-                        new DownloadManager.Request(Uri.parse(url))
-                                .addRequestHeader("Authorization", "Bearer " + token)
-                                .setTitle(media.name)
-                                .setDescription("Downloading from VaultSpace")
-                                .setNotificationVisibility(
-                                        DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                .setAllowedOverMetered(true)
-                                .setAllowedOverRoaming(true)
-                                .setDestinationInExternalPublicDir(
-                                        Environment.DIRECTORY_DOWNLOADS,
-                                        media.name
-                                );
+                DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url))
+                        .addRequestHeader("Authorization", "Bearer " + token)
+                        .setTitle(request.name)
+                        .setDescription("Downloading from VaultSpace")
+                        .setNotificationVisibility(
+                                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(true)
+                        .setDestinationInExternalPublicDir(
+                                Environment.DIRECTORY_DOWNLOADS,
+                                request.name
+                        );
 
                 main.post(() -> dm.enqueue(r));
 

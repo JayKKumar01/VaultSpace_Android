@@ -5,6 +5,7 @@ import android.os.Build;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.github.jaykkumar01.vaultspace.core.download.base.DownloadRequest;
 import com.github.jaykkumar01.vaultspace.core.download.base.ScopedStorageDownloadDelegate;
 import com.github.jaykkumar01.vaultspace.core.download.engine.LegacyDownloadManager;
 import com.github.jaykkumar01.vaultspace.core.download.base.DownloadDelegate;
@@ -30,7 +31,7 @@ public final class AlbumMediaActionHandler {
 
     public void downloadMedia(AlbumMedia media) {
         if (released || media == null) return;
-        delegate.enqueue(media);
+        delegate.enqueue(new DownloadRequest(media.fileId,media.name,media.sizeBytes));
     }
 
     public void cancelAllDownloads() {

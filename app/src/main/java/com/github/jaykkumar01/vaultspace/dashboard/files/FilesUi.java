@@ -1,12 +1,17 @@
 package com.github.jaykkumar01.vaultspace.dashboard.files;
 
 import android.content.Context;
+import android.os.Build;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.github.jaykkumar01.vaultspace.R;
+import com.github.jaykkumar01.vaultspace.core.download.base.DownloadDelegate;
+import com.github.jaykkumar01.vaultspace.core.download.base.DownloadRequest;
+import com.github.jaykkumar01.vaultspace.core.download.base.ScopedStorageDownloadDelegate;
+import com.github.jaykkumar01.vaultspace.core.download.engine.LegacyDownloadManager;
 import com.github.jaykkumar01.vaultspace.dashboard.base.BaseSectionUi;
 import com.github.jaykkumar01.vaultspace.models.FileNode;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
@@ -41,13 +46,18 @@ public final class FilesUi extends BaseSectionUi implements
     private boolean released;
 
     private FilesContentView content;
+    private final DownloadDelegate downloadDelegate;
 
     /* ================= Constructor ================= */
 
     public FilesUi(Context context, FrameLayout container, ModalHost modalHost) {
         super(context, container);
+        Context appContext = context.getApplicationContext();
         this.modalHost = modalHost;
-        repo = FilesRepository.getInstance(context);
+        repo = FilesRepository.getInstance(appContext);
+        this.downloadDelegate = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                ? new ScopedStorageDownloadDelegate(appContext)
+                : new LegacyDownloadManager(appContext);
         setupStaticUi();
     }
 
@@ -184,7 +194,7 @@ public final class FilesUi extends BaseSectionUi implements
     private void performDownload(FileNode node) {
         Log.d(TAG, "Download: " + node.name);
         Toast.makeText(context, "Downloading " + node.name, Toast.LENGTH_SHORT).show();
-        // repo.download(node.id);
+        downloadDelegate.enqueue(new DownloadRequest(node.id,node.name,node.sizeBytes));
     }
 
     private void showRenameDialog(FileNode node) {

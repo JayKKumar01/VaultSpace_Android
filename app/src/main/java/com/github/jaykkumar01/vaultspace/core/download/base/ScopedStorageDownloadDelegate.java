@@ -11,7 +11,6 @@ import android.os.Build;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 
-import com.github.jaykkumar01.vaultspace.album.model.AlbumMedia;
 import com.github.jaykkumar01.vaultspace.core.download.service.DownloadService;
 
 @RequiresApi(api = Build.VERSION_CODES.Q)
@@ -30,18 +29,12 @@ public final class ScopedStorageDownloadDelegate implements DownloadDelegate {
     /* ================= DownloadDelegate ================= */
 
     @Override
-    public void enqueue(AlbumMedia media) {
-        if (media == null) return;
-
-        DownloadRequest req = new DownloadRequest(
-                media.fileId,
-                media.name,
-                media.sizeBytes
-        );
+    public void enqueue(DownloadRequest request) {
+        if (request == null) return;
 
         Intent i = new Intent(app, DownloadService.class);
         i.setAction(ACTION_START);
-        i.putExtra(EXTRA_DOWNLOAD_REQUEST, req);
+        i.putExtra(EXTRA_DOWNLOAD_REQUEST, request);
 
         ContextCompat.startForegroundService(app, i);
     }
