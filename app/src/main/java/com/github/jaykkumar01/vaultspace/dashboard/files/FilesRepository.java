@@ -96,27 +96,60 @@ public final class FilesRepository {
         notifyAdded(parentId, node);
     }
 
-    public void renameNode(String nodeId, String newName) {
-        String parent = cache.getParent(nodeId);
-        if (parent == null) return;
+    public void renameNode(FileNode node, String newName) {
+        if (node == null) return;
 
-        List<FileNode> siblings = cache.getChildren(parent);
-        for (FileNode n : siblings) {
-            if (n.id.equals(nodeId)) {
-                FileNode updated = new FileNode(n.id, newName, n.mimeType, n.sizeBytes, System.currentTimeMillis());
-                cache.replaceNode(nodeId, updated);
-                notifyUpdated(parent, updated);
-                break;
-            }
-        }
+        String parentId = cache.getParent(node.id);
+        if (parentId == null) return;
+
+        // 2️⃣ Optimistic update
+        FileNode updated = new FileNode(
+                node.id,
+                newName,
+                node.mimeType,
+                node.sizeBytes,
+                System.currentTimeMillis()
+        );
+
+        cache.replaceNode(node.id, updated);
+        notifyUpdated(parentId, updated);
+
+        // 3️⃣ Simulate failure after 2 seconds
+        main.postDelayed(() -> {
+
+            // 4️⃣ Rollback
+            cache.replaceNode(node.id, node);
+            notifyUpdated(parentId, node);
+
+            // 5️⃣ Notify error
+            notifyError(new RuntimeException("Rename failed (simulated)"));
+
+        }, 2000);
     }
 
-    public void deleteNode(String nodeId) {
-        String parent = cache.getParent(nodeId);
-        if (parent == null) return;
+    public void deleteNode(FileNode node) {
+        if (node == null) return;
 
-        cache.deleteNode(nodeId);
-        notifyRemoved(parent, nodeId);
+        String parentId = cache.getParent(node.id);
+        if (parentId == null) return;
+
+        // 1️⃣ Snapshot entire subtree
+        FilesCache.Subtree snapshot = cache.exportSubtree(node.id);
+
+        // 2️⃣ Optimistic delete
+        cache.deleteNode(node.id);
+        notifyRemoved(parentId, node.id);
+
+        // 3️⃣ Simulate failure
+        main.postDelayed(() -> {
+
+            // 4️⃣ Restore full subtree
+            cache.importSubtree(snapshot);
+            notifyAdded(parentId, node);
+
+            notifyError(new RuntimeException("Delete failed (simulated)"));
+
+        }, 2000);
     }
 
     /* ================= Deep Fake Tree ================= */

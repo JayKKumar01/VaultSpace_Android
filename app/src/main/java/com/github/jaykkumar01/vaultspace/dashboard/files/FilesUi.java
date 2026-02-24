@@ -172,7 +172,7 @@ public final class FilesUi extends BaseSectionUi implements
     @Override
     public void onError(Exception e) {
         Log.e(TAG, "Repository error", e);
-        moveToState(UiState.ERROR);
+        Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT).show();
     }
 
     /* ================= Item Interactions ================= */
@@ -221,7 +221,7 @@ public final class FilesUi extends BaseSectionUi implements
                     if (newName.isEmpty() || newName.equals(baseName)) return;
 
                     String finalName = isFile ? newName + extension : newName;
-                    repo.renameNode(node.id, finalName);
+                    repo.renameNode(node, finalName);
                 },
                 null
         ));
@@ -239,7 +239,7 @@ public final class FilesUi extends BaseSectionUi implements
 
         spec.onPositive(() -> {
             Log.d(TAG, "Deleting: " + node.name);
-            repo.deleteNode(node.id);
+            repo.deleteNode(node);
         });
 
         spec.onNegative(() -> Log.d(TAG, "Delete cancelled"));
