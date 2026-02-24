@@ -85,9 +85,35 @@ public final class FilesRepository {
     /* ================= Fake Mutations ================= */
 
     public void createFolder(String parentId, String name) {
-        FileNode node = new FileNode(UUID.randomUUID().toString(), name, FOLDER_MIME, 0, System.currentTimeMillis());
-        cache.addNode(parentId, node);
-        notifyAdded(parentId, node);
+        if (parentId == null || name == null || name.trim().isEmpty()) return;
+
+        // 1️⃣ Create temp folder id for instant UI
+        String tempId = "temp_" + UUID.randomUUID();
+        FileNode tempNode = new FileNode(
+                tempId,
+                name.trim(),
+                FOLDER_MIME,
+                0,
+                System.currentTimeMillis()
+        );
+
+        // 2️⃣ Optimistic insert
+        cache.addNode(parentId, tempNode);
+        notifyAdded(parentId, tempNode);
+
+        // 3️⃣ Simulate failure after 2 seconds
+        main.postDelayed(() -> {
+
+            // If still exists (not already replaced by real success logic later)
+            String parentCheck = cache.getParent(tempId);
+            if (parentCheck != null) {
+                cache.deleteNode(tempId);
+                notifyRemoved(parentCheck, tempId);
+            }
+
+            notifyError(new RuntimeException("Create folder failed (simulated)"));
+
+        }, 2000);
     }
 
     public void createFile(String parentId, String name, String mime, long size) {

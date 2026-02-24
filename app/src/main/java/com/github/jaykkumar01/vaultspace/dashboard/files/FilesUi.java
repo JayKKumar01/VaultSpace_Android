@@ -316,6 +316,9 @@ public final class FilesUi extends BaseSectionUi implements
     @Override
     public void onUploadClick() {
         Log.d(TAG, "Upload clicked");
+        // on upload no need to retry for the files, album retries are fine but not this
+        //also keep it simple in files no need of heavy progress bars or something
+        //just a simple one line bar with notification that's it
     }
 
     /* ================= Helpers ================= */
