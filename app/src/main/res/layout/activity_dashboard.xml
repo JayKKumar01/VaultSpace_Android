@@ -215,7 +215,19 @@
                     android:id="@+id/filesContainer"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:visibility="gone" />
+                    android:visibility="gone">
+
+                    <!-- Files content will be injected here dynamically -->
+
+                    <com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView
+                        android:id="@+id/uploadStatusView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="12dp"
+                        android:visibility="gone"
+                        android:layout_gravity="bottom" />
+
+                </FrameLayout>
 
             </FrameLayout>
 
