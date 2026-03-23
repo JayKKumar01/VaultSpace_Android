@@ -11,7 +11,7 @@ import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 
 /**
  * AlbumUploadStatusController
- *
+ * <p>
  * Interprets UploadSnapshot and renders UploadStatusView.
  * Owns upload meaning, not upload execution.
  */
@@ -21,27 +21,33 @@ public final class UploadStatusController {
 
     public interface Callback {
         void onCancelRequested();
+
         void onRetryRequested();
+
         void onAcknowledge();
+
         void onNoAccessInfo();
     }
 
     /* ================= Fields ================= */
 
     private final UploadStatusView statusView;
-    private final ProgressStackView progressStackView;
+    private ProgressStackView progressStackView;
 
     private final Callback callback;
 
     /* ================= Constructor ================= */
 
-    public UploadStatusController(
-            @NonNull UploadStatusView statusView,
-            @NonNull ProgressStackView progressStackView,
-            @NonNull Callback callback
-    ) {
+    public UploadStatusController(@NonNull UploadStatusView statusView, @NonNull ProgressStackView progressStackView, @NonNull Callback callback) {
         this.statusView = statusView;
         this.progressStackView = progressStackView;
+        this.callback = callback;
+
+        statusView.hide();
+    }
+
+    public UploadStatusController(UploadStatusView statusView, Callback callback) {
+        this.statusView = statusView;
         this.callback = callback;
 
         statusView.hide();

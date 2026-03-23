@@ -32,6 +32,7 @@ import com.github.jaykkumar01.vaultspace.dashboard.helpers.ExpandVaultHelper.*;
 import com.github.jaykkumar01.vaultspace.dashboard.interfaces.SectionUi;
 import com.github.jaykkumar01.vaultspace.models.TrustedAccount;
 import com.github.jaykkumar01.vaultspace.views.creative.StorageBarView;
+import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
 
 import java.util.ArrayList;
@@ -66,7 +67,8 @@ public class DashboardActivity extends AppCompatActivity {
     private StorageBarView storageBar;
     private AppCompatButton setUpAccounts;
     private TextView segmentAlbums, segmentFiles;
-    private FrameLayout albumsContainer, filesContainer;
+    private UploadStatusView uploadStatusView;
+    private FrameLayout albumsContainer, filesContainer, filesContentHost;
     private View btnExpandVault, btnLogout;
     private SectionUi albumsUi;
     private SectionUi filesUi;
@@ -133,14 +135,17 @@ public class DashboardActivity extends AppCompatActivity {
         segmentAlbums = findViewById(R.id.segmentAlbums);
         segmentFiles = findViewById(R.id.segmentFiles);
         albumsContainer = findViewById(R.id.albumsContainer);
+        uploadStatusView = findViewById(R.id.uploadStatusView);
         filesContainer = findViewById(R.id.filesContainer);
+        filesContentHost = findViewById(R.id.filesContentHost);
         btnExpandVault = findViewById(R.id.btnExpandVault);
         btnLogout = findViewById(R.id.btnLogout);
     }
 
     private void initVaultSections() {
         albumsUi = new AlbumsUi(this, albumsContainer, modalHost);
-        filesUi = new FilesUi(this, filesContainer, modalHost);
+        filesUi = new FilesUi(this, filesContentHost, modalHost);
+        ((FilesUi) filesUi).setUploadStatusView(uploadStatusView);
     }
 
     private void initListeners() {

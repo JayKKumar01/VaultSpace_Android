@@ -2,19 +2,27 @@ package com.github.jaykkumar01.vaultspace.dashboard.files;
 
 import android.content.Context;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 
 import com.github.jaykkumar01.vaultspace.R;
 import com.github.jaykkumar01.vaultspace.core.download.base.DownloadDelegate;
 import com.github.jaykkumar01.vaultspace.core.download.base.DownloadRequest;
 import com.github.jaykkumar01.vaultspace.core.download.base.ScopedStorageDownloadDelegate;
 import com.github.jaykkumar01.vaultspace.core.download.engine.LegacyDownloadManager;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
+import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
+import com.github.jaykkumar01.vaultspace.core.upload.controller.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.dashboard.base.BaseSectionUi;
 import com.github.jaykkumar01.vaultspace.models.FileNode;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
+import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmSpec;
 import com.github.jaykkumar01.vaultspace.views.popups.confirm.ConfirmView;
 import com.github.jaykkumar01.vaultspace.views.popups.core.ModalHost;
@@ -48,7 +56,8 @@ public final class FilesUi extends BaseSectionUi implements
 
     private FilesContentView content;
     private final DownloadDelegate downloadDelegate;
-    private UploadStatusView uploadStatusView;
+
+    private UploadStatusController uploadController;
 
     /* ================= Constructor ================= */
 
@@ -60,8 +69,35 @@ public final class FilesUi extends BaseSectionUi implements
         this.downloadDelegate = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 ? new ScopedStorageDownloadDelegate(appContext)
                 : new LegacyDownloadManager(appContext);
-        this.uploadStatusView = container.findViewById(R.id.uploadStatusView);
         setupStaticUi();
+    }
+
+    public void setUploadStatusView(UploadStatusView uploadStatusView) {
+
+        uploadController = new UploadStatusController(
+                uploadStatusView,
+                new UploadStatusController.Callback() {
+                    @Override
+                    public void onCancelRequested() {
+                        Log.d(TAG, "Cancel upload requested");
+                    }
+
+                    @Override
+                    public void onRetryRequested() {
+                        Log.d(TAG, "Retry upload requested");
+                    }
+
+                    @Override
+                    public void onAcknowledge() {
+                        Log.d(TAG, "Upload acknowledged");
+                    }
+
+                    @Override
+                    public void onNoAccessInfo() {
+                        Log.d(TAG, "No access info clicked");
+                    }
+                }
+        );
     }
 
     private void setupStaticUi() {
@@ -316,12 +352,31 @@ public final class FilesUi extends BaseSectionUi implements
         ));
     }
 
+//    @Override
+//    public void onUploadClick() {
+//        Log.d(TAG, "Upload clicked");
+//        // on upload no need to retry for the files, album retries are fine but not this
+//        //also keep it simple in files no need of heavy progress bars or something
+//        //just a simple one line bar with notification that's it
+//    }
+
     @Override
     public void onUploadClick() {
-        Log.d(TAG, "Upload clicked");
-        // on upload no need to retry for the files, album retries are fine but not this
-        //also keep it simple in files no need of heavy progress bars or something
-        //just a simple one line bar with notification that's it
+        Log.d(TAG, "Upload clicked (FAKE)");
+
+        if (uploadController == null) return;
+
+        UploadSnapshot snapshot = new UploadSnapshot(
+                "files_upload",          // groupId
+                "Files Upload",          // groupName
+                2,                       // photos
+                1,                       // videos
+                0,                       // others
+                0,                       // uploaded
+                0                        // failed
+        );
+
+        uploadController.onSnapshot(snapshot);
     }
 
     /* ================= Helpers ================= */

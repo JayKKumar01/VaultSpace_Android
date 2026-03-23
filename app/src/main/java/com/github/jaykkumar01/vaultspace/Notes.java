@@ -658,6 +658,9 @@ public class Notes {
 
 
 
+    // if the existing account is removed from device it will throw errors on start up
+
+    // fix the thumbnail, getting stuck and not loading at all for albums
 
 
 
