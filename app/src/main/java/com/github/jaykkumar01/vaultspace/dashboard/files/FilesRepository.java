@@ -102,7 +102,15 @@ public final class FilesRepository {
     /* ================= Navigation ================= */
 
     public void openFolder(String folderId) {
+        if (folderId == null) return;
+
+        // 1️⃣ Always show cache instantly
         notifyFolder(folderId);
+
+        // 2️⃣ If not loaded → fetch from Drive
+        if (!cache.isFolderLoaded(folderId)) {
+            loadFolderFromDrive(folderId);
+        }
     }
 
     /* ================= Fake Mutations ================= */
