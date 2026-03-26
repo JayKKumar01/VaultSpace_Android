@@ -9,6 +9,7 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -80,6 +81,21 @@ public final class FilesDriveHelper {
         } while (pageToken != null);
 
         return collector;
+    }
+
+    public FileNode createFolder(String parentId, String name) throws Exception {
+        Drive drive = DriveClientProvider.getPrimaryDrive(context);
+        File folder = new File();
+        folder.setName(name);
+        folder.setMimeType(FOLDER_MIME);
+        folder.setParents(Collections.singletonList(parentId));
+
+        File created = drive.files()
+                .create(folder)
+                .setFields("id,name,mimeType,size,modifiedTime,parents")
+                .execute();
+
+        return toNode(created);
     }
 
     private FileNode toNode(File f) {

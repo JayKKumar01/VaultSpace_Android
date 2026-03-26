@@ -27,6 +27,16 @@ public final class FilesCache extends VaultCache {
         return folderId != null && loadedFolders.contains(folderId);
     }
 
+    private boolean existsWithSameName(String parentId, String name) {
+        List<FileNode> children = childrenMap.get(parentId);
+        if (children == null || name == null) return false;
+
+        for (FileNode n : children) {
+            if (n != null && name.equalsIgnoreCase(n.name)) return true;
+        }
+        return false;
+    }
+
     public List<FileNode> getChildren(String parentId) {
         if (parentId == null) return Collections.emptyList();
         List<FileNode> list = childrenMap.get(parentId);
@@ -58,6 +68,9 @@ public final class FilesCache extends VaultCache {
 
     public void addNode(String parentId, FileNode node) {
         if (parentId == null || node == null) return;
+
+        // 🚫 Prevent duplicate
+        if (existsWithSameName(parentId, node.name)) return;
 
         parentMap.put(node.id, parentId);
 
