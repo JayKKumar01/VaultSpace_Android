@@ -175,34 +175,53 @@ public final class FilesRepository {
     }
 
     public void renameNode(FileNode node, String newName) {
-        if (node == null) return;
+        if (node == null || newName == null || newName.trim().isEmpty()) return;
 
         String parentId = cache.getParent(node.id);
         if (parentId == null) return;
 
+        String trimmed = newName.trim();
+
+        // 1️⃣ Duplicate check (excluding self)
+        List<FileNode> siblings = cache.getChildren(parentId);
+        for (FileNode n : siblings) {
+            if (n != null && !n.id.equals(node.id)
+                    && trimmed.equalsIgnoreCase(n.name)) {
+                notifyError(new RuntimeException("Name already exists"));
+                return;
+            }
+        }
+
         // 2️⃣ Optimistic update
-        FileNode updated = new FileNode(
+        FileNode optimistic = new FileNode(
                 node.id,
-                newName,
+                trimmed,
                 node.mimeType,
                 node.sizeBytes,
                 System.currentTimeMillis()
         );
 
-        cache.replaceNode(node.id, updated);
-        notifyUpdated(parentId, updated);
+        cache.replaceNode(node.id, optimistic);
+        notifyUpdated(parentId, optimistic);
 
-        // 3️⃣ Simulate failure after 2 seconds
-        main.postDelayed(() -> {
+        // 3️⃣ Background Drive call
+        executor.execute(() -> {
+            try {
+                FileNode realNode = driveHelper.rename(node.id, trimmed);
 
-            // 4️⃣ Rollback
-            cache.replaceNode(node.id, node);
-            notifyUpdated(parentId, node);
+                // 4️⃣ Final update (sync with Drive metadata)
+                cache.replaceNode(node.id, realNode);
+                notifyUpdated(parentId, realNode);
 
-            // 5️⃣ Notify error
-            notifyError(new RuntimeException("Rename failed (simulated)"));
+            } catch (Exception e) {
 
-        }, 2000);
+                // 5️⃣ Rollback
+                cache.replaceNode(node.id, node);
+                notifyUpdated(parentId, node);
+
+                notifyError(e);
+            }
+        });
     }
 
     public void deleteNode(FileNode node) {

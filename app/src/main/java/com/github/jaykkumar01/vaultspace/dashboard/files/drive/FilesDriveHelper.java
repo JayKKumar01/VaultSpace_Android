@@ -98,6 +98,19 @@ public final class FilesDriveHelper {
         return toNode(created);
     }
 
+    public FileNode rename(String fileId, String newName) throws Exception {
+        Drive drive = DriveClientProvider.getPrimaryDrive(context);
+        File update = new File();
+        update.setName(newName);
+
+        File updated = drive.files()
+                .update(fileId, update)
+                .setFields("id,name,mimeType,size,modifiedTime,parents")
+                .execute();
+
+        return toNode(updated);
+    }
+
     private FileNode toNode(File f) {
         long size = f.getSize() == null ? 0L : f.getSize();
         long modified = f.getModifiedTime() == null ? 0L : f.getModifiedTime().getValue();
