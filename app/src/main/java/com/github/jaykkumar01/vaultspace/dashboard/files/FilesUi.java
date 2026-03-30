@@ -20,6 +20,7 @@ import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSelection;
 import com.github.jaykkumar01.vaultspace.core.upload.base.UploadSnapshot;
 import com.github.jaykkumar01.vaultspace.core.upload.controller.UploadStatusController;
 import com.github.jaykkumar01.vaultspace.dashboard.base.BaseSectionUi;
+import com.github.jaykkumar01.vaultspace.dashboard.files.helper.FilesNavigator;
 import com.github.jaykkumar01.vaultspace.models.FileNode;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.UploadStatusView;
 import com.github.jaykkumar01.vaultspace.views.creative.upload.item.ProgressStackView;
@@ -49,7 +50,7 @@ public final class FilesUi extends BaseSectionUi implements
     /* ================= Core ================= */
 
     private final FilesRepository repo;
-    private final Deque<String> navStack = new ArrayDeque<>();
+    private final FilesNavigator navigator = new FilesNavigator();
 
     private UiState state = UiState.UNINITIALIZED;
     private boolean released;
@@ -127,6 +128,17 @@ public final class FilesUi extends BaseSectionUi implements
         if (released || state != UiState.UNINITIALIZED) return;
 
         repo.addListener(this);
+
+        navigator.setListener(new FilesNavigator.Listener() {
+            @Override public void onFolderChanged(String folderId) {
+                if (folderId != null) repo.openFolder(folderId);
+            }
+
+            @Override public void onPathChanged(Deque<FilesNavigator.NavEntry> path) {
+                updateHeader(path);
+            }
+        });
+
         moveToState(UiState.LOADING);
         repo.initialize();
     }
@@ -137,45 +149,24 @@ public final class FilesUi extends BaseSectionUi implements
         repo.removeListener(this);
     }
 
-    @Override
-    public boolean handleBack() {
-        return navigateBack();
-    }
-
     /* ================= Navigation ================= */
 
-    private void openFolder(FileNode node) {
-        if (node == null || !node.isFolder) return;
+    private void updateHeader(Deque<FilesNavigator.NavEntry> path) {
+        if (content == null || path == null || path.isEmpty()) return;
 
-        navStack.push(node.id);
-        updateHeader();
-        repo.openFolder(node.id);
-    }
+        if (path.size() <= 1) {
+            content.setHeaderText("Files Vault");
+            return;
+        }
 
-    private boolean navigateBack() {
-        if (navStack.size() <= 1) return false;
-
-        navStack.pop();
-        updateHeader();
-
-        String parentId = navStack.peek();
-        if (parentId != null) repo.openFolder(parentId);
-        return true;
-    }
-
-    private void updateHeader() {
-        if (content == null) return;
-        content.setHeaderText(navStack.size() <= 1 ? "Files Vault" : "← Back");
+        FilesNavigator.NavEntry top = path.peek();
+        content.setHeaderText(top != null ? top.name : "Files Vault");
     }
 
     /* ================= Repository Callbacks ================= */
-
     @Override
     public void onReady(String rootId) {
-        navStack.clear();
-        navStack.push(rootId);
-        updateHeader();
-        repo.openFolder(rootId);
+        navigator.init(rootId, "Files Vault");
     }
 
     @Override
@@ -288,7 +279,8 @@ public final class FilesUi extends BaseSectionUi implements
 
     @Override
     public void onFolderClick(FileNode node) {
-        openFolder(node);
+        if (node == null || node.id == null) return;
+        navigator.openFolder(node.id, node.name);
     }
 
     @Override
@@ -332,8 +324,13 @@ public final class FilesUi extends BaseSectionUi implements
     /* ================= Header Actions ================= */
 
     @Override
+    public boolean handleBack() {
+        return navigator.goBack();
+    }
+
+    @Override
     public void onBackClick() {
-        navigateBack();
+        navigator.goBack();
     }
 
     @Override
@@ -345,8 +342,8 @@ public final class FilesUi extends BaseSectionUi implements
                 "Folder name",
                 "Create",
                 name -> {
-                    String parentId = getCurrentFolderId();
-                    repo.createFolder(parentId, name);
+                    String parentId = navigator.getCurrentFolderId();
+                    if (parentId != null) repo.createFolder(parentId, name);
                 },
                 null
         ));
@@ -380,10 +377,6 @@ public final class FilesUi extends BaseSectionUi implements
     }
 
     /* ================= Helpers ================= */
-
-    private String getCurrentFolderId() {
-        return navStack.peek();
-    }
 
     /* ================= State Handling ================= */
 
